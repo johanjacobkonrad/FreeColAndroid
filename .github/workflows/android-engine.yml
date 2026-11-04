@@ -1,0 +1,28 @@
+name: Android engine check
+
+# Runs on every branch and pull request of the Android port: FreeCol's
+# own test suite, plus a check that the shared engine still builds
+# without the desktop client (see android/check-engine.sh).
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    name: Tests and engine check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Engine builds without the desktop client
+        shell: bash
+        run: android/check-engine.sh
+
+      - name: Run FreeCol tests
+        shell: bash
+        run: ant -noinput -buildfile build.xml testall
