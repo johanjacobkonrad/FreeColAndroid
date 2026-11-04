@@ -240,7 +240,30 @@ public final class SessionCheck {
                 && info.warehouse.size() > 10 && builds > 0
                 && (tile == null || choices > 0);
         }
-        return inBuilding && onTile && built && !buildable.isEmpty() && summary;
+        // Join: put whoever is outside the colony (or aboard a ship
+        // in port) into it with the Join colony button's order.
+        Unit joiner = null;
+        synchronized (s.lock()) {
+            for (Unit u : s.getMyPlayer().getUnitSet()) {
+                if (u.isInColony()) continue;
+                if (s.joinableColony(u) == colony) {
+                    joiner = u;
+                    break;
+                }
+            }
+        }
+        boolean joined = true;
+        if (joiner != null) {
+            select(s, joiner);
+            s.joinColony();
+            s.sync();
+            synchronized (s.lock()) {
+                joined = joiner.isInColony();
+                System.out.println("  " + joiner + " joined: " + joined);
+            }
+        }
+        return inBuilding && onTile && built && !buildable.isEmpty() && summary
+            && joined;
     }
 
     /** Tap a unit's tile until that unit is selected. */

@@ -624,6 +624,61 @@ public final class GameSession implements MessageHandler {
         }
     }
 
+    /**
+     * The colony a unit could join with one tap: the one it stands
+     * on, or one next to it if it can still move.  Call while holding
+     * {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return The {@code Colony}, or null if none.
+     */
+    public Colony joinableColony(Unit unit) {
+        if (unit == null || me == null || unit.isNaval() || unit.isInColony()
+            || !unit.getType().canBuildColony()) return null;
+        Tile t = unit.getTile();
+        if (t == null) return null;
+        if (t.getColony() != null) {
+            return (t.getColony().getOwner() == me) ? t.getColony() : null;
+        }
+        if (unit.getMovesLeft() <= 0) return null;
+        for (Tile n : t.getSurroundingTiles(1)) {
+            Colony c = n.getColony();
+            if (c != null && c.getOwner() == me) return c;
+        }
+        return null;
+    }
+
+    /** Move the selected unit into a colony next to it and join it. */
+    public void joinColony() {
+        final Unit unit = getSelectedUnit();
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Colony colony;
+            Direction d = null;
+            synchronized (lock) {
+                colony = joinableColony(unit);
+                if (colony == null) {
+                    status("There is no colony here to join.");
+                    return;
+                }
+                if (unit.getTile() != colony.getTile()) {
+                    d = unit.getTile().getDirection(colony.getTile());
+                }
+            }
+            if (d != null && !step(unit, d, true)) return;
+            api.joinColony(unit, colony);
+            synchronized (lock) {
+                if (unit.isInColony()) {
+                    status(unit.getDescription() + " joins " + colony.getName() + ".");
+                } else {
+                    status("Could not join " + colony.getName() + ".");
+                }
+            }
+            afterOrders(null);
+        });
+    }
+
     /** End our turn. */
     public void endTurn() {
         worker.execute(() -> {
