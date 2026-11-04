@@ -1,0 +1,78 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The shared engine (launcher, common, server/AI) is synced from the
+// main source tree; the desktop client is deliberately left out.
+def engineSrc = layout.buildDirectory.dir('generated/engine-src')
+def engineAssets = layout.buildDirectory.dir('generated/engine-assets')
+
+def syncEngineSources = tasks.register('syncEngineSources', Sync) {
+    from('../../src') {
+        include 'net/sf/freecol/FreeCol.java'
+        include 'net/sf/freecol/common/**/*.java'
+        include 'net/sf/freecol/server/**/*.java'
+    }
+    into engineSrc
+}
+
+// Game data needed by the engine: rules, English strings and the
+// base compatibility files.  Images and other languages come later.
+def syncEngineAssets = tasks.register('syncEngineAssets', Sync) {
+    from('../../data') {
+        include 'rules/**'
+        include 'base/*.xml'
+        include 'strings/FreeColMessages.properties'
+        include 'strings/plurals.xml'
+    }
+    into engineAssets.map { it.dir('data') }
+}
+
+android {
+    namespace 'net.sf.freecol.android'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'net.sf.freecol.android'
+        minSdk 33
+        targetSdk 35
+        versionCode 1
+        versionName '0.1-phase1'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main {
+            java.srcDir engineSrc
+            assets.srcDir engineAssets
+        }
+    }
+
+    packaging {
+        resources {
+            // Keep META-INF/services so StAX can find Woodstox.
+            excludes += ['META-INF/LICENSE*', 'META-INF/NOTICE*',
+                         'META-INF/versions/**']
+        }
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+tasks.named('preBuild') {
+    dependsOn syncEngineSources, syncEngineAssets
+}
+
+dependencies {
+    implementation 'commons-cli:commons-cli:1.4'
+    // Android has no javax.xml.stream (StAX): add the API and Woodstox.
+    implementation 'javax.xml.stream:stax-api:1.0-2'
+    implementation 'com.fasterxml.woodstox:woodstox-core:6.7.0'
+    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.8.6'
+}

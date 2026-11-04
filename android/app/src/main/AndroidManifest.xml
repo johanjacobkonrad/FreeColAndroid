@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- The in-process game server talks to its players over a
+         loopback socket, which needs this permission. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="FreeCol"
+        android:allowBackup="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
