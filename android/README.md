@@ -27,11 +27,15 @@ Done:
 `android/check-engine.sh` verifies that the engine compiles without the
 client and uses no Java APIs that Android lacks. It runs in CI on every push.
 
-Still to do:
+The Android app (`android/`) compiles the engine straight from `../src`,
+adds a StAX library (Android has no `javax.xml.stream`) and has a test
+screen that runs an all-AI game with `AutoPlay`. GitHub Actions builds it on
+every push and publishes the APK as the `android-latest` pre-release:
+https://github.com/JohanJacobKonrad/FreeColAndroid/releases/download/android-latest/FreeCol-debug.apk
 
-- Add a StAX (`javax.xml.stream`) library, which Android doesn't include.
-- Create the Android Gradle project and run a headless AI-vs-AI game on a
-  device.
+`AutoPlay` also runs on a desktop JVM with only the engine on the class path.
+
+Still to do: confirm the all-AI game runs on a real phone.
 
 ## Phase 2: touch UI
 
