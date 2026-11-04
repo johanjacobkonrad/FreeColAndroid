@@ -800,6 +800,226 @@ public final class GameSession implements MessageHandler {
         });
     }
 
+    // Europe
+
+    /**
+     * Can a unit set sail for Europe from where it is?  Call while
+     * holding {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return True for a ship in the New World.
+     */
+    public boolean canSailToEurope(Unit unit) {
+        return unit != null && unit.isNaval() && unit.hasTile()
+            && me != null && me.getEurope() != null
+            && unit.getType().canMoveToHighSeas();
+    }
+
+    /**
+     * Send a ship to Europe: out to the high seas, then across.  If
+     * it can not reach the high seas this turn it carries on next
+     * turn.
+     *
+     * @param unit The ship.
+     */
+    public void sailToEurope(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Europe europe;
+            synchronized (lock) {
+                if (!canSailToEurope(unit)) return;
+                europe = me.getEurope();
+            }
+            api.setDestination(unit, europe);
+            headForEurope(unit);
+            afterOrders(null);
+        });
+    }
+
+    /** Move a ship along its way to Europe, as far as it gets. */
+    private void headForEurope(Unit unit) {
+        final Europe europe;
+        synchronized (lock) {
+            europe = me.getEurope();
+        }
+        for (int guard = 0; guard < 50; guard++) {
+            Direction d = null;
+            boolean cross = false;
+            synchronized (lock) {
+                Tile t = unit.getTile();
+                if (unit.isDisposed() || t == null) return;
+                if (t.isDirectlyHighSeasConnected()) {
+                    cross = true;
+                } else {
+                    if (unit.getMovesLeft() <= 0) return;
+                    PathNode path = unit.findPath(europe);
+                    if (path == null || path.next == null) {
+                        status("This ship can not find a way to Europe.");
+                        unit.setDestination(null);
+                        return;
+                    }
+                    PathNode next = path.next;
+                    if (next.getTile() == null) {
+                        cross = true;
+                    } else {
+                        if (next.getTurns() > 0) return;
+                        d = next.getDirection();
+                    }
+                }
+            }
+            if (cross) {
+                api.moveTo(unit, europe);
+                synchronized (lock) {
+                    if (!unit.hasTile()) {
+                        status(unit.getDescription() + " sails for Europe ("
+                            + unit.getWorkLeft() + " turns).");
+                    }
+                }
+                return;
+            }
+            if (d == null || !step(unit, d, false)) return;
+        }
+    }
+
+    /**
+     * Send a ship in Europe back to the New World.
+     *
+     * @param unit The ship.
+     */
+    public void sailToAmerica(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!unit.isInEurope() || !unit.isNaval()) return;
+            }
+            api.moveTo(unit, game.getMap());
+            synchronized (lock) {
+                if (!unit.isInEurope()) {
+                    status(unit.getDescription() + " sets sail for the New World.");
+                }
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Recruit one of the three emigrants waiting in Europe.
+     *
+     * @param index 0, 1 or 2.
+     */
+    public void recruit(int index) {
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!me.checkGold(me.getEuropeanRecruitPrice())) {
+                    status("You can not afford to recruit.");
+                    return;
+                }
+            }
+            api.emigrate(Europe.MigrationType.migrantIndexToSlot(index));
+            changed();
+        });
+    }
+
+    /**
+     * Train (or buy) a unit in Europe.
+     *
+     * @param type The {@code UnitType}.
+     */
+    public void train(UnitType type) {
+        if (type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                int price = me.getEurope().getUnitPrice(type);
+                if (price < 0 || !me.checkGold(price)) {
+                    status("You can not afford that.");
+                    return;
+                }
+            }
+            api.trainUnitInEurope(type);
+            changed();
+        });
+    }
+
+    /**
+     * Buy goods in Europe onto a ship there.
+     *
+     * @param carrier The ship.
+     * @param type The {@code GoodsType}.
+     * @param amount How much to buy (it buys less if you can not
+     *     afford it all).
+     */
+    public void buy(Unit carrier, GoodsType type, int amount) {
+        if (carrier == null || type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            int n = amount;
+            synchronized (lock) {
+                if (!carrier.isInEurope()) return;
+                if (!me.canTrade(type)) {
+                    status("That is under boycott.");
+                    return;
+                }
+                int each = me.getMarket().getCostToBuy(type);
+                if (each > 0) n = Math.min(n, me.getGold() / each);
+                if (n <= 0) {
+                    status("You can not afford any.");
+                    return;
+                }
+            }
+            api.loadGoods(me.getEurope(), type, n, carrier);
+            changed();
+        });
+    }
+
+    /**
+     * Sell goods from a ship in Europe.
+     *
+     * @param carrier The ship.
+     * @param type The {@code GoodsType}.
+     * @param amount How much to sell.
+     */
+    public void sell(Unit carrier, GoodsType type, int amount) {
+        if (carrier == null || type == null || amount <= 0) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!carrier.isInEurope()) return;
+                if (!me.canTrade(type)) {
+                    status("That is under boycott.");
+                    return;
+                }
+            }
+            api.unloadGoods(type, amount, carrier);
+            changed();
+        });
+    }
+
+    /**
+     * Put a unit aboard a ship in the same place (Europe's docks, or
+     * a colony).
+     *
+     * @param unit The unit.
+     * @param carrier The ship.
+     */
+    public void board(Unit unit, Unit carrier) {
+        if (unit == null || carrier == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!carrier.canAdd(unit)) {
+                    status("There is no room aboard.");
+                    return;
+                }
+            }
+            api.embark(unit, carrier, null);
+            changed();
+        });
+    }
+
     /** End our turn. */
     public void endTurn() {
         worker.execute(() -> {
@@ -974,7 +1194,8 @@ public final class GameSession implements MessageHandler {
             me.invalidateCanSeeTiles();
             me.resetIterators();
             for (Unit u : me.getUnitSet()) {
-                if (u.hasTile() && u.getDestination() instanceof Tile) going.add(u);
+                if (u.hasTile() && (u.getDestination() instanceof Tile
+                        || u.getDestination() instanceof Europe)) going.add(u);
             }
         }
         // New colonists at the docks in Europe.
@@ -987,7 +1208,13 @@ public final class GameSession implements MessageHandler {
                 : Europe.MigrationType.getUnspecificSlot();
             if (!api.emigrate(slot)) break;
         }
-        for (Unit u : going) followPath(u);
+        for (Unit u : going) {
+            boolean toEurope;
+            synchronized (lock) {
+                toEurope = u.getDestination() instanceof Europe;
+            }
+            if (toEurope) headForEurope(u); else followPath(u);
+        }
         save();
         reportMessages();
         synchronized (lock) {

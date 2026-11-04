@@ -50,7 +50,7 @@ public final class ColonyInfo {
         public final String iconKey;
         public final int amount;
 
-        Amount(GoodsType type, int amount) {
+        public Amount(GoodsType type, int amount) {
             this.type = type;
             this.iconKey = "image.icon." + type.getId();
             this.amount = amount;
@@ -64,7 +64,7 @@ public final class ColonyInfo {
         public final String name;
         public final String caption;
 
-        UnitItem(Unit unit, String imageKey, String name, String caption) {
+        public UnitItem(Unit unit, String imageKey, String name, String caption) {
             this.unit = unit;
             this.imageKey = imageKey;
             this.name = name;
