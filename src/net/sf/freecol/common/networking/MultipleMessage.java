@@ -25,7 +25,6 @@ import java.util.logging.Level;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -115,23 +114,6 @@ public class MultipleMessage extends AttributeMessage {
         }
     }
  
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient)
-        throws FreeColException {
-        final Connection conn = freeColClient.askServer().getConnection();
-        if (conn == null) return;
-
-        if (!this.messages.isEmpty()) {
-            for (Message m : this.messages) {
-                Message ret = conn.handle(m);
-                assert ret == null;
-            }
-        }                 
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}
@@ -167,6 +149,15 @@ public class MultipleMessage extends AttributeMessage {
     }
 
     // Public interface
+
+    /**
+     * Get the contained messages.
+     *
+     * @return The list of messages.
+     */
+    public List<Message> getMessages() {
+        return this.messages;
+    }
 
     /**
      * Simplify this message.

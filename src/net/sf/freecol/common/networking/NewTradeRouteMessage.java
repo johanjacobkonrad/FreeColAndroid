@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.TradeRoute;
@@ -91,7 +90,7 @@ public class NewTradeRouteMessage extends ObjectMessage {
      *
      * @return The {@code TradeRoute} attached to this message.
      */
-    private TradeRoute getTradeRoute() {
+    public TradeRoute getTradeRoute() {
         return getChild(0, TradeRoute.class);
     }
 
@@ -120,18 +119,6 @@ public class NewTradeRouteMessage extends ObjectMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final TradeRoute tr = getTradeRoute();
-        if (tr == null) return;
-        tr.intern();
-
-        igc(freeColClient).newTradeRouteHandler(tr);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

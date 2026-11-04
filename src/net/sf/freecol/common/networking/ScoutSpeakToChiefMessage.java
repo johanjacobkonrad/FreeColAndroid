@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.Game;
@@ -98,19 +97,6 @@ public class ScoutSpeakToChiefMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Unit unit = getUnit(game);
-        final IndianSettlement is = getSettlement(game);
-        final String result = getResult();
-
-        igc(freeColClient).scoutSpeakToChiefHandler(unit, is, result);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

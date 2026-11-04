@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -104,7 +103,7 @@ public class AnimateMoveMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the unit in.
      * @return The {@code Unit} that moves.
      */
-    private Unit getUnit(Game game) {
+    public Unit getUnit(Game game) {
         final String uid = getStringAttribute(UNIT_TAG);
         Unit unit = game.getFreeColGameObject(uid, Unit.class);
         if (unit == null) {
@@ -130,7 +129,7 @@ public class AnimateMoveMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the tile in.
      * @return The new {@code Tile}.
      */
-    private Tile getNewTile(Game game) {
+    public Tile getNewTile(Game game) {
         return game.getFreeColGameObject(getStringAttribute(NEW_TILE_TAG),
                                          Tile.class);
     }
@@ -141,7 +140,7 @@ public class AnimateMoveMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the tile in.
      * @return The old {@code Tile}.
      */
-    private Tile getOldTile(Game game) {
+    public Tile getOldTile(Game game) {
         return game.getFreeColGameObject(getStringAttribute(OLD_TILE_TAG),
                                          Tile.class);
     }
@@ -162,32 +161,4 @@ public class AnimateMoveMessage extends ObjectMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = freeColClient.getMyPlayer();
-        final Tile oldTile = getOldTile(game);
-        final Tile newTile = getNewTile(game);
-        final Unit unit = getUnit(game);
-
-        if (unit == null) return;
-        if (oldTile == null) {
-            logger.warning("Animation for: " + player.getId()
-                + " missing old Tile.");
-            return;
-        }
-        if (newTile == null) {
-            logger.warning("Animation for: " + player.getId()
-                + " missing new Tile.");
-            return;
-        }
-
-        // This only performs animation, if required.  It does not
-        // actually change unit positions, which happens in an "update".
-        igc(freeColClient).animateMoveHandler(unit, oldTile, newTile);
-        clientGeneric(freeColClient);
-    }
 }

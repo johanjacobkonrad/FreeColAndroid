@@ -24,7 +24,6 @@ import static net.sf.freecol.common.util.CollectionUtils.transform;
 import java.util.List;
 import java.util.function.Predicate;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -66,15 +65,6 @@ public class VacantPlayersMessage extends AttributeMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final List<String> vacant = getVacantPlayers();
-
-        freeColClient.setVacantPlayerNames(vacant);
-    }
 
     /**
      * {@inheritDoc}

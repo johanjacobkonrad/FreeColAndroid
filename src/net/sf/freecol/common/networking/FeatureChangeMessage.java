@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.FreeColGameObject;
@@ -128,7 +127,7 @@ public class FeatureChangeMessage extends ObjectMessage {
      * @param game The {@code Game} to look in.
      * @return The parent {@code FreeColGameObject}.
      */
-    private FreeColGameObject getParent(Game game) {
+    public FreeColGameObject getParent(Game game) {
         return game.getFreeColGameObject(getParentId());
     }
 
@@ -137,7 +136,7 @@ public class FeatureChangeMessage extends ObjectMessage {
      *
      * @return True if the child object should be added to the parent.
      */
-    private boolean getAdd() {
+    public boolean getAdd() {
         return getBooleanAttribute(ADD_TAG, Boolean.FALSE);
     }
 
@@ -173,26 +172,4 @@ public class FeatureChangeMessage extends ObjectMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final FreeColGameObject parent = getParent(game);
-        final List<FreeColObject> children = getChildren();
-        final boolean add = getAdd();
-
-        if (parent == null) {
-            logger.warning("featureChange with null parent.");
-            return;
-        }
-        if (children.isEmpty()) {
-            logger.warning("featureChange with no children.");
-            return;
-        }
-
-        igc(freeColClient).featureChangeHandler(parent, children, add);
-        clientGeneric(freeColClient);
-    }
 }

@@ -23,7 +23,6 @@ import java.awt.Color;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -89,23 +88,6 @@ public class ChatMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Color color = getColor();
-        final String sender = getSender();
-        final String text = getMessage();
-        final boolean isPrivate = isPrivate();
-        if (sender == null || text == null) return;
-
-        if (freeColClient.isInGame()) {
-            igc(freeColClient).chatHandler(sender, text, color, isPrivate);
-        } else {
-            pgc(freeColClient).chatHandler(sender, text, color, isPrivate);
-        }
-    }
 
     /**
      * {@inheritDoc}

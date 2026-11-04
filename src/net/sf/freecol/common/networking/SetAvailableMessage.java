@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Nation;
@@ -72,18 +71,6 @@ public class SetAvailableMessage extends AttributeMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Specification spec = game.getSpecification();
-        final Nation nation = getNation(spec);
-        final NationState nationState = getNationState();
-
-        pgc(freeColClient).setAvailableHandler(nation, nationState);
-    }
 
     /**
      * {@inheritDoc}

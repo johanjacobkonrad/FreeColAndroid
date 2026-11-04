@@ -27,7 +27,6 @@ import java.util.stream.Collectors;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.model.Game;
@@ -114,7 +113,7 @@ public class LoginMessage extends ObjectMessage {
     }
 
 
-    private String getUserName() {
+    public String getUserName() {
         return getStringAttribute(USER_NAME_TAG);
     }
     
@@ -126,20 +125,20 @@ public class LoginMessage extends ObjectMessage {
         return getStringAttribute(VERSION_TAG);
     }
 
-    private ServerState getState() {
+    public ServerState getState() {
         return getEnumAttribute(STATE_TAG, ServerState.class,
                                 (ServerState)null);
     }
 
-    private boolean getSinglePlayer() {
+    public boolean getSinglePlayer() {
         return getBooleanAttribute(SINGLE_PLAYER_TAG, Boolean.FALSE);
     }
 
-    private boolean getCurrentPlayer() {
+    public boolean getCurrentPlayer() {
         return getBooleanAttribute(CURRENT_PLAYER_TAG, Boolean.FALSE);
     }
 
-    private Game getGame() {
+    public Game getGame() {
         return getChild(0, Game.class);
     }
 
@@ -167,16 +166,6 @@ public class LoginMessage extends ObjectMessage {
         return MessagePriority.EARLY;
     }
         
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        Game game = getGame();
-        freeColClient.getConnectController()
-            .login(getState(), game, getUserName(),
-                   getSinglePlayer(), getCurrentPlayer());
-    }
 
     /**
      * {@inheritDoc}

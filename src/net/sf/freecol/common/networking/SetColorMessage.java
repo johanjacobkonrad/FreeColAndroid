@@ -23,7 +23,6 @@ import java.awt.Color;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Nation;
@@ -74,27 +73,6 @@ public class SetColorMessage extends AttributeMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Specification spec = game.getSpecification();
-        final Nation nation = getNation(spec);
-        final Color color = getColor();
-      
-        if (nation == null) {
-            logger.warning("Invalid nation: " + toString());
-            return;
-        }
-        if (color == null) {
-            logger.warning("Invalid color: " + toString());
-            return;
-        }
-
-        pgc(freeColClient).setColorHandler(nation, color);
-    }
 
     /**
      * {@inheritDoc}

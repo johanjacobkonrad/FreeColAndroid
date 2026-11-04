@@ -22,7 +22,6 @@ package net.sf.freecol.common.networking;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.StringTemplate;
@@ -130,7 +129,7 @@ public class ErrorMessage extends ObjectMessage {
      *
      * @return The template.
      */
-    private StringTemplate getTemplate() {
+    public StringTemplate getTemplate() {
         return getChild(0, StringTemplate.class);
     }
     
@@ -139,7 +138,7 @@ public class ErrorMessage extends ObjectMessage {
      *
      * @return The message.
      */
-    private String getMessage() {
+    public String getMessage() {
         return getStringAttribute(MESSAGE_TAG);
     }
 
@@ -159,19 +158,4 @@ public class ErrorMessage extends ObjectMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final StringTemplate template = getTemplate();
-        final String message = getMessage();
-        
-        if (freeColClient.isInGame()) {
-            igc(freeColClient).errorHandler(template, message);
-            clientGeneric(freeColClient);
-        } else {
-            pgc(freeColClient).errorHandler(template, message);
-        }
-    }
 }

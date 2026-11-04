@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -83,28 +82,6 @@ public class SetStanceMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Stance stance = getStance();
-        final Player p1 = getFirstPlayer(game);
-        final Player p2 = getSecondPlayer(game);
-
-        if (p1 == null) {
-            logger.warning("Invalid player1 for setStance");
-            return;
-        }
-        if (p2 == null) {
-            logger.warning("Invalid player2 for setStance");
-            return;
-        }
-
-        igc(freeColClient).setStanceHandler(stance, p1, p2);
-        clientGeneric(freeColClient);
-    }
 
 
     // Public interface

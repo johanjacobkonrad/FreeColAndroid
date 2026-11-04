@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -95,22 +94,6 @@ public class NewRegionNameMessage extends AttributeMessage {
         aiPlayer.newRegionNameHandler(region, tile, unit, name);
     }
         
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Tile tile = getTile(game);
-        final Unit unit = getUnit(freeColClient.getMyPlayer());
-        final Region region = getRegion(game);
-        final String name = getNewRegionName();
-
-        if (name == null || region == null) return;
-
-        igc(freeColClient).newRegionNameHandler(region, tile, unit, name);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

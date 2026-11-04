@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.Colony;
@@ -147,7 +146,7 @@ public class DiplomacyMessage extends ObjectMessage {
      * @param game The {@code Game} to extract the FCGO from.
      * @return Our {@code FreeColGameObject}.
      */
-    private FreeColGameObject getOurFCGO(Game game) {
+    public FreeColGameObject getOurFCGO(Game game) {
         return game.getFreeColGameObject(getStringAttribute(OUR_ID_TAG));
     }
 
@@ -157,7 +156,7 @@ public class DiplomacyMessage extends ObjectMessage {
      * @param game The {@code Game} to extract the FCGO from.
      * @return The other {@code FreeColGameObject}.
      */
-    private FreeColGameObject getOtherFCGO(Game game) {
+    public FreeColGameObject getOtherFCGO(Game game) {
         return game.getFreeColGameObject(getStringAttribute(OTHER_ID_TAG));
     }
 
@@ -166,7 +165,7 @@ public class DiplomacyMessage extends ObjectMessage {
      *
      * @return The agreement in this message.
      */
-    private DiplomaticTrade getAgreement() {
+    public DiplomaticTrade getAgreement() {
         return getChild(0, DiplomaticTrade.class);
     }
 
@@ -175,7 +174,7 @@ public class DiplomacyMessage extends ObjectMessage {
      *
      * @return The extra {@code Unit}, or null if none.
      */
-    private Unit getExtraUnit() {
+    public Unit getExtraUnit() {
         return getChild(1, Unit.class);
     }
 
@@ -201,30 +200,6 @@ public class DiplomacyMessage extends ObjectMessage {
         aiPlayer.diplomacyHandler(our, other, agreement);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final DiplomaticTrade agreement = getAgreement();
-        final FreeColGameObject our = getOurFCGO(game);
-        final FreeColGameObject other = getOtherFCGO(game);
-        final Unit extraUnit = getExtraUnit();
-        
-        if (our == null) {
-            logger.warning("Our FCGO omitted from diplomacy message.");
-            return;
-        }
-        if (other == null) {
-            logger.warning("Other FCGO omitted from diplomacy message.");
-            return;
-        }
-        if (extraUnit != null) extraUnit.intern();
-
-        igc(freeColClient).diplomacyHandler(our, other, agreement);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

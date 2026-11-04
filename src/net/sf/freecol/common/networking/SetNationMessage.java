@@ -23,7 +23,6 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Nation;
@@ -77,23 +76,6 @@ public class SetNationMessage extends AttributeMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = getPlayer(game);
-        final Nation nation = getValue(game.getSpecification());
-
-        if (player != null && nation != null) {
-            player.setNation(nation);
-            
-            if (!freeColClient.isInGame()) {
-                pgc(freeColClient).addPlayerHandler(List.of(player));
-            }
-        }
-    }
 
     /**
      * {@inheritDoc}

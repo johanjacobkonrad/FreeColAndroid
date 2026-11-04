@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.model.Game;
@@ -96,7 +95,7 @@ public class AddPlayerMessage extends ObjectMessage {
      *
      * @return The list of {@code Player}s to add.
      */
-    private List<Player> getPlayers() {
+    public List<Player> getPlayers() {
         return getChildren(Player.class);
     }
 
@@ -130,17 +129,4 @@ public class AddPlayerMessage extends ObjectMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        List<Player> players = getPlayers();
-        
-        if (freeColClient.isInGame()) {
-            igc(freeColClient).addPlayerHandler(players);
-        } else {
-            pgc(freeColClient).addPlayerHandler(players);
-        }
-    }
 }

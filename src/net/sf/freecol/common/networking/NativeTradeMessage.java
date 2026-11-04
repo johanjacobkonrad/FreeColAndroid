@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.IndianSettlement;
@@ -103,12 +102,12 @@ public class NativeTradeMessage extends ObjectMessage {
     }
 
 
-    private NativeTradeAction getAction() {
+    public NativeTradeAction getAction() {
         return getEnumAttribute(ACTION_TAG, NativeTradeAction.class,
                                 (NativeTradeAction)null);
     }
 
-    private NativeTrade getNativeTrade() {
+    public NativeTrade getNativeTrade() {
         return getChild(0, NativeTrade.class);
     }
 
@@ -131,17 +130,6 @@ public class NativeTradeMessage extends ObjectMessage {
         aiPlayer.nativeTradeHandler(action, nt);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final NativeTradeAction action = getAction();
-        final NativeTrade nt = getNativeTrade();
-
-        igc(freeColClient).nativeTradeHandler(action, nt);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

@@ -26,7 +26,6 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.FreeColObject;
@@ -213,13 +212,6 @@ public abstract class TrivialMessage extends Message {
         throw new FreeColException(getType() + " aiHandler NYI");
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public void clientHandler(FreeColClient freeColClient)
-        throws FreeColException {
-        throw new FreeColException(getType() + " clientHandler NYI");
-    }
 
     /**
      * {@inheritDoc}

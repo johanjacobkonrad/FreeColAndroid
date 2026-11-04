@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.server.FreeColServer;
@@ -75,19 +74,6 @@ public class CloseMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        // This is a trivial handler to allow the server to signal to
-        // the client that an offer that caused a popup (for example,
-        // a native demand or diplomacy proposal) has not been
-        // answered quickly enough and that the offering player has
-        // assumed this player has refused-by-inaction, and therefore,
-        // the popup needs to be closed.
-        igc(freeColClient).closeHandler(getPanel());
-    }
 
 
     // Public interface

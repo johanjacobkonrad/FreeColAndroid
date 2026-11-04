@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.NationSummary;
@@ -89,7 +88,7 @@ public class NationSummaryMessage extends ObjectMessage {
      * @param game The {@code Game} to look for a player within.
      * @return The player.
      */
-    private Player getPlayer(Game game) {
+    public Player getPlayer(Game game) {
         return game.getFreeColGameObject(getStringAttribute(PLAYER_TAG),
                                          Player.class);
     }
@@ -99,7 +98,7 @@ public class NationSummaryMessage extends ObjectMessage {
      *
      * @return The summary.
      */
-    private NationSummary getNationSummary() {
+    public NationSummary getNationSummary() {
         return getChild(0, NationSummary.class);
     }
 
@@ -122,18 +121,6 @@ public class NationSummaryMessage extends ObjectMessage {
         aiPlayer.nationSummaryHandler(other, ns);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player other = getPlayer(game);
-        final NationSummary ns = getNationSummary();
-
-        igc(freeColClient).nationSummaryHandler(other, ns);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

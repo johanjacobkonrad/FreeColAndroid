@@ -28,7 +28,6 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.FreeColObject;
@@ -104,20 +103,6 @@ public class RemoveMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final FreeColGameObject divert = getDivertObject(game);
-        final List<FreeColGameObject> objects = getRemovals(game);
-
-        if (objects.isEmpty()) return;
-
-        igc(freeColClient).removeHandler(objects, divert);
-        clientGeneric(freeColClient);
-    }
 
 
     // Public interface

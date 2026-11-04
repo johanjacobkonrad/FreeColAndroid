@@ -1847,7 +1847,7 @@ public class GUI extends FreeColClientHolder {
     /**
      * Refresh the players table in the StartGamePanel.
      *
-     * Used by: SetNationMessage.clientHandler
+     * Used by: ClientMessageHandler (SetNationMessage)
      */
     public void refreshPlayersTable() {}
 

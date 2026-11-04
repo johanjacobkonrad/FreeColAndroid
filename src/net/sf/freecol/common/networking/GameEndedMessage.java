@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
@@ -80,24 +79,6 @@ public class GameEndedMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player winner = getWinner(game);
-        final String highScore = getScore();
-
-        if (winner == null) {
-            logger.warning("Invalid player for gameEnded");
-            return;
-        }
-        FreeColDebugger.finishDebugRun(freeColClient, true);
-        if (winner != freeColClient.getMyPlayer()) return;
-        
-        igc(freeColClient).gameEndedHandler(highScore);
-    }
 
     
     // Public interface

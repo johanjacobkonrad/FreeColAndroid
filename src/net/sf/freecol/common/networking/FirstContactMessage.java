@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -92,33 +91,6 @@ public class FirstContactMessage extends AttributeMessage {
         aiPlayer.firstContactHandler(contactor, contactee, tile);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = getPlayer(game);
-        final Player other = getOtherPlayer(game);
-        final Tile tile = getTile(game);
-        final int n = getSettlementCount();
-
-        if (player == null || player != freeColClient.getMyPlayer()) {
-            logger.warning("firstContact with bad player: " + player);
-            return;
-        }
-        if (other == null || other == player || !other.isIndian()) {
-            logger.warning("firstContact with bad other player: " + other);
-            return;
-        }
-        if (tile != null && tile.getOwner() != other) {
-            logger.warning("firstContact with bad tile: " + tile);
-            return;
-        }
-
-        igc(freeColClient).firstContactHandler(player, other, tile, n);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

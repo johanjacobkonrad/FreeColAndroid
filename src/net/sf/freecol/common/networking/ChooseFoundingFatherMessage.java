@@ -31,7 +31,6 @@ import java.util.stream.Collectors;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.FoundingFather.FoundingFatherType;
@@ -141,17 +140,6 @@ public class ChooseFoundingFatherMessage extends AttributeMessage {
         aiPlayer.chooseFoundingFatherHandler(fathers);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final List<FoundingFather> fathers = getFathers(game);
-        
-        igc(freeColClient).chooseFoundingFatherHandler(fathers);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

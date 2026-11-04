@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.model.Ability;
@@ -95,7 +94,7 @@ public class SpySettlementMessage extends ObjectMessage {
     }
 
 
-    private Tile getSpyTile() {
+    public Tile getSpyTile() {
         return getChild(0, Tile.class);
     }
 
@@ -136,16 +135,6 @@ public class SpySettlementMessage extends ObjectMessage {
         }            
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Tile spyTile = getSpyTile();
-
-        igc(freeColClient).spySettlementHandler(spyTile);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

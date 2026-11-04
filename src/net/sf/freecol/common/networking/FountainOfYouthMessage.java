@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.server.FreeColServer;
@@ -77,20 +76,6 @@ public class FountainOfYouthMessage extends AttributeMessage {
         aiPlayer.fountainOfYouthHandler(n);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public void clientHandler(FreeColClient freeColClient) {
-        final int n = getMigrants();
-
-        if (n <= 0) {
-            logger.warning("Invalid migrants attribute: " + n);
-            return;
-        }
-
-        igc(freeColClient).fountainOfYouthHandler(n);
-        clientGeneric(freeColClient);
-    }
 
 
     // Public interface

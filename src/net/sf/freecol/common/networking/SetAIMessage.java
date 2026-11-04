@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -82,18 +81,6 @@ public class SetAIMessage extends AttributeMessage {
         aiPlayer.setAIHandler(player, ai);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Player player = getPlayer(freeColClient.getGame());
-        final boolean ai = getAI();
-
-        if (player == null) return;
-
-        igc(freeColClient).setAIHandler(player, ai);
-    }
 
 
     // Public interface

@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
@@ -90,7 +89,7 @@ public class LootCargoMessage extends ObjectMessage {
      * @param game The {@code Game} to look for the unit in.
      * @return The winner unit.
      */
-    private Unit getWinner(Game game) {
+    public Unit getWinner(Game game) {
         return game.getFreeColGameObject(getStringAttribute(WINNER_TAG),
                                          Unit.class);
     }
@@ -100,7 +99,7 @@ public class LootCargoMessage extends ObjectMessage {
      *
      * @return The loser unit object Identifier.
      */
-    private String getLoserId() {
+    public String getLoserId() {
         return getStringAttribute(LOSER_TAG);
     }
 
@@ -109,7 +108,7 @@ public class LootCargoMessage extends ObjectMessage {
      *
      * @return The goods to loot.
      */
-    private List<Goods> getGoods() {
+    public List<Goods> getGoods() {
         return getChildren(Goods.class);
     }
 
@@ -134,21 +133,6 @@ public class LootCargoMessage extends ObjectMessage {
         aiPlayer.lootCargoHandler(winner, initialGoods, loserId);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Unit unit = getWinner(game);
-        final String loserId = getLoserId();
-        final List<Goods> goods = getGoods();
-
-        if (unit == null) return;
-
-        igc(freeColClient).lootCargoHandler(unit, goods, loserId);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}
