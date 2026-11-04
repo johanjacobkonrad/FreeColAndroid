@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.logging.Logger;
 
-import net.sf.freecol.common.resources.ResourceMapping;
 
 
 /**
@@ -44,26 +43,6 @@ public class FreeColTcFile extends FreeColModFile {
         super(file);
     }
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ResourceMapping getResourceMapping() {
-        ResourceMapping result = new ResourceMapping();
-        if (getParent() != null) {
-            final FreeColTcFile parentTcData
-                = FreeColTcFile.getFreeColTcFile(getParent());
-            result.addAll(parentTcData.getResourceMapping());
-        }
-        // Add the local data *after* the parent data so that the local
-        // values can override (eventual call is Map.putAll).
-        // Note that FreeColDataFile.getResourceMapping logs the load,
-        // and thus the log messages will appear to be in the reverse
-        // order, which mislead me until looking at the code.
-        result.addAll(super.getResourceMapping());
-        return result;
-    }
 
     /**
      * Get a TC by id.

@@ -51,6 +51,7 @@ import javax.swing.JLabel;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileFilter;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import net.miginfocom.layout.PlatformDefaults;
 import net.miginfocom.layout.UnitValue;
@@ -93,7 +94,6 @@ import net.sf.freecol.common.MemoryManager;
 import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
-import net.sf.freecol.common.io.FreeColDataFile;
 import net.sf.freecol.common.metaserver.ServerInfo;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.DiplomaticTrade;
@@ -2339,7 +2339,7 @@ public class SwingGUI extends GUI {
     public File showLoadDialog(File directory, String... extension) {
         final FileFilter[] filters = new FileFilter[extension.length];
         for (int i=0; i<extension.length; i++) {
-            filters[i] = FreeColDataFile.getFileFilter(extension[i]);
+            filters[i] = getFileFilter(extension[i]);
         }
         File file = null;
         for (;;) {
@@ -2692,8 +2692,8 @@ public class SwingGUI extends GUI {
     public File showSaveDialog(File directory, String defaultName) {
         String extension = lastPart(defaultName, ".");
         FileFilter[] filters = new FileFilter[] {
-            FreeColDataFile.getFileFilter(extension),
-            FreeColDataFile.getFileFilter("*")
+            getFileFilter(extension),
+            getFileFilter("*")
         };
         return this.widgets.showSaveDialog(directory, filters, defaultName);
     }
@@ -2879,5 +2879,29 @@ public class SwingGUI extends GUI {
         }
         
         refreshGuiUsingClientOptions();
+    }
+
+    /**
+     * Get a file filter for a given extension.
+     *
+     * @param extension The file extension to filter on.
+     * @return File filters for the extension.
+     */
+    private static FileFilter getFileFilter(String extension) {
+        String s = Messages.message("filter." + extension);
+        if (extension.equals("*")) {
+            return new FileFilter() {
+                @Override
+                public boolean accept(File f) {
+                    return true;
+                }
+                
+                @Override
+                public String getDescription() {
+                    return s;
+                }
+            };
+        }
+        return new FileNameExtensionFilter(s, extension);
     }
 }

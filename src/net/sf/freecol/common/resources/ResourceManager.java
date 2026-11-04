@@ -71,24 +71,24 @@ public class ResourceManager {
     
     public static void setBaseData(FreeColDataFile baseDataFile) {
         ResourceManager.baseDataFile = baseDataFile;
-        baseResourceMapping = baseDataFile.getResourceMapping();
+        baseResourceMapping = ResourceMappingLoader.load(baseDataFile);
     }
     
     public static void setTcData(FreeColDataFile tcDataFile) {
         ResourceManager.tcDataFile = tcDataFile;
-        tcResourceMapping = (tcDataFile != null) ? tcDataFile.getResourceMapping() : new ResourceMapping();
+        tcResourceMapping = (tcDataFile != null) ? ResourceMappingLoader.load(tcDataFile) : new ResourceMapping();
         prepare();
     }
     
     public static <T extends FreeColDataFile> void setMods(List<T> mods) {
         ResourceManager.mods = mods;
-        modResourceMappings =  mods.stream().map(FreeColDataFile::getResourceMapping).collect(Collectors.toList());
+        modResourceMappings =  mods.stream().map(ResourceMappingLoader::load).collect(Collectors.toList());
         prepare();
     }
     
     public static void setSavegameFile(FreeColSavegameFile savegameFile) {
         ResourceManager.savegameFile = savegameFile;
-        savegameResourceMapping = (savegameFile != null) ? savegameFile.getResourceMapping() : new ResourceMapping();
+        savegameResourceMapping = (savegameFile != null) ? ResourceMappingLoader.load(savegameFile) : new ResourceMapping();
         prepare();
     }
 
@@ -111,10 +111,10 @@ public class ResourceManager {
      * Clear all caches and 
      */
     public static void reload() {
-        baseResourceMapping = baseDataFile.getResourceMapping();
-        tcResourceMapping = (tcDataFile != null) ? tcDataFile.getResourceMapping() : new ResourceMapping();
-        modResourceMappings = mods.stream().map(FreeColDataFile::getResourceMapping).collect(Collectors.toList());
-        savegameResourceMapping = (savegameFile != null) ? savegameFile.getResourceMapping() : new ResourceMapping();
+        baseResourceMapping = ResourceMappingLoader.load(baseDataFile);
+        tcResourceMapping = (tcDataFile != null) ? ResourceMappingLoader.load(tcDataFile) : new ResourceMapping();
+        modResourceMappings = mods.stream().map(ResourceMappingLoader::load).collect(Collectors.toList());
+        savegameResourceMapping = (savegameFile != null) ? ResourceMappingLoader.load(savegameFile) : new ResourceMapping();
 
         prepare();
     }
