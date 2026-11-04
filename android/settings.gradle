@@ -1,0 +1,18 @@
+// FreeCol for Android.  The app compiles the shared engine straight
+// from ../src (see app/build.gradle), so there is one copy of the code.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'FreeColAndroid'
+include ':app'

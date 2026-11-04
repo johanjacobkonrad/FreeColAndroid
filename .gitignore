@@ -204,3 +204,9 @@ idxmake.log
 www.freecol.org/.jekyll-cache
 www.freecol.org/.jekyll-metadata
 www.freecol.org/_site
+
+# Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties

@@ -43,7 +43,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.xml.XMLConstants;
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
 import javax.xml.transform.TransformerException;
@@ -56,6 +55,14 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Collection of small static helper methods.
  */
 public class Utils {
+
+    /** XMLConstants.ACCESS_EXTERNAL_DTD, which Android lacks. */
+    private static final String ACCESS_EXTERNAL_DTD
+        = "http://javax.xml.XMLConstants/property/accessExternalDTD";
+
+    /** XMLConstants.ACCESS_EXTERNAL_STYLESHEET, which Android lacks. */
+    private static final String ACCESS_EXTERNAL_STYLESHEET
+        = "http://javax.xml.XMLConstants/property/accessExternalStylesheet";
 
     private static final Logger logger = Logger.getLogger(Utils.class.getName());
 
@@ -243,9 +250,9 @@ public class Utils {
         Transformer tf = null;
         try {
             TransformerFactory factory = TransformerFactory.newInstance();
-            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-            factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_STYLESHEET, "");
-            factory.setAttribute("indent-number", Integer.valueOf(2));
+            setFactoryAttribute(factory, ACCESS_EXTERNAL_DTD, "");
+            setFactoryAttribute(factory, ACCESS_EXTERNAL_STYLESHEET, "");
+            setFactoryAttribute(factory, "indent-number", Integer.valueOf(2));
             tf = factory.newTransformer();
             tf.setOutputProperty(OutputKeys.ENCODING, "UTF-8");
             tf.setOutputProperty(OutputKeys.METHOD, "xml");
@@ -260,6 +267,25 @@ public class Utils {
             logger.log(Level.WARNING, "Failed to install transformer!", e);
         }
         return tf;
+    }
+
+    /**
+     * Set a transformer factory attribute if the factory supports it.
+     *
+     * Android's transformer factory does not support all the
+     * attributes the JDK's does, and rejects unknown ones.
+     *
+     * @param factory The {@code TransformerFactory} to configure.
+     * @param name The attribute name.
+     * @param value The attribute value.
+     */
+    private static void setFactoryAttribute(TransformerFactory factory,
+                                            String name, Object value) {
+        try {
+            factory.setAttribute(name, value);
+        } catch (IllegalArgumentException iae) {
+            logger.fine("Transformer attribute not supported: " + name);
+        }
     }
 
     /**
