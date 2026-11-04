@@ -109,7 +109,44 @@ orders (move into a building, onto a tile, change the build).
 Not yet: equipping soldiers and pioneers, the full build queue,
 teaching in the schoolhouse, and buying the current build.
 
-Still to come: save/load, Europe, then dialogs (natives, diplomacy,
+### Saving
+
+The game saves itself (in the app's private storage) at the start of
+each of your turns, and when the app goes into the background during
+your turn, since Android may stop it at any time after that. It
+writes to a temporary file first, so a save cut short leaves the
+last good one. The start screen then offers **Continue** with the
+year and nation of the saved game. There is one save; a new game
+replaces it once its first turn starts. The files are the desktop
+game's own save format.
+
+The session check saves, loads the save into a fresh session, checks
+the colonies and units are all there, and plays on a turn.
+
+### Europe
+
+- On the map, the colony button reads **Sail to Europe** for a ship:
+  it heads for the nearest high seas (carrying on next turn if need
+  be) and crosses. The **Europe** button opens the Europe screen.
+- Left: ships in port with their cargo, passengers and space, and
+  ships at sea with where they are going and turns to arrival.
+- Middle: colonists on the docks, and the three emigrants you can
+  recruit, with the price.
+- Right: units to train or buy, with prices (asks before spending).
+- Bottom: the market, "sell/buy" price per unit, boycotts marked.
+- Tap a ship, then market goods to buy 100 (or what you can afford),
+  its cargo to sell, or a docks colonist and then the ship to board.
+  **Sail to the New World** sends the selected ship back.
+
+`EuropeInfo` reads all of it without Android code. The session check
+sails into the colony, loads its biggest stock, sails to Europe,
+sells, buys with the proceeds, boards whoever is on the docks and
+sails back.
+
+Not yet: equipping units (muskets, tools, horses) in Europe, and
+picking which way the ship sails (it arrives where it left from).
+
+Still to come: then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.
 
 Workflow: Claude writes the code on a branch and opens a PR. GitHub Actions

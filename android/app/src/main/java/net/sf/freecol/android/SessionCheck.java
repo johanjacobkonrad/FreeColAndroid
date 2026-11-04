@@ -59,6 +59,10 @@ public final class SessionCheck {
                     System.out.println("  > " + text);
                 }
             });
+        File save = File.createTempFile("freecol-check", ".fsg");
+        save.deleteOnExit();
+        new File(save.getPath() + ".txt").deleteOnExit();
+        s.setSaveFile(save);
         s.start(Engine.loadSpecification());
         Unit ship = null, colonist = null;
         Tile shipStart = null, colonyTile = null;
@@ -120,13 +124,20 @@ public final class SessionCheck {
             waitForOthers(s, 120_000);
             played++;
         }
-        s.stop();
+        // Sail the ship to Europe, trade if we can, and come back.
+        boolean europeOk = colonyOk && checkEurope(s, ship, colonyTile);
+
+        // Autosave happened at the start of this turn; load it into a
+        // fresh session and check the game carries on.
+        boolean reloaded = checkLoad(s, save);
         boolean moved = ship != null && shipStart != null
             && ship.getTile() != shipStart;
         System.out.println("Played " + played + " turns; ship moved: " + moved
             + "; landed: " + landed + "; colony founded: " + founded
-            + "; colony orders: " + colonyOk);
-        boolean ok = moved && (colonyOk || played == turns);
+            + "; colony orders: " + colonyOk + "; Europe: " + europeOk
+            + "; save and load: " + reloaded);
+        boolean ok = moved && (colonyOk || played == turns) && reloaded
+            && (europeOk || !colonyOk);
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
     }
@@ -264,6 +275,181 @@ public final class SessionCheck {
         }
         return inBuilding && onTile && built && !buildable.isEmpty() && summary
             && joined;
+    }
+
+    /**
+     * Sail to Europe, look at it, trade if there is gold, board anyone
+     * on the docks, and sail back to the New World.
+     *
+     * @return True if the ship got there and back.
+     */
+    private static boolean checkEurope(GameSession s, Unit ship, Tile colonyTile)
+        throws Exception {
+        net.sf.freecol.android.map.IsometricRenderer r
+            = new net.sf.freecol.android.map.IsometricRenderer(noArt());
+        waitForTurn(s, 120_000);
+        s.sync();
+        // Into the colony's port, then take its biggest stock along to
+        // sell.
+        select(s, ship);
+        s.moveSelectedTo(colonyTile);
+        s.sync();
+        synchronized (s.lock()) {
+            net.sf.freecol.common.model.Colony c = (ship.getTile() == null) ? null
+                : ship.getTile().getColony();
+            if (c != null) {
+                net.sf.freecol.common.model.GoodsType best = null;
+                for (net.sf.freecol.common.model.GoodsType gt
+                         : c.getSpecification().getStorableGoodsTypeList()) {
+                    if (best == null || c.getGoodsCount(gt) > c.getGoodsCount(best)) best = gt;
+                }
+                int n = Math.min(100, c.getGoodsCount(best));
+                if (n > 0) {
+                    System.out.println("  loading " + n + " " + best + " to sell");
+                    s.loadGoods(ship, best, n);
+                }
+            }
+        }
+        s.sync();
+        s.sailToEurope(ship);
+        s.sync();
+        int turns = 0;
+        boolean arrived = false;
+        while (turns++ < 20) {
+            synchronized (s.lock()) {
+                if (ship.isInEurope()) {
+                    arrived = true;
+                    break;
+                }
+                System.out.println("  ship at " + ship.getLocation()
+                    + ", " + ship.getWorkLeft() + " turns left");
+            }
+            s.endTurn();
+            s.sync();
+            waitForOthers(s, 120_000);
+            waitForTurn(s, 120_000);
+            s.sync();
+        }
+        if (!arrived) {
+            System.out.println("  ship never reached Europe");
+            return false;
+        }
+        EuropeInfo info;
+        synchronized (s.lock()) {
+            info = new EuropeInfo(s.getMyPlayer(), r);
+            System.out.println("  In " + info.title + ": gold " + info.gold
+                + ", tax " + info.tax + "%, " + info.inPort.size()
+                + " ships in port, " + info.docks.size() + " on the docks, "
+                + info.recruits.size() + " recruits at " + info.recruitPrice
+                + ", " + info.training.size() + " to train, "
+                + info.market.size() + " goods on the market");
+        }
+        // Sell anything aboard.
+        for (ColonyInfo.Amount a : info.inPort.get(0).cargo) {
+            s.sell(ship, a.type, a.amount);
+        }
+        s.sync();
+        synchronized (s.lock()) {
+            info = new EuropeInfo(s.getMyPlayer(), r);
+            System.out.println("  after selling: gold " + info.gold);
+        }
+        // Recruit if we can afford it.
+        if (info.gold >= info.recruitPrice && !info.recruits.isEmpty()) {
+            s.recruit(0);
+        }
+        s.sync();
+        // Buy something cheap if we can afford any.
+        synchronized (s.lock()) {
+            info = new EuropeInfo(s.getMyPlayer(), r);
+        }
+        EuropeInfo.Price cheapest = null;
+        for (EuropeInfo.Price p : info.market) {
+            if (!p.boycott && p.buy > 0
+                && (cheapest == null || p.buy < cheapest.buy)) cheapest = p;
+        }
+        if (cheapest != null && info.gold >= cheapest.buy) {
+            s.buy(ship, cheapest.type, 100);
+        }
+        // Board everyone on the docks.
+        for (ColonyInfo.UnitItem u : info.docks) s.board(u.unit, ship);
+        s.sync();
+        synchronized (s.lock()) {
+            info = new EuropeInfo(s.getMyPlayer(), r);
+            EuropeInfo.Ship sh = info.inPort.get(0);
+            System.out.println("  ship now has " + sh.passengers.size()
+                + " passengers and " + sh.cargo.size() + " kinds of cargo; "
+                + "gold " + info.gold + ", docks " + info.docks.size());
+        }
+        s.sailToAmerica(ship);
+        s.sync();
+        boolean left;
+        synchronized (s.lock()) {
+            left = !ship.isInEurope();
+            System.out.println("  sailed back: " + left + " (" + ship.getLocation() + ")");
+        }
+        return left && info.docks.isEmpty();
+    }
+
+    private static net.sf.freecol.android.map.Art noArt() {
+        return new net.sf.freecol.android.map.Art() {
+            @Override protected java.io.InputStream open(String p)
+                throws java.io.IOException {
+                throw new java.io.FileNotFoundException(p);
+            }
+            @Override protected String[] list(String d) { return null; }
+            @Override protected Img decode(java.io.InputStream in) { return null; }
+        };
+    }
+
+    /**
+     * Load the autosave into a new session and play a turn.
+     *
+     * @return True if the loaded game matches and plays.
+     */
+    private static boolean checkLoad(GameSession old, File save) throws Exception {
+        waitForTurn(old, 120_000);
+        old.sync();
+        int units, colonies;
+        String turn;
+        synchronized (old.lock()) {
+            units = old.getMyPlayer().getUnitCount();
+            colonies = old.getMyPlayer().getColonyList().size();
+            turn = old.getGame().getTurn().toString();
+        }
+        String about = GameSession.describeSave(save);
+        old.stop();
+        Thread.sleep(500);
+        System.out.println("Saved game: " + about + " (" + save.length() + " bytes)");
+
+        GameSession s = new GameSession(new GameSession.Listener() {
+                @Override public void onChanged() {}
+                @Override public void onStatus(String text) {
+                    System.out.println("  >> " + text);
+                }
+            });
+        s.load(save);
+        waitForTurn(s, 120_000);
+        s.sync();
+        boolean same;
+        synchronized (s.lock()) {
+            same = s.getMyPlayer().getUnitCount() == units
+                && s.getMyPlayer().getColonyList().size() == colonies
+                && s.getGame().getTurn().toString().equals(turn);
+            System.out.println("Loaded: " + s.getGame().getTurn() + ", "
+                + s.getMyPlayer().getUnitCount() + " units (was " + units
+                + "), " + s.getMyPlayer().getColonyList().size()
+                + " colonies (was " + colonies + ")");
+        }
+        s.endTurn();
+        s.sync();
+        waitForOthers(s, 120_000);
+        waitForTurn(s, 120_000);
+        s.sync();
+        synchronized (s.lock()) {
+            System.out.println("Played on to " + s.getGame().getTurn());
+        }
+        s.stop();
+        return same && about != null;
     }
 
     /** Tap a unit's tile until that unit is selected. */

@@ -18,7 +18,12 @@
  */
 package net.sf.freecol.android;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +38,7 @@ import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.io.FreeColSavegameFile;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
@@ -91,6 +97,7 @@ import net.sf.freecol.common.networking.UpdateMessage;
 import net.sf.freecol.common.networking.WrapperMessage;
 import net.sf.freecol.common.util.Introspector;
 import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.FreeColServer.ServerState;
 
 
 /**
@@ -149,6 +156,8 @@ public final class GameSession implements MessageHandler {
     private Player me = null;
     private volatile boolean inGame = false;
     private volatile Unit selected = null;
+    /** Where to save automatically, or null not to. */
+    private volatile File saveFile = null;
 
 
     public GameSession(Listener listener) {
@@ -188,6 +197,98 @@ public final class GameSession implements MessageHandler {
     // Starting and stopping
 
     /**
+     * Save automatically to this file at the start of each of our
+     * turns (and when asked by {@link #saveNow}).  A small text file
+     * next to it ("NAME.txt") describes the game for the start screen.
+     *
+     * @param file The save file.
+     */
+    public void setSaveFile(File file) {
+        this.saveFile = file;
+    }
+
+    /**
+     * Load a saved game and carry on playing it.
+     *
+     * @param file The saved game.
+     */
+    public void load(File file) {
+        worker.execute(() -> {
+            try {
+                status("Loading your game...");
+                server = new FreeColServer(new FreeColSavegameFile(file),
+                    (Specification)null, InetAddress.getLoopbackAddress(), -1,
+                    "android");
+                if (!connectAndLogin()) return;
+                if (!inGame) {
+                    // A loaded game waits, like a new one, for the
+                    // players to be ready; then the server resumes it.
+                    api.setReady(true);
+                    api.requestLaunch();
+                }
+            } catch (Throwable t) {
+                logger.log(Level.SEVERE, "Load failed", t);
+                status("Could not load the game: " + t);
+            }
+        });
+    }
+
+    /**
+     * Save now, if it is our turn (when nothing else is changing the
+     * game).  Used when the app is put in the background.
+     */
+    public void saveNow() {
+        if (worker.isShutdown()) return;
+        worker.execute(() -> {
+            if (isMyTurn()) save();
+        });
+    }
+
+    /** Save to the save file, safely: to a temporary file first. */
+    private void save() {
+        final File file = saveFile;
+        if (file == null || server == null) return;
+        try {
+            file.getParentFile().mkdirs();
+            File tmp = new File(file.getPath() + ".tmp");
+            server.saveGame(tmp, null, getSelectedUnit());
+            if (!tmp.renameTo(file)) {
+                throw new java.io.IOException("could not replace " + file);
+            }
+            String about;
+            synchronized (lock) {
+                about = Messages.message(game.getTurn().getLabel()) + ", "
+                    + Messages.message(me.getNationLabel());
+            }
+            try (Writer w = new OutputStreamWriter(new FileOutputStream(
+                     new File(file.getPath() + ".txt")), StandardCharsets.UTF_8)) {
+                w.write(about);
+            }
+        } catch (Throwable t) {
+            logger.log(Level.WARNING, "Save failed", t);
+            status("Could not save the game: " + t.getMessage());
+        }
+    }
+
+    /**
+     * Describe a saved game for the start screen.
+     *
+     * @param file The save file.
+     * @return Its description (year and nation), or null if there is
+     *     no saved game.
+     */
+    public static String describeSave(File file) {
+        if (!file.isFile()) return null;
+        File txt = new File(file.getPath() + ".txt");
+        try {
+            return new String(java.nio.file.Files.readAllBytes(txt.toPath()),
+                              StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return "Saved game";
+        }
+    }
+
+    /**
      * Start a new game: the server, then our login, then the launch.
      * Runs on the worker; progress is reported through the listener.
      *
@@ -199,13 +300,7 @@ public final class GameSession implements MessageHandler {
                 status("Starting the game...");
                 server = new FreeColServer(false, true, spec,
                     InetAddress.getLoopbackAddress(), -1, "android");
-                api.setMessageHandler(this);
-                api.connect("Android", server.getHost(), server.getPort());
-                if (!api.login(USER, null, FreeCol.getVersion(), true, false)
-                    || me == null) {
-                    status("Could not join the game.");
-                    return;
-                }
+                if (!connectAndLogin()) return;
                 status("Playing as " + Messages.message(me.getNationLabel())
                     + ". Creating the New World...");
                 api.setReady(true);
@@ -215,6 +310,32 @@ public final class GameSession implements MessageHandler {
                 status("Could not start the game: " + t);
             }
         });
+    }
+
+    /**
+     * Connect to the server and log in.  For a saved game the login
+     * puts us straight back into the running game.
+     *
+     * @return True if logged in.
+     * @exception java.io.IOException if the connection fails.
+     */
+    private boolean connectAndLogin() throws java.io.IOException {
+        api.setMessageHandler(this);
+        api.connect("Android", server.getHost(), server.getPort());
+        if (!api.login(USER, null, FreeCol.getVersion(), true, false)
+            || me == null) {
+            status("Could not join the game.");
+            return false;
+        }
+        if (inGame) {
+            status("Welcome back. Playing as "
+                + Messages.message(me.getNationLabel()) + ".");
+            synchronized (lock) {
+                if (game.getCurrentPlayer() == me) worker.execute(this::beginTurn);
+            }
+            changed();
+        }
+        return true;
     }
 
     /**
@@ -679,6 +800,226 @@ public final class GameSession implements MessageHandler {
         });
     }
 
+    // Europe
+
+    /**
+     * Can a unit set sail for Europe from where it is?  Call while
+     * holding {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return True for a ship in the New World.
+     */
+    public boolean canSailToEurope(Unit unit) {
+        return unit != null && unit.isNaval() && unit.hasTile()
+            && me != null && me.getEurope() != null
+            && unit.getType().canMoveToHighSeas();
+    }
+
+    /**
+     * Send a ship to Europe: out to the high seas, then across.  If
+     * it can not reach the high seas this turn it carries on next
+     * turn.
+     *
+     * @param unit The ship.
+     */
+    public void sailToEurope(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Europe europe;
+            synchronized (lock) {
+                if (!canSailToEurope(unit)) return;
+                europe = me.getEurope();
+            }
+            api.setDestination(unit, europe);
+            headForEurope(unit);
+            afterOrders(null);
+        });
+    }
+
+    /** Move a ship along its way to Europe, as far as it gets. */
+    private void headForEurope(Unit unit) {
+        final Europe europe;
+        synchronized (lock) {
+            europe = me.getEurope();
+        }
+        for (int guard = 0; guard < 50; guard++) {
+            Direction d = null;
+            boolean cross = false;
+            synchronized (lock) {
+                Tile t = unit.getTile();
+                if (unit.isDisposed() || t == null) return;
+                if (t.isDirectlyHighSeasConnected()) {
+                    cross = true;
+                } else {
+                    if (unit.getMovesLeft() <= 0) return;
+                    PathNode path = unit.findPath(europe);
+                    if (path == null || path.next == null) {
+                        status("This ship can not find a way to Europe.");
+                        unit.setDestination(null);
+                        return;
+                    }
+                    PathNode next = path.next;
+                    if (next.getTile() == null) {
+                        cross = true;
+                    } else {
+                        if (next.getTurns() > 0) return;
+                        d = next.getDirection();
+                    }
+                }
+            }
+            if (cross) {
+                api.moveTo(unit, europe);
+                synchronized (lock) {
+                    if (!unit.hasTile()) {
+                        status(unit.getDescription() + " sails for Europe ("
+                            + unit.getWorkLeft() + " turns).");
+                    }
+                }
+                return;
+            }
+            if (d == null || !step(unit, d, false)) return;
+        }
+    }
+
+    /**
+     * Send a ship in Europe back to the New World.
+     *
+     * @param unit The ship.
+     */
+    public void sailToAmerica(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!unit.isInEurope() || !unit.isNaval()) return;
+            }
+            api.moveTo(unit, game.getMap());
+            synchronized (lock) {
+                if (!unit.isInEurope()) {
+                    status(unit.getDescription() + " sets sail for the New World.");
+                }
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Recruit one of the three emigrants waiting in Europe.
+     *
+     * @param index 0, 1 or 2.
+     */
+    public void recruit(int index) {
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!me.checkGold(me.getEuropeanRecruitPrice())) {
+                    status("You can not afford to recruit.");
+                    return;
+                }
+            }
+            api.emigrate(Europe.MigrationType.migrantIndexToSlot(index));
+            changed();
+        });
+    }
+
+    /**
+     * Train (or buy) a unit in Europe.
+     *
+     * @param type The {@code UnitType}.
+     */
+    public void train(UnitType type) {
+        if (type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                int price = me.getEurope().getUnitPrice(type);
+                if (price < 0 || !me.checkGold(price)) {
+                    status("You can not afford that.");
+                    return;
+                }
+            }
+            api.trainUnitInEurope(type);
+            changed();
+        });
+    }
+
+    /**
+     * Buy goods in Europe onto a ship there.
+     *
+     * @param carrier The ship.
+     * @param type The {@code GoodsType}.
+     * @param amount How much to buy (it buys less if you can not
+     *     afford it all).
+     */
+    public void buy(Unit carrier, GoodsType type, int amount) {
+        if (carrier == null || type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            int n = amount;
+            synchronized (lock) {
+                if (!carrier.isInEurope()) return;
+                if (!me.canTrade(type)) {
+                    status("That is under boycott.");
+                    return;
+                }
+                int each = me.getMarket().getCostToBuy(type);
+                if (each > 0) n = Math.min(n, me.getGold() / each);
+                if (n <= 0) {
+                    status("You can not afford any.");
+                    return;
+                }
+            }
+            api.loadGoods(me.getEurope(), type, n, carrier);
+            changed();
+        });
+    }
+
+    /**
+     * Sell goods from a ship in Europe.
+     *
+     * @param carrier The ship.
+     * @param type The {@code GoodsType}.
+     * @param amount How much to sell.
+     */
+    public void sell(Unit carrier, GoodsType type, int amount) {
+        if (carrier == null || type == null || amount <= 0) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!carrier.isInEurope()) return;
+                if (!me.canTrade(type)) {
+                    status("That is under boycott.");
+                    return;
+                }
+            }
+            api.unloadGoods(type, amount, carrier);
+            changed();
+        });
+    }
+
+    /**
+     * Put a unit aboard a ship in the same place (Europe's docks, or
+     * a colony).
+     *
+     * @param unit The unit.
+     * @param carrier The ship.
+     */
+    public void board(Unit unit, Unit carrier) {
+        if (unit == null || carrier == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!carrier.canAdd(unit)) {
+                    status("There is no room aboard.");
+                    return;
+                }
+            }
+            api.embark(unit, carrier, null);
+            changed();
+        });
+    }
+
     /** End our turn. */
     public void endTurn() {
         worker.execute(() -> {
@@ -853,7 +1194,8 @@ public final class GameSession implements MessageHandler {
             me.invalidateCanSeeTiles();
             me.resetIterators();
             for (Unit u : me.getUnitSet()) {
-                if (u.hasTile() && u.getDestination() instanceof Tile) going.add(u);
+                if (u.hasTile() && (u.getDestination() instanceof Tile
+                        || u.getDestination() instanceof Europe)) going.add(u);
             }
         }
         // New colonists at the docks in Europe.
@@ -866,7 +1208,14 @@ public final class GameSession implements MessageHandler {
                 : Europe.MigrationType.getUnspecificSlot();
             if (!api.emigrate(slot)) break;
         }
-        for (Unit u : going) followPath(u);
+        for (Unit u : going) {
+            boolean toEurope;
+            synchronized (lock) {
+                toEurope = u.getDestination() instanceof Europe;
+            }
+            if (toEurope) headForEurope(u); else followPath(u);
+        }
+        save();
         reportMessages();
         synchronized (lock) {
             me.resetIterators();
@@ -919,6 +1268,8 @@ public final class GameSession implements MessageHandler {
             LoginMessage lm = (LoginMessage)m;
             game = lm.getGame();
             me = game.getPlayerByName(lm.getUserName());
+            // Joining a game already under way (a saved game).
+            if (lm.getState() == ServerState.IN_GAME) inGame = true;
         } else if (m instanceof UpdateMessage) {
             update(((UpdateMessage)m).getChildren());
         } else if (m instanceof RemoveMessage) {

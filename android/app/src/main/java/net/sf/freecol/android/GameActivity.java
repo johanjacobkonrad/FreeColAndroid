@@ -56,11 +56,16 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     private static final int NEWS_LINES = 4;
 
+    /** Intent extra: carry on with the saved game. */
+    static final String EXTRA_CONTINUE = "continue";
+
     private GameSession session;
     private AndroidArt art;
     private IsometricRenderer renderer;
     private MapView mapView;
     private ColonyPanel colonyPanel;
+    private EuropePanel europePanel;
+    private Button europeButton;
     private LinearLayout unitRow;
     private List<Unit> unitRowUnits = new ArrayList<>();
     private Unit unitRowSelected = null;
@@ -69,6 +74,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private Button nextButton, waitButton, fortifyButton, colonyButton, endButton;
     /** The colony button joins a colony next to the unit, not founds one. */
     private boolean joinMode = false;
+    /** The colony button sends a ship to Europe. */
+    private boolean sailMode = false;
     private final Deque<String> newsLines = new ArrayDeque<>();
 
 
@@ -133,8 +140,15 @@ public final class GameActivity extends Activity implements GameSession.Listener
         waitButton = button(bar, "Wait", v -> session.waitUnit());
         fortifyButton = button(bar, "Fortify", v -> session.fortifyUnit());
         colonyButton = button(bar, "Build colony", v -> {
-                if (joinMode) session.joinColony(); else session.buildColony();
+                if (sailMode) {
+                    session.sailToEurope(session.getSelectedUnit());
+                } else if (joinMode) {
+                    session.joinColony();
+                } else {
+                    session.buildColony();
+                }
             });
+        europeButton = button(bar, "Europe", v -> openEurope());
         endButton = button(bar, "End turn", v -> session.endTurn());
         hud.addView(bar, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -169,6 +183,20 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.addView(colonyPanel, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+        europePanel = new EuropePanel(this, session, renderer, art,
+                                      this::closeEurope);
+        europePanel.setVisibility(android.view.View.GONE);
+        europePanel.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad / 2 + bars.top,
+                         pad + bars.right, pad / 2 + bars.bottom);
+            return insets;
+        });
+        root.addView(europePanel, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
         mapView.setColonyOpener(this::openColony);
         setContentView(root);
         refresh();
@@ -179,7 +207,14 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 File data = new File(getFilesDir(), "data");
                 Assets.copy(getAssets(), "data", data);
                 Engine.init(data);
-                session.start(Engine.loadSpecification());
+                File save = saveFile(this);
+                session.setSaveFile(save);
+                if (getIntent().getBooleanExtra(EXTRA_CONTINUE, false)
+                    && save.isFile()) {
+                    session.load(save);
+                } else {
+                    session.start(Engine.loadSpecification());
+                }
             } catch (Throwable t) {
                 onStatus("Could not start: " + t);
             }
@@ -197,13 +232,45 @@ public final class GameActivity extends Activity implements GameSession.Listener
         refresh();
     }
 
+    private void openEurope() {
+        europePanel.setVisibility(android.view.View.VISIBLE);
+        europePanel.show();
+        europePanel.requestApplyInsets();
+    }
+
+    private void closeEurope() {
+        europePanel.setVisibility(android.view.View.GONE);
+        refresh();
+    }
+
     @Override
     public void onBackPressed() {
-        if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
+        if (europePanel.getVisibility() == android.view.View.VISIBLE) {
+            closeEurope();
+        } else if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
             closeColony();
         } else {
             super.onBackPressed();
         }
+    }
+
+    /**
+     * The saved game.  It is saved at the start of each of your turns
+     * and when the app goes into the background.
+     *
+     * @param context The app {@code Context}.
+     * @return The save file.
+     */
+    static File saveFile(android.content.Context context) {
+        return new File(new File(context.getFilesDir(), "saves"), "autosave.fsg");
+    }
+
+    @Override
+    protected void onPause() {
+        // Android may stop the app at any time once it is in the
+        // background, so save now (only does so during our turn).
+        session.saveNow();
+        super.onPause();
     }
 
     @Override
@@ -219,6 +286,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     public void onChanged() {
         runOnUiThread(this::refresh);
         colonyPanel.onChanged();
+        europePanel.onChanged();
     }
 
     @Override
@@ -230,6 +298,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
             if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
                 colonyPanel.onStatus(text);
             }
+            if (europePanel.getVisibility() == android.view.View.VISIBLE) {
+                europePanel.onStatus(text);
+            }
         });
     }
 
@@ -239,7 +310,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         Unit unit = session.getSelectedUnit();
         String text = "";
         boolean canColony = false, canFortify = false, naval = false;
-        boolean canJoin = false;
+        boolean canJoin = false, canSail = false;
         List<Unit> here = new ArrayList<>();
         synchronized (session.lock()) {
             Player me = session.getMyPlayer();
@@ -252,6 +323,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
                         + " (moves " + unit.getMovesAsString() + ")";
                     canColony = session.canBuildColonyHere(unit);
                     canJoin = session.joinableColony(unit) != null;
+                    canSail = session.canSailToEurope(unit);
                     canFortify = unit.hasTile() && !unit.isOnCarrier();
                     naval = unit.isNaval();
                     Tile t = unit.getTile();
@@ -266,8 +338,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
         fortifyButton.setText(naval ? "Sentry" : "Fortify");
         updateUnitRow(here, unit);
         joinMode = canJoin;
-        colonyButton.setText(canJoin ? "Join colony" : "Build colony");
-        colonyButton.setEnabled(myTurn && (canColony || canJoin));
+        sailMode = canSail;
+        colonyButton.setText(canSail ? "Sail to Europe"
+                             : canJoin ? "Join colony" : "Build colony");
+        colonyButton.setEnabled(myTurn && (canColony || canJoin || canSail));
+        europeButton.setEnabled(session.isInGame());
         endButton.setEnabled(myTurn);
         mapView.showSelected();
         mapView.invalidate();
