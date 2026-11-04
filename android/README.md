@@ -35,10 +35,30 @@ https://github.com/JohanJacobKonrad/FreeColAndroid/releases/download/android-lat
 
 `AutoPlay` also runs on a desktop JVM with only the engine on the class path.
 
-Still to do: confirm the all-AI game runs on a real phone.
+Confirmed on a phone (Android 15): 50 all-AI turns in 67s. Phase 1 is done.
 
-## Phase 2: touch UI
+## Phase 2: touch UI (next)
 
-Map view, colony screen, Europe screen and dialogs, designed for touch.
-The map renderer sits behind an interface, so a classic top-down view can be
-added later.
+Decisions so far:
+
+- **Landscape** orientation.
+- **Unit moves:** tap a unit to select it, then tap a destination.
+- **Art:** FreeCol's existing isometric graphics. Bundle only what each
+  screen needs (the full `data/` art is about 180 MB).
+- **Map renderer behind an interface**, so a classic top-down square-tile
+  view can be added later as a second renderer.
+
+First slice: the map.
+
+- Render the isometric map with FreeCol's terrain, unit and settlement art.
+- Pinch to zoom, drag to scroll.
+- Start a real game as one nation against the AI, using the in-process
+  server as `AutoPlay` does, but with a human player connected.
+- Select and move units; end the turn.
+
+After that: the colony screen, Europe, then dialogs (natives, diplomacy,
+founding fathers, trade routes) and save/load.
+
+Workflow: Claude writes the code on a branch and opens a PR. GitHub Actions
+builds the APK and publishes it to the `android-latest` link above. Johan
+playtests on his phone and merges.
