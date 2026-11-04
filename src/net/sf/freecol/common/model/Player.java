@@ -42,7 +42,6 @@ import static net.sf.freecol.common.util.CollectionUtils.transform;
 import static net.sf.freecol.common.util.StringUtils.getEnumKey;
 import static net.sf.freecol.common.util.StringUtils.lastPart;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1060,7 +1059,7 @@ public class Player extends FreeColGameObject implements Nameable {
      *
      * @return The {@code Color}.
      */
-    public Color getNationColor() {
+    public Integer getNationColor() {
         final Nation nation = getNation();
         return (nation == null) ? null : nation.getColor();
     }

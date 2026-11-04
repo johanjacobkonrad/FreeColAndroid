@@ -981,7 +981,7 @@ public final class ImageLibrary {
     }
     
     public BufferedImage createColonyTitleImage(Graphics2D g2d, String title, Player owner, boolean poles) {
-        final Color backgroundColor = owner.getNationColor();
+        final Color backgroundColor = ColorUtils.toColor(owner.getNationColor());
         final Color foregroundColor = makeForegroundColor(backgroundColor);
         
         final Font font = FontLibrary.getScaledFont("header-plain-large", title);
@@ -1898,10 +1898,10 @@ public final class ImageLibrary {
     public BufferedImage getAlarmChip(Graphics2D g, IndianSettlement is,
                                       Player player) {
         if (player == null || !is.hasContacted(player)) return null;
-        Color ownerColor = is.getOwner().getNationColor();
+        Color ownerColor = ColorUtils.toColor(is.getOwner().getNationColor());
         Player enemy = is.getMostHated();
-        Color enemyColor = (enemy == null) ? Nation.UNKNOWN_NATION_COLOR
-            : enemy.getNationColor();
+        Color enemyColor = (enemy == null) ? ColorUtils.toColor(Nation.UNKNOWN_NATION_COLOR)
+            : ColorUtils.toColor(enemy.getNationColor());
         // Set amount to [0-4] corresponding to HAPPY, CONTENT,
         // DISPLEASED, ANGRY, HATEFUL but only if the player is the
         // most hated, because other nation alarm is not nor should be
@@ -1932,7 +1932,7 @@ public final class ImageLibrary {
                                                  IndianSettlement is) {
         final String key = ResourceManager.getString("indianSettlementChip."
             + ((is.getType().isCapital()) ? "capital" : "normal"));
-        Color background = is.getOwner().getNationColor();
+        Color background = ColorUtils.toColor(is.getOwner().getNationColor());
         return createChip(g, key, Color.BLACK, background, 0, Color.BLACK,
                           makeForegroundColor(background), true);
     }
@@ -1947,7 +1947,7 @@ public final class ImageLibrary {
      */
     public BufferedImage getMissionChip(Graphics2D g,
                                         Player owner, boolean expert) {
-        final Color background = owner.getNationColor();
+        final Color background = ColorUtils.toColor(owner.getNationColor());
         final String key = "color.foreground.mission."
             + ((expert) ? "expert" : "normal");
         final Color foreground = getColor(key,
@@ -1967,7 +1967,7 @@ public final class ImageLibrary {
      */
     public BufferedImage getOccupationIndicatorChip(Graphics2D g,
                                                     Unit unit, String text) {
-        final Color background = unit.getOwner().getNationColor();
+        final Color background = ColorUtils.toColor(unit.getOwner().getNationColor());
         final Color foreground = (unit.getState() == Unit.UnitState.FORTIFIED)
             ? Color.GRAY : makeForegroundColor(background);
         return createChip(g, text, Color.BLACK,

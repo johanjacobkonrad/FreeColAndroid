@@ -45,6 +45,7 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import net.sf.freecol.client.gui.ColorUtils;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
@@ -2887,7 +2888,7 @@ public final class InGameController extends FreeColClientHolder {
 
         final Player player = getMyPlayer();
         final boolean sent = askServer().chat(player, chat);
-        displayChat(player.getName(), chat, player.getNationColor(), false);
+        displayChat(player.getName(), chat, ColorUtils.toColor(player.getNationColor()), false);
         return sent;
     }
 

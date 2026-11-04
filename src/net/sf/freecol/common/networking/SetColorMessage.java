@@ -19,7 +19,6 @@
 
 package net.sf.freecol.common.networking;
 
-import java.awt.Color;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -45,11 +44,11 @@ public class SetColorMessage extends AttributeMessage {
      * Create a new {@code SetColorMessage}.
      *
      * @param nation The {@code Nation} that is changing color.
-     * @param color The new {@code Color}.
+     * @param color The new ARGB color.
      */
-    public SetColorMessage(Nation nation, Color color) {
+    public SetColorMessage(Nation nation, Integer color) {
         super(TAG, NATION_TAG, nation.getId(),
-              COLOR_TAG, String.valueOf(color.getRGB()));
+              COLOR_TAG, String.valueOf(color));
     }
 
     /**
@@ -86,7 +85,7 @@ public class SetColorMessage extends AttributeMessage {
         
         final Specification spec = freeColServer.getGame().getSpecification();
         final Nation nation = getNation(spec);
-        final Color color = getColor();
+        final Integer color = getColor();
 
         if (nation == null) {
             return serverPlayer.clientError("Invalid nation: " + this.toString());
@@ -114,14 +113,13 @@ public class SetColorMessage extends AttributeMessage {
     /**
      * Get the color.
      *
-     * @return The new {@code Color}.
+     * @return The new ARGB color, or null if invalid.
      */
-    public Color getColor() {
-        Color color = null;
+    public Integer getColor() {
         try {
             int rgb = getIntegerAttribute(COLOR_TAG, 0);
-            color = new Color(rgb);
+            return 0xFF000000 | rgb;
         } catch (NumberFormatException nfe) {}
-        return color;
+        return null;
     }
 }

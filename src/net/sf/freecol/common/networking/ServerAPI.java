@@ -20,7 +20,6 @@
 
 package net.sf.freecol.common.networking;
 
-import java.awt.Color;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
@@ -914,10 +913,10 @@ public abstract class ServerAPI {
      * (pre-game).
      *
      * @param nation The {@code Nation} to set the color for.
-     * @param color The {@code Color} selected.
+     * @param color The ARGB color selected.
      * @return True if the server interaction succeeded.
      */
-    public boolean setColor(Nation nation, Color color) {
+    public boolean setColor(Nation nation, Integer color) {
         return ask(new SetColorMessage(nation, color));
     }
 

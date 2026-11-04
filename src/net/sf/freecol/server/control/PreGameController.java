@@ -19,7 +19,6 @@
 
 package net.sf.freecol.server.control;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
@@ -175,11 +174,11 @@ public final class PreGameController extends Controller {
      *
      * @param serverPlayer The {@code ServerPlayer} that changed.
      * @param nation The changed {@code Nation}.
-     * @param color The new {@code Color}.
+     * @param color The new ARGB color.
      * @return A {@code ChangeSet} encapsulating this action.
      */
     public ChangeSet setColor(ServerPlayer serverPlayer, Nation nation,
-                              Color color) {
+                              Integer color) {
         nation.setColor(color);
         getFreeColServer().sendToAll(new SetColorMessage(nation, color),
                                      serverPlayer);

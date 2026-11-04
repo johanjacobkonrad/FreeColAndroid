@@ -112,7 +112,7 @@ public class GrayLayer extends JComponent {
             coatOfArmsIcon
                 = new ImageIcon(lib.getNationImage(player.getNation(), 1f));
             message = Messages.message(player.getWaitingLabel());
-            colour = player.getNationColor();
+            colour = ColorUtils.toColor(player.getNationColor());
         }
 
         Font nameFont = getFont();

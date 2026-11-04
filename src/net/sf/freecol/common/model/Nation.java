@@ -25,7 +25,6 @@ import static net.sf.freecol.common.util.CollectionUtils.makeUnmodifiableList;
 import static net.sf.freecol.common.util.CollectionUtils.matchKey;
 import static net.sf.freecol.common.util.RandomUtils.randomInt;
 
-import java.awt.Color;
 import java.util.List;
 import java.util.Random;
 
@@ -46,8 +45,8 @@ public class Nation extends FreeColSpecObjectType {
     /** The unknown enemy id. */
     public static final String UNKNOWN_NATION_ID = "model.nation.unknownEnemy";
 
-    /** The last resort unknown nation color. */
-    public static final Color UNKNOWN_NATION_COLOR = Color.BLACK;
+    /** The last resort unknown nation color (opaque black, ARGB). */
+    public static final int UNKNOWN_NATION_COLOR = 0xFF000000;
 
     /**
      * A list of European nation names, where model.nation.X.name exists.
@@ -77,8 +76,8 @@ public class Nation extends FreeColSpecObjectType {
     /** Whether this nation starts on the East coast by default. */
     private boolean startsOnEastCoast = true;
 
-    /** The color of this nation. */
-    private Color color;
+    /** The color of this nation, as an opaque ARGB value. */
+    private Integer color;
 
 
     /**
@@ -168,18 +167,18 @@ public class Nation extends FreeColSpecObjectType {
     /**
      * Get the nation color.
      *
-     * @return The color for this nation.
+     * @return The ARGB color for this nation, or null if not set.
      */
-    public Color getColor() {
+    public Integer getColor() {
         return color;
     }
 
     /**
      * Set the nation color.
      *
-     * @param color The new nation color.
+     * @param color The new nation color, as an ARGB value.
      */
-    public void setColor(Color color) {
+    public void setColor(Integer color) {
         this.color = color;
     }
 
@@ -274,7 +273,7 @@ public class Nation extends FreeColSpecObjectType {
 
         if (refNation != null) xw.writeAttribute(REF_TAG, refNation);
 
-        if (color != null) xw.writeAttribute(COLOR_TAG, color.getRGB());
+        if (color != null) xw.writeAttribute(COLOR_TAG, color.intValue());
     }
 
     /**
@@ -308,7 +307,7 @@ public class Nation extends FreeColSpecObjectType {
         refNation = xr.getType(spec, REF_TAG, Nation.class, (Nation)null);
 
         int rgb = xr.getAttribute(COLOR_TAG, UNDEFINED);
-        if (rgb != UNDEFINED) setColor(new Color(rgb));
+        if (rgb != UNDEFINED) setColor(0xFF000000 | rgb);
     }
 
     /**

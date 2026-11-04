@@ -29,7 +29,6 @@ import static net.sf.freecol.common.util.CollectionUtils.matchKeyEquals;
 import static net.sf.freecol.common.util.CollectionUtils.none;
 import static net.sf.freecol.common.util.CollectionUtils.transform;
 
-import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -336,32 +335,32 @@ public final class Specification implements OptionContainer {
 
     // @compat 0.10.x/0.11.x
     /** A map of default nation colours. */
-    private static final Map<String, Color> defaultColors = new HashMap<>();
+    private static final Map<String, Integer> defaultColors = new HashMap<>();
     static {
-        defaultColors.put("model.nation.dutch",         new Color(0xff9d3c));
-        defaultColors.put("model.nation.french",        new Color(0x0000ff));
-        defaultColors.put("model.nation.english",       new Color(0xff0000));
-        defaultColors.put("model.nation.spanish",       new Color(0xffff00));
-        defaultColors.put("model.nation.inca",          new Color(0xf4f0c4));
-        defaultColors.put("model.nation.aztec",         new Color(0xc4a020));
-        defaultColors.put("model.nation.arawak",        new Color(0x6888c0));
-        defaultColors.put("model.nation.cherokee",      new Color(0x6c3c18));
-        defaultColors.put("model.nation.iroquois",      new Color(0x74a44c));
-        defaultColors.put("model.nation.sioux",         new Color(0xc0ac84));
-        defaultColors.put("model.nation.apache",        new Color(0x900000));
-        defaultColors.put("model.nation.tupi",          new Color(0x045c04));
-        defaultColors.put("model.nation.dutchREF",      new Color(0xcc5500));
-        defaultColors.put("model.nation.frenchREF",     new Color(0x6050dc));
-        defaultColors.put("model.nation.englishREF",    new Color(0xde3163));
-        defaultColors.put("model.nation.spanishREF",    new Color(0xffdf00));
-        defaultColors.put("model.nation.portuguese",    new Color(0x00ff00));
-        defaultColors.put("model.nation.swedish",       new Color(0x00bfff));
-        defaultColors.put("model.nation.danish",        new Color(0xff00bf));
-        defaultColors.put("model.nation.russian",       new Color(0xffffff));
-        defaultColors.put("model.nation.portugueseREF", new Color(0xbfff00));
-        defaultColors.put("model.nation.swedishREF",    new Color(0x367588));
-        defaultColors.put("model.nation.danishREF",     new Color(0x91006d));
-        defaultColors.put("model.nation.russianREF",    new Color(0xbebebe));
+        defaultColors.put("model.nation.dutch",         0xFF000000 | 0xff9d3c);
+        defaultColors.put("model.nation.french",        0xFF000000 | 0x0000ff);
+        defaultColors.put("model.nation.english",       0xFF000000 | 0xff0000);
+        defaultColors.put("model.nation.spanish",       0xFF000000 | 0xffff00);
+        defaultColors.put("model.nation.inca",          0xFF000000 | 0xf4f0c4);
+        defaultColors.put("model.nation.aztec",         0xFF000000 | 0xc4a020);
+        defaultColors.put("model.nation.arawak",        0xFF000000 | 0x6888c0);
+        defaultColors.put("model.nation.cherokee",      0xFF000000 | 0x6c3c18);
+        defaultColors.put("model.nation.iroquois",      0xFF000000 | 0x74a44c);
+        defaultColors.put("model.nation.sioux",         0xFF000000 | 0xc0ac84);
+        defaultColors.put("model.nation.apache",        0xFF000000 | 0x900000);
+        defaultColors.put("model.nation.tupi",          0xFF000000 | 0x045c04);
+        defaultColors.put("model.nation.dutchREF",      0xFF000000 | 0xcc5500);
+        defaultColors.put("model.nation.frenchREF",     0xFF000000 | 0x6050dc);
+        defaultColors.put("model.nation.englishREF",    0xFF000000 | 0xde3163);
+        defaultColors.put("model.nation.spanishREF",    0xFF000000 | 0xffdf00);
+        defaultColors.put("model.nation.portuguese",    0xFF000000 | 0x00ff00);
+        defaultColors.put("model.nation.swedish",       0xFF000000 | 0x00bfff);
+        defaultColors.put("model.nation.danish",        0xFF000000 | 0xff00bf);
+        defaultColors.put("model.nation.russian",       0xFF000000 | 0xffffff);
+        defaultColors.put("model.nation.portugueseREF", 0xFF000000 | 0xbfff00);
+        defaultColors.put("model.nation.swedishREF",    0xFF000000 | 0x367588);
+        defaultColors.put("model.nation.danishREF",     0xFF000000 | 0x91006d);
+        defaultColors.put("model.nation.russianREF",    0xFF000000 | 0xbebebe);
         defaultColors.put(Nation.UNKNOWN_NATION_ID,     Nation.UNKNOWN_NATION_COLOR);
     }
     // end @compat 0.10.x/0.11.x
