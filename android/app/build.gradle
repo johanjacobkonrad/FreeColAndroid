@@ -6,6 +6,7 @@ plugins {
 // main source tree; the desktop client is deliberately left out.
 def engineSrc = layout.buildDirectory.dir('generated/engine-src')
 def engineAssets = layout.buildDirectory.dir('generated/engine-assets')
+def artAssets = layout.buildDirectory.dir('generated/art-assets')
 
 def syncEngineSources = tasks.register('syncEngineSources', Sync) {
     from('../../src') {
@@ -28,6 +29,32 @@ def syncEngineAssets = tasks.register('syncEngineAssets', Sync) {
     into engineAssets.map { it.dir('data') }
 }
 
+// The artwork the map needs, from data/default (the whole of it is
+// about 180 MB).  Only the standard-size images: the ".size9" ones
+// are for zooming in on big screens.
+def syncArtAssets = tasks.register('syncArtAssets', Sync) {
+    from('../../data/default') {
+        include 'resources.properties'
+        include 'resources/images/terrain/*/center*.png'
+        include 'resources/images/terrain/beach/*.png'
+        include 'resources/images/terrain/unexplored/*.png'
+        include 'resources/images/terrain/hills/*.png'
+        include 'resources/images/terrain/mountains/*.png'
+        include 'resources/images/forest/*/*.png'
+        include 'resources/images/units/*/*.png'
+        include 'resources/images/settlements/*.png'
+        include 'resources/images/bonus/*.png'
+        include 'resources/images/misc/*.png'
+        exclude '**/*.size*.png'
+        // Forests: only the plain image, not the river and corner
+        // pieces (forest/mixed/mixed.png, but not mixed0110.png or
+        // mixed-n.png), which are most of the 34 MB.
+        (0..9).each { d -> exclude "resources/images/forest/*/*${d}*.png" }
+        exclude 'resources/images/forest/*/*-?.png'
+    }
+    into artAssets.map { it.dir('art') }
+}
+
 android {
     namespace 'net.sf.freecol.android'
     compileSdk 35
@@ -36,8 +63,8 @@ android {
         applicationId 'net.sf.freecol.android'
         minSdk 33
         targetSdk 35
-        versionCode 1
-        versionName '0.1-phase1'
+        versionCode 2
+        versionName '0.2-phase2'
     }
 
     compileOptions {
@@ -48,7 +75,7 @@ android {
     sourceSets {
         main {
             java.srcDir engineSrc
-            assets.srcDir engineAssets
+            assets.srcDirs engineAssets, artAssets
         }
     }
 
@@ -66,7 +93,7 @@ android {
 }
 
 tasks.named('preBuild') {
-    dependsOn syncEngineSources, syncEngineAssets
+    dependsOn syncEngineSources, syncEngineAssets, syncArtAssets
 }
 
 dependencies {

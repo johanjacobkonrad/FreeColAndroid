@@ -1,0 +1,216 @@
+/**
+ *  Copyright (C) 2002-2024   The FreeCol Team
+ *
+ *  This file is part of FreeCol.
+ *
+ *  FreeCol is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  FreeCol is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
+ */
+package net.sf.freecol.android;
+
+import java.io.File;
+import java.util.ArrayDeque;
+import java.util.Deque;
+
+import android.app.Activity;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowManager;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import net.sf.freecol.android.map.IsometricRenderer;
+import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Unit;
+
+
+/**
+ * A single-player game against the AI: the map, a line of news, and
+ * buttons for the commonest orders.
+ */
+public final class GameActivity extends Activity implements GameSession.Listener {
+
+    private static final int NEWS_LINES = 4;
+
+    private GameSession session;
+    private MapView mapView;
+    private TextView info, news;
+    private Button nextButton, waitButton, fortifyButton, colonyButton, endButton;
+    private final Deque<String> newsLines = new ArrayDeque<>();
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        session = new GameSession(this);
+        AndroidArt art;
+        try {
+            art = new AndroidArt(getAssets());
+        } catch (Exception e) {
+            throw new RuntimeException("Game art is missing", e);
+        }
+        mapView = new MapView(this, session, new IsometricRenderer(art));
+
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.BLACK);
+        root.addView(mapView);
+
+        final float dp = getResources().getDisplayMetrics().density;
+        final int pad = (int)(8 * dp);
+
+        LinearLayout hud = new LinearLayout(this);
+        hud.setOrientation(LinearLayout.VERTICAL);
+
+        info = label(15, dp);
+        news = label(13, dp);
+        news.setMaxLines(NEWS_LINES);
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.VERTICAL);
+        top.addView(info);
+        top.addView(news);
+        hud.addView(top, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        // Space between the news and the buttons lets taps reach the map.
+        hud.addView(new android.view.View(this) {
+                @Override
+                public boolean onTouchEvent(android.view.MotionEvent e) {
+                    return false;
+                }
+            }, new LinearLayout.LayoutParams(1, 0, 1f));
+
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.END);
+        nextButton = button(bar, "Next unit", v -> session.nextUnit());
+        waitButton = button(bar, "Wait", v -> session.waitUnit());
+        fortifyButton = button(bar, "Fortify", v -> session.fortifyUnit());
+        colonyButton = button(bar, "Build colony", v -> session.buildColony());
+        endButton = button(bar, "End turn", v -> session.endTurn());
+        hud.addView(bar, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        // The map goes edge to edge; keep the controls clear of the
+        // status bar, navigation bar and camera cutout.
+        hud.setPadding(pad, pad, pad, pad);
+        hud.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad + bars.top,
+                         pad + bars.right, pad + bars.bottom);
+            return WindowInsets.CONSUMED;
+        });
+        root.addView(hud, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+        setContentView(root);
+        refresh();
+
+        new Thread(() -> {
+            try {
+                onStatus("Unpacking game data...");
+                File data = new File(getFilesDir(), "data");
+                Assets.copy(getAssets(), "data", data);
+                Engine.init(data);
+                session.start(Engine.loadSpecification());
+            } catch (Throwable t) {
+                onStatus("Could not start: " + t);
+            }
+        }, "GameStart").start();
+    }
+
+    @Override
+    protected void onDestroy() {
+        session.stop();
+        super.onDestroy();
+    }
+
+
+    // Implement GameSession.Listener
+
+    @Override
+    public void onChanged() {
+        runOnUiThread(this::refresh);
+    }
+
+    @Override
+    public void onStatus(String text) {
+        runOnUiThread(() -> {
+            newsLines.addLast(text);
+            while (newsLines.size() > NEWS_LINES) newsLines.removeFirst();
+            news.setText(String.join("\n", newsLines));
+        });
+    }
+
+
+    private void refresh() {
+        boolean myTurn = session.isMyTurn();
+        Unit unit = session.getSelectedUnit();
+        String text = "";
+        boolean canColony = false, canFortify = false;
+        synchronized (session.lock()) {
+            Player me = session.getMyPlayer();
+            if (session.isInGame() && me != null) {
+                text = net.sf.freecol.common.i18n.Messages.message(
+                    session.getGame().getTurn().getLabel())
+                    + "   Gold: " + me.getGold();
+                if (unit != null) {
+                    text += "   " + unit.getDescription()
+                        + " (moves " + unit.getMovesAsString() + ")";
+                    canColony = unit.hasTile() && unit.canBuildColony();
+                    canFortify = unit.hasTile() && !unit.isOnCarrier();
+                }
+            }
+        }
+        info.setText(text);
+        nextButton.setEnabled(myTurn);
+        waitButton.setEnabled(myTurn && unit != null);
+        fortifyButton.setEnabled(myTurn && canFortify);
+        colonyButton.setEnabled(myTurn && canColony);
+        endButton.setEnabled(myTurn);
+        mapView.showSelected();
+        mapView.invalidate();
+    }
+
+    private TextView label(int sp, float dp) {
+        TextView t = new TextView(this);
+        t.setTextSize(sp);
+        t.setTextColor(Color.WHITE);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setShadowLayer(3 * dp, 0, 0, Color.BLACK);
+        return t;
+    }
+
+    private Button button(LinearLayout bar, String text,
+                          android.view.View.OnClickListener l) {
+        Button b = new Button(this);
+        b.setText(text);
+        b.setAllCaps(false);
+        b.setOnClickListener(l);
+        b.setAlpha(0.9f);
+        bar.addView(b);
+        return b;
+    }
+}
