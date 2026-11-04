@@ -277,7 +277,13 @@ public final class IsometricRenderer implements MapRenderer {
 
     // Image keys, as in the desktop ImageLibrary
 
-    private String unitKey(Unit unit) {
+    /**
+     * The art key for a unit's picture (also used by the unit list).
+     *
+     * @param unit The {@code Unit}.
+     * @return Its image key.
+     */
+    public String unitKey(Unit unit) {
         String roleId = unit.getRole().getId();
         String roleQual = (Role.isDefaultRoleId(roleId)) ? ""
             : "." + Role.getRoleIdSuffix(roleId);

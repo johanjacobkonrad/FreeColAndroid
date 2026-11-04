@@ -20,9 +20,12 @@ package net.sf.freecol.android;
 
 import java.io.File;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -32,16 +35,21 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import net.sf.freecol.android.map.Art;
 import net.sf.freecol.android.map.IsometricRenderer;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
 
 /**
- * A single-player game against the AI: the map, a line of news, and
+ * A single-player game against the AI: the map, a line of news, a row
+ * of the units on the selected unit's tile (tap one to pick it), and
  * buttons for the commonest orders.
  */
 public final class GameActivity extends Activity implements GameSession.Listener {
@@ -49,7 +57,13 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private static final int NEWS_LINES = 4;
 
     private GameSession session;
+    private AndroidArt art;
+    private IsometricRenderer renderer;
     private MapView mapView;
+    private LinearLayout unitRow;
+    private List<Unit> unitRowUnits = new ArrayList<>();
+    private Unit unitRowSelected = null;
+    private float dp;
     private TextView info, news;
     private Button nextButton, waitButton, fortifyButton, colonyButton, endButton;
     private final Deque<String> newsLines = new ArrayDeque<>();
@@ -62,19 +76,19 @@ public final class GameActivity extends Activity implements GameSession.Listener
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         session = new GameSession(this);
-        AndroidArt art;
         try {
             art = new AndroidArt(getAssets());
         } catch (Exception e) {
             throw new RuntimeException("Game art is missing", e);
         }
-        mapView = new MapView(this, session, new IsometricRenderer(art));
+        renderer = new IsometricRenderer(art);
+        mapView = new MapView(this, session, renderer);
 
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         root.addView(mapView);
 
-        final float dp = getResources().getDisplayMetrics().density;
+        dp = getResources().getDisplayMetrics().density;
         final int pad = (int)(8 * dp);
 
         LinearLayout hud = new LinearLayout(this);
@@ -98,6 +112,16 @@ public final class GameActivity extends Activity implements GameSession.Listener
                     return false;
                 }
             }, new LinearLayout.LayoutParams(1, 0, 1f));
+
+        // The units on the selected tile, ship passengers included.
+        unitRow = new LinearLayout(this);
+        unitRow.setOrientation(LinearLayout.HORIZONTAL);
+        HorizontalScrollView rowScroll = new HorizontalScrollView(this);
+        rowScroll.setHorizontalScrollBarEnabled(false);
+        rowScroll.addView(unitRow);
+        hud.addView(rowScroll, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
 
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
@@ -169,7 +193,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
         boolean myTurn = session.isMyTurn();
         Unit unit = session.getSelectedUnit();
         String text = "";
-        boolean canColony = false, canFortify = false;
+        boolean canColony = false, canFortify = false, naval = false;
+        List<Unit> here = new ArrayList<>();
         synchronized (session.lock()) {
             Player me = session.getMyPlayer();
             if (session.isInGame() && me != null) {
@@ -179,8 +204,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 if (unit != null) {
                     text += "   " + unit.getDescription()
                         + " (moves " + unit.getMovesAsString() + ")";
-                    canColony = unit.hasTile() && unit.canBuildColony();
+                    canColony = session.canBuildColonyHere(unit);
                     canFortify = unit.hasTile() && !unit.isOnCarrier();
+                    naval = unit.isNaval();
+                    Tile t = unit.getTile();
+                    if (t != null) here = session.getMyUnitsAt(t);
                 }
             }
         }
@@ -188,10 +216,66 @@ public final class GameActivity extends Activity implements GameSession.Listener
         nextButton.setEnabled(myTurn);
         waitButton.setEnabled(myTurn && unit != null);
         fortifyButton.setEnabled(myTurn && canFortify);
+        fortifyButton.setText(naval ? "Sentry" : "Fortify");
+        updateUnitRow(here, unit);
         colonyButton.setEnabled(myTurn && canColony);
         endButton.setEnabled(myTurn);
         mapView.showSelected();
         mapView.invalidate();
+    }
+
+    /** Show the units on the selected tile, if there is more than one. */
+    private void updateUnitRow(List<Unit> units, Unit sel) {
+        if (units.size() < 2) units = new ArrayList<>();
+        if (units.equals(unitRowUnits) && sel == unitRowSelected) {
+            // Same units: just refresh the moves left.
+            for (int i = 0; i < unitRow.getChildCount(); i++) {
+                TextView moves = (TextView)((LinearLayout)unitRow.getChildAt(i))
+                    .getChildAt(1);
+                synchronized (session.lock()) {
+                    moves.setText(units.get(i).getMovesAsString());
+                }
+            }
+            return;
+        }
+        unitRowUnits = units;
+        unitRowSelected = sel;
+        unitRow.removeAllViews();
+        final int size = (int)(52 * dp), pad = (int)(3 * dp);
+        for (final Unit u : units) {
+            Bitmap bm = null;
+            String moves;
+            boolean aboard;
+            synchronized (session.lock()) {
+                Art.Img img = art.get(renderer.unitKey(u));
+                if (img != null) bm = (Bitmap)img.handle;
+                moves = u.getMovesAsString();
+                aboard = u.isOnCarrier();
+            }
+            LinearLayout cell = new LinearLayout(this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            cell.setGravity(Gravity.CENTER_HORIZONTAL);
+            cell.setPadding(pad, pad, pad, pad);
+            // Selected: light; passengers: blue-ish; others: dark.
+            cell.setBackgroundColor((u == sel) ? 0xCCFFFFFF
+                : aboard ? 0xAA1E4A7A : 0xAA000000);
+            ImageView iv = new ImageView(this);
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            if (bm != null) iv.setImageBitmap(bm);
+            cell.addView(iv, new LinearLayout.LayoutParams(size, size));
+            TextView t = new TextView(this);
+            t.setTextSize(11);
+            t.setTextColor((u == sel) ? Color.BLACK : Color.WHITE);
+            t.setText(moves);
+            t.setGravity(Gravity.CENTER);
+            cell.addView(t);
+            cell.setOnClickListener(v -> session.select(u));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, pad * 2, 0);
+            unitRow.addView(cell, lp);
+        }
     }
 
     private TextView label(int sp, float dp) {

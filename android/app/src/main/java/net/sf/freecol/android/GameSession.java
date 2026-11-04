@@ -240,29 +240,78 @@ public final class GameSession implements MessageHandler {
     // on the worker thread.
 
     /**
-     * Select a unit, or the next unit on a tile if the given one is
-     * already selected (so taps can cycle through a stack, including
-     * units on board a ship).
+     * Our units on a tile, ships first with their passengers after
+     * them.  Call while holding {@link #lock()}.
+     *
+     * @param tile The {@code Tile} to look at.
+     * @return The units, possibly empty.
+     */
+    public List<Unit> getMyUnitsAt(Tile tile) {
+        List<Unit> mine = new ArrayList<>();
+        if (me == null || tile == null) return mine;
+        for (Unit u : tile.getUnitList()) {
+            if (u.getOwner() != me) continue;
+            mine.add(u);
+            for (Unit c : u.getUnitList()) mine.add(c);
+        }
+        return mine;
+    }
+
+    /**
+     * Select one of our units.
+     *
+     * @param unit The {@code Unit} to select.
+     */
+    public void select(Unit unit) {
+        if (unit == null || unit.getOwner() != me) return;
+        selected = unit;
+        changed();
+    }
+
+    /**
+     * Select a unit on a tile: one that can still move if there is
+     * one, or the next one along if a unit there is already selected.
      *
      * @param tile The {@code Tile} that was tapped.
      * @return True if one of our units is now selected.
      */
     public boolean selectOnTile(Tile tile) {
         synchronized (lock) {
-            if (me == null || tile == null) return false;
-            List<Unit> mine = new ArrayList<>();
-            for (Unit u : tile.getUnitList()) {
-                if (u.getOwner() != me) continue;
-                mine.add(u);
-                for (Unit c : u.getUnitList()) mine.add(c);
-            }
+            List<Unit> mine = getMyUnitsAt(tile);
             if (mine.isEmpty()) return false;
             Unit cur = getSelectedUnit();
             int i = mine.indexOf(cur);
-            selected = mine.get((i + 1) % mine.size());
+            if (i >= 0) {
+                selected = mine.get((i + 1) % mine.size());
+            } else {
+                Unit pick = mine.get(0);
+                for (Unit u : mine) {
+                    if (u.getMovesLeft() > 0 && u.getState() == UnitState.ACTIVE) {
+                        pick = u;
+                        break;
+                    }
+                }
+                selected = pick;
+            }
         }
         changed();
         return true;
+    }
+
+    /**
+     * Can a unit found a colony where it stands?  Stricter than
+     * Unit.canBuildColony, which does not look at the tile.
+     * Call while holding {@link #lock()}.
+     *
+     * @param unit The {@code Unit} to check.
+     * @return True if a colony can be founded.
+     */
+    public boolean canBuildColonyHere(Unit unit) {
+        if (unit == null || me == null || unit.isNaval()
+            || unit.isOnCarrier() || !unit.canBuildColony()) return false;
+        Tile t = unit.getTile();
+        return t != null && t.isLand() && t.getSettlement() == null
+            && me.canClaimToFoundSettlement(t);
     }
 
     /**
@@ -344,7 +393,7 @@ public final class GameSession implements MessageHandler {
         worker.execute(() -> {
             String name;
             synchronized (lock) {
-                if (!unit.canBuildColony()) {
+                if (!canBuildColonyHere(unit)) {
                     status("This unit can not found a colony here.");
                     return;
                 }
