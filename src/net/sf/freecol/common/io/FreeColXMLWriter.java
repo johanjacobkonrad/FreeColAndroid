@@ -215,7 +215,16 @@ public class FreeColXMLWriter implements Closeable, XMLStreamWriter {
      * @return An {@code XMLOutputFactory}.
      */
     private XMLOutputFactory getFactory() {
-        return XMLOutputFactory.newInstance();
+        XMLOutputFactory xof = XMLOutputFactory.newInstance();
+        // A network connection writes one message after another into
+        // the same stream, each its own root element.  The JDK's
+        // writer allows that; Woodstox (used on Android) refuses a
+        // second root unless structure checking is turned off.
+        final String wstxValidate = "com.ctc.wstx.outputValidateStructure";
+        if (xof.isPropertySupported(wstxValidate)) {
+            xof.setProperty(wstxValidate, Boolean.FALSE);
+        }
+        return xof;
     }
 
     /**
