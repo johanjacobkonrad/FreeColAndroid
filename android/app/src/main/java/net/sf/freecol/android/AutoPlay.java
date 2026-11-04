@@ -20,13 +20,8 @@ package net.sf.freecol.android;
 
 import java.io.File;
 import java.net.InetAddress;
-import java.util.Locale;
 import java.util.function.Consumer;
 
-import net.sf.freecol.FreeCol;
-import net.sf.freecol.common.i18n.Messages;
-import net.sf.freecol.common.io.FreeColDirectories;
-import net.sf.freecol.common.io.FreeColRules;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.networking.ChangeSet;
@@ -91,19 +86,9 @@ public final class AutoPlay {
         int startTurn = -1;
         String now = "?";
         try {
-            String err = FreeColDirectories.setDataDirectory(dataDir.getPath());
-            if (err != null) {
-                return new Result(0, now, 0, "bad data directory: " + err);
-            }
-            Messages.loadMessageBundle(Locale.UK);
-            FreeColRules.loadRules();
             log.accept("Loading rules...");
-            Specification spec = FreeCol.loadSpecification(
-                FreeColRules.getFreeColRulesFile("freecol"), null,
-                "model.difficulty.medium");
-            if (spec == null) {
-                return new Result(0, now, elapsed(start), "rules failed to load");
-            }
+            Engine.init(dataDir);
+            Specification spec = Engine.loadSpecification();
 
             log.accept("Starting server...");
             server = new FreeColServer(false, true, spec,

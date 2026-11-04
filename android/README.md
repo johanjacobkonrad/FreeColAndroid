@@ -37,7 +37,7 @@ https://github.com/JohanJacobKonrad/FreeColAndroid/releases/download/android-lat
 
 Confirmed on a phone (Android 15): 50 all-AI turns in 67s. Phase 1 is done.
 
-## Phase 2: touch UI (next)
+## Phase 2: touch UI (in progress)
 
 Decisions so far:
 
@@ -48,13 +48,38 @@ Decisions so far:
 - **Map renderer behind an interface**, so a classic top-down square-tile
   view can be added later as a second renderer.
 
-First slice: the map.
+### First slice: the map
 
-- Render the isometric map with FreeCol's terrain, unit and settlement art.
-- Pinch to zoom, drag to scroll.
-- Start a real game as one nation against the AI, using the in-process
-  server as `AutoPlay` does, but with a human player connected.
-- Select and move units; end the turn.
+The start screen has **New game**, which plays as one nation against the
+AI on the in-process server, with the human player connected over a
+loopback socket the way the desktop client connects.
+
+- `GameSession` is the human player's side: it logs in, launches the
+  game, keeps the player's copy of the game up to date from the
+  server's messages and sends orders (move, board, attack, go to a far
+  tile, fortify, found a colony, end turn). It has no UI code.
+- `map/MapRenderer` is the renderer interface; `map/IsometricRenderer`
+  draws FreeCol's terrain, beaches, forests, hills, bonus resources,
+  rumours, settlements and units, with fog of war and unexplored edges.
+  It draws through `map/Surface`, so the same code draws on an Android
+  canvas and, for the desktop preview, on a Java2D image.
+- `MapView`: drag to scroll, pinch to zoom. Tap your unit to select it
+  (tap again to cycle through a stack, including passengers on a ship),
+  tap another tile to move there. A far tile becomes the unit's
+  destination and it carries on in later turns. **Long press** moves
+  the selected unit onto a tile with your own units (to board a ship).
+- Buttons: Next unit, Wait, Fortify, Build colony, End turn.
+
+Not in yet: rivers, roads and terrain blending on the map; dialogs.
+For now first contact, founding fathers, the King's tax rises, native
+demands and new land names are answered with a sensible default, and
+the news line says what was chosen. Entering settlements (trade,
+scouting, missions) says it is not in the game yet.
+
+`android/session-check.sh` plays a short game on a desktop JVM the way
+the app does (sail to land, put a colonist ashore, found a colony) and
+runs in CI. With `--preview DIR` it also saves PNG pictures of the map
+as a phone would draw it.
 
 After that: the colony screen, Europe, then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.

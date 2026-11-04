@@ -19,13 +19,8 @@
 package net.sf.freecol.android;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 
 import android.app.Activity;
-import android.content.res.AssetManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.ViewGroup.LayoutParams;
@@ -38,9 +33,8 @@ import android.widget.TextView;
 
 
 /**
- * Phase 1 test screen: runs an all-AI game with the shared engine and
- * shows its progress.  This is a proof that the engine works on the
- * phone, not the real game user interface.
+ * The start screen: begin a new game, or run the Phase 1 engine test
+ * (an all-AI game with no map, showing its progress as text).
  */
 public final class MainActivity extends Activity {
 
@@ -73,16 +67,24 @@ public final class MainActivity extends Activity {
             return WindowInsets.CONSUMED;
         });
 
+        Button newGame = new Button(this);
+        newGame.setText("New game (you against the AI)");
+        newGame.setAllCaps(false);
+        newGame.setOnClickListener(v -> startActivity(
+            new android.content.Intent(this, GameActivity.class)));
+        layout.addView(newGame);
+
         runButton = new Button(this);
-        runButton.setText("Run " + TURNS + " AI turns");
+        runButton.setAllCaps(false);
+        runButton.setText("Engine test: run " + TURNS + " AI turns");
         runButton.setOnClickListener(v -> startRun());
         layout.addView(runButton);
 
         output = new TextView(this);
         output.setTypeface(Typeface.MONOSPACE);
         output.setTextIsSelectable(true);
-        output.setText("FreeCol engine test. Tap the button to let the AI "
-            + "players play a game on this phone.\n");
+        output.setText("The engine test lets the AI players play a game "
+            + "on this phone, without the map.\n");
         scroll = new ScrollView(this);
         scroll.addView(output);
         layout.addView(scroll, new LinearLayout.LayoutParams(
@@ -95,17 +97,9 @@ public final class MainActivity extends Activity {
         runButton.setEnabled(false);
         new Thread(() -> {
             try {
-                // StAX implementation, in case service lookup fails.
-                System.setProperty("javax.xml.stream.XMLInputFactory",
-                    "com.ctc.wstx.stax.WstxInputFactory");
-                System.setProperty("javax.xml.stream.XMLOutputFactory",
-                    "com.ctc.wstx.stax.WstxOutputFactory");
-                System.setProperty("javax.xml.stream.XMLEventFactory",
-                    "com.ctc.wstx.stax.WstxEventFactory");
-
                 File data = new File(getFilesDir(), "data");
                 log("Unpacking game data...");
-                copyAssets(getAssets(), "data", data);
+                Assets.copy(getAssets(), "data", data);
                 AutoPlay.Result r = AutoPlay.run(data, TURNS,
                     20 * 60 * 1000L, this::log);
                 log(r.toString());
@@ -121,28 +115,5 @@ public final class MainActivity extends Activity {
             output.append(line + "\n");
             scroll.post(() -> scroll.fullScroll(ScrollView.FOCUS_DOWN));
         });
-    }
-
-    /**
-     * Copy an asset directory tree to a real directory, since the
-     * engine reads its data from files.
-     */
-    private static void copyAssets(AssetManager am, String path, File dest)
-        throws IOException {
-        String[] children = am.list(path);
-        if (children == null || children.length == 0) {
-            dest.getParentFile().mkdirs();
-            try (InputStream in = am.open(path);
-                 OutputStream out = new FileOutputStream(dest)) {
-                byte[] buf = new byte[16384];
-                int n;
-                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            }
-            return;
-        }
-        dest.mkdirs();
-        for (String child : children) {
-            copyAssets(am, path + "/" + child, new File(dest, child));
-        }
     }
 }

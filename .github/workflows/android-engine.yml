@@ -2,7 +2,8 @@ name: Android engine check
 
 # Runs on every branch and pull request of the Android port: FreeCol's
 # own test suite, plus a check that the shared engine still builds
-# without the desktop client (see android/check-engine.sh).
+# without the desktop client (see android/check-engine.sh), and a short
+# game played the way the phone app plays it (android/session-check.sh).
 on:
   push:
   pull_request:
@@ -22,6 +23,10 @@ jobs:
       - name: Engine builds without the desktop client
         shell: bash
         run: android/check-engine.sh
+
+      - name: Human player session (land and found a colony)
+        shell: bash
+        run: android/session-check.sh
 
       - name: Run FreeCol tests
         shell: bash
