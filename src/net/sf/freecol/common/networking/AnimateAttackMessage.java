@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -142,7 +141,7 @@ public class AnimateAttackMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the unit in.
      * @return The attacker {@code Unit}.
      */
-    private Unit getAttacker(Game game) {
+    public Unit getAttacker(Game game) {
         return getUnit(game, ATTACKER_TAG);
     }
     
@@ -152,7 +151,7 @@ public class AnimateAttackMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the unit in.
      * @return The defender {@code Unit}.
      */
-    private Unit getDefender(Game game) {
+    public Unit getDefender(Game game) {
         return getUnit(game, DEFENDER_TAG);
     }
 
@@ -162,7 +161,7 @@ public class AnimateAttackMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the tile in.
      * @return The attacker {@code Tile}.
      */
-    private Tile getAttackerTile(Game game) {
+    public Tile getAttackerTile(Game game) {
         return game.getFreeColGameObject(getStringAttribute(ATTACKER_TILE_TAG),
                                          Tile.class);
     }
@@ -173,7 +172,7 @@ public class AnimateAttackMessage extends ObjectMessage {
      * @param game The {@code Game} to look up the tile in.
      * @return The defender {@code Tile}.
      */
-    private Tile getDefenderTile(Game game) {
+    public Tile getDefenderTile(Game game) {
         return game.getFreeColGameObject(getStringAttribute(DEFENDER_TILE_TAG),
                                          Tile.class);
     }
@@ -183,7 +182,7 @@ public class AnimateAttackMessage extends ObjectMessage {
      *
      * @return The result.
      */
-    private boolean getResult() {
+    public boolean getResult() {
         return getBooleanAttribute(SUCCESS_TAG, Boolean.FALSE);
     }
 
@@ -203,41 +202,4 @@ public class AnimateAttackMessage extends ObjectMessage {
         // Ignored
     }
         
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = freeColClient.getMyPlayer();
-        final Tile attackerTile = getAttackerTile(game);
-        final Tile defenderTile = getDefenderTile(game);
-        final boolean result = getResult();
-        final Unit attacker = getAttacker(game);
-        final Unit defender = getDefender(game);
-
-        if (attacker == null) {
-            logger.warning("Attack animation missing attacker unit.");
-            return;
-        }
-        if (defender == null) {
-            logger.warning("Attack animation missing defender unit.");
-            return;
-        }
-        if (attackerTile == null) {
-            logger.warning("Attack animation for: " + player.getId()
-                + " omitted attacker tile.");
-        }
-        if (defenderTile == null) {
-            logger.warning("Attack animation for: " + player.getId()
-                + " omitted defender tile.");
-        }
-
-        // This only performs animation, if required.  It does not
-        // actually perform an attack.
-        igc(freeColClient)
-            .animateAttackHandler(attacker, defender,
-                                  attackerTile, defenderTile, result);
-        clientGeneric(freeColClient);
-    }
 }

@@ -35,7 +35,6 @@ import java.lang.reflect.Constructor;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -227,17 +226,6 @@ public abstract class Message {
      */
     abstract public void aiHandler(FreeColServer freeColServer,
                                    AIPlayer aiPlayer) throws FreeColException;
-
-    /**
-     * Client-side handler for this message.
-     *
-     * Client handlers always return null.
-     *
-     * @param freeColClient The {@code FreeColClient} to handle this message.
-     * @exception FreeColException if there is a problem building the message.
-     */
-    abstract public void clientHandler(FreeColClient freeColClient)
-        throws FreeColException;
 
     /**
      * Server-side handler for this message.
@@ -550,58 +538,15 @@ public abstract class Message {
 
     // Convenience methods for the subclasses
 
-    protected net.sf.freecol.client.control.InGameController
-        igc(FreeColClient freeColClient) {
-        return freeColClient.getInGameController();
-    }
-
     protected net.sf.freecol.server.control.InGameController
         igc(FreeColServer freeColServer) {
         return freeColServer.getInGameController();
-    }
-
-    protected void invokeAndWait(FreeColClient freeColClient,
-                                 Runnable runnable) {
-        freeColClient.getGUI().invokeNowOrWait(runnable);
-    }
-
-    protected void invokeLater(FreeColClient freeColClient,
-                               Runnable runnable) {
-        freeColClient.getGUI().invokeNowOrLater(runnable);
-    }
-
-    protected net.sf.freecol.client.control.PreGameController
-        pgc(FreeColClient freeColClient) {
-        return freeColClient.getPreGameController();
     }
 
     protected net.sf.freecol.server.control.PreGameController
         pgc(FreeColServer freeColServer) {
         return freeColServer.getPreGameController();
     }
-
-    /**
-     * Create a runnable to execute generic message actions.
-     *
-     * @param freeColClient The client.
-     */
-    protected void clientGeneric(FreeColClient freeColClient) {
-        final FreeColClient fcc = freeColClient;
-        if (fcc.currentPlayerIsMyPlayer()) {
-            // If there is a "sound" attribute present, play that sound
-            final String soundId = getStringAttribute("sound");
-            // If there is a "flush" attribute present, encourage the
-            // client to display any new messages.
-            final boolean flush = getBooleanAttribute("flush", Boolean.FALSE);
-            if (soundId != null || flush) {
-                invokeLater(freeColClient, () -> {
-                        if (soundId != null) igc(fcc).sound(soundId);
-                        if (flush) igc(fcc).nextModelMessage();
-                    });
-            }
-        }
-    }
-    
     /**
      * Complain about finding the wrong XML element.
      *
@@ -613,6 +558,40 @@ public abstract class Message {
         throws XMLStreamException {
         throw new XMLStreamException("In " + getClass().getName()
             + ", expected " + wanted + " but read: " + got);
+    }
+
+
+    // Public read access to attributes, for handlers outside this package
+
+    /**
+     * Get a string attribute of this message.
+     *
+     * @param key The attribute name.
+     * @return The attribute value, or null if absent.
+     */
+    public final String peekStringAttribute(String key) {
+        return getStringAttribute(key);
+    }
+
+    /**
+     * Get a boolean attribute of this message.
+     *
+     * @param key The attribute name.
+     * @param defaultValue The value to return if the attribute is absent.
+     * @return The attribute value.
+     */
+    public final Boolean peekBooleanAttribute(String key,
+                                              Boolean defaultValue) {
+        return getBooleanAttribute(key, defaultValue);
+    }
+
+    /**
+     * Get all the string attributes of this message.
+     *
+     * @return A map of attribute names to values.
+     */
+    public final Map<String,String> peekStringAttributeMap() {
+        return getStringAttributeMap();
     }
 
 

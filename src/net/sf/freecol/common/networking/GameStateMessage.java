@@ -19,7 +19,6 @@
 
 package net.sf.freecol.common.networking;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.server.FreeColServer;
@@ -73,7 +72,7 @@ public class GameStateMessage extends AttributeMessage {
      *
      * @return The game state, if present.
      */
-    private ServerState getState() {
+    public ServerState getState() {
         return getEnumAttribute(STATE_TAG, ServerState.class,
                                 (ServerState)null);
     }
@@ -86,14 +85,6 @@ public class GameStateMessage extends AttributeMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final ServerState state = getState();
-        if (state != null) freeColClient.setServerState(state);
-    }
 
     /**
      * {@inheritDoc}

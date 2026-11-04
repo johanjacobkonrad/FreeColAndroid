@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Game.LogoutReason;
@@ -84,24 +83,6 @@ public class LogoutMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = getPlayer(game);
-        final LogoutReason reason = getReason();
-
-        if (player == null) return;
-
-        if (freeColClient.isInGame()) {
-            igc(freeColClient).logoutHandler(player, reason);
-
-        } else {
-            pgc(freeColClient).logoutHandler(player, reason);
-        }
-    }
 
     /**
      * {@inheritDoc}

@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
@@ -93,7 +92,7 @@ public class MonarchActionMessage extends ObjectMessage {
      *
      * @return The monarch action type.
      */
-    private MonarchAction getAction() {
+    public MonarchAction getAction() {
         return getEnumAttribute(ACTION_TAG, MonarchAction.class,
                                 (MonarchAction)null);
     }
@@ -103,7 +102,7 @@ public class MonarchActionMessage extends ObjectMessage {
      *
      * @return The template.
      */
-    private StringTemplate getTemplate() {
+    public StringTemplate getTemplate() {
         return getChild(0, StringTemplate.class);
     }
 
@@ -112,7 +111,7 @@ public class MonarchActionMessage extends ObjectMessage {
      *
      * @return The monarch key.
      */
-    private String getMonarchKey() {
+    public String getMonarchKey() {
         return getStringAttribute(MONARCH_TAG);
     }
 
@@ -181,18 +180,6 @@ public class MonarchActionMessage extends ObjectMessage {
         aiPlayer.monarchActionHandler(action, tax);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final MonarchAction action = getAction();
-        final StringTemplate template = getTemplate();
-        final String key = getMonarchKey();
-        
-        igc(freeColClient).monarchActionHandler(action, template, key);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

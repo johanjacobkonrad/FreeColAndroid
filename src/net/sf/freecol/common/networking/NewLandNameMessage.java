@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -85,19 +84,6 @@ public class NewLandNameMessage extends AttributeMessage {
         aiPlayer.newLandNameHandler(unit, name);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Unit unit = getUnit(freeColClient.getMyPlayer());
-        final String defaultName = getNewLandName();
-
-        if (defaultName == null || !unit.hasTile()) return;
-
-        igc(freeColClient).newLandNameHandler(unit, defaultName);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

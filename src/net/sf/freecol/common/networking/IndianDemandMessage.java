@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Constants.IndianDemandAction;
@@ -98,32 +97,6 @@ public class IndianDemandMessage extends AttributeMessage {
         aiPlayer.indianDemandHandler(unit, colony, type, amount, initialResult);
     }
         
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = freeColClient.getMyPlayer();
-        final Unit unit = getUnit(game);
-        final Colony colony = getColony(game);
-        final GoodsType goodsType = getType(game);
-        final int amount = getAmount();
-        
-        if (unit == null) {
-            logger.warning("IndianDemand with null unit.");
-            return;
-        }
-        if (colony == null) {
-            logger.warning("IndianDemand with null colony");
-            return;
-        } else if (!player.owns(colony)) {
-            throw new RuntimeException("Demand to anothers colony: " + colony);
-        }
-
-        igc(freeColClient).indianDemandHandler(unit, colony, goodsType, amount);
-        clientGeneric(freeColClient);
-    }
 
     /**
      * {@inheritDoc}

@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.server.FreeColServer;
@@ -65,13 +64,6 @@ public class DisconnectMessage extends TrivialMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        ; // Do nothing on the client side
-    }
 
     /**
      * {@inheritDoc}

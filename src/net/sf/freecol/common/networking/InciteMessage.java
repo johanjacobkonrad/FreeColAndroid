@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.IndianSettlement;
@@ -90,21 +89,6 @@ public class InciteMessage extends AttributeMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = freeColClient.getMyPlayer();
-        final Unit unit = getUnit(player);
-        final IndianSettlement is = getSettlement(unit);
-        final Player enemy = getEnemy(game);
-        final int gold = getGold();
-        
-        igc(freeColClient).inciteHandler(unit, is, enemy, gold);
-        clientGeneric(freeColClient);
-    }
     
     /**
      * {@inheritDoc}

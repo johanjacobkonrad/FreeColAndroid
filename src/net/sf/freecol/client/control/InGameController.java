@@ -2620,7 +2620,7 @@ public final class InGameController extends FreeColClientHolder {
     // they can come from.
     //
     // User command all return a success/failure indication, except if
-    // the game is stopped.  Message.clientHandler-initiated routines
+    // the game is stopped.  ClientMessageHandler-initiated routines
     // do not need to.
     //
     // Successfully executed commands should update the GUI.

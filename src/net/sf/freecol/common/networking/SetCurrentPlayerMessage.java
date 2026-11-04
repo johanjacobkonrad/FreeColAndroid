@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
@@ -81,23 +80,6 @@ public class SetCurrentPlayerMessage extends AttributeMessage {
         aiPlayer.setCurrentPlayerHandler(currentPlayer);
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient)
-        throws FreeColException {
-        final Game game = freeColClient.getGame();
-        final Player player = getPlayer(game);
-
-        if (player == null) {
-            throw new FreeColException("Invalid player: "
-                + getStringAttribute(PLAYER_TAG));
-        }
-
-        igc(freeColClient).setCurrentPlayerHandler(player);
-        clientGeneric(freeColClient);
-    }
 
 
     // Public interface

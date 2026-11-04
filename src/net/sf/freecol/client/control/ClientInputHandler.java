@@ -50,7 +50,7 @@ public final class ClientInputHandler extends FreeColClientHolder implements Mes
      */
     public Message handle(@SuppressWarnings("unused") Connection connection,
                           Message message) throws FreeColException {
-        message.clientHandler(getFreeColClient());
+        ClientMessageHandler.handle(getFreeColClient(), message);
         return null; 
     }
 

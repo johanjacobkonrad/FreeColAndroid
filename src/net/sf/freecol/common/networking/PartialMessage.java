@@ -23,7 +23,6 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.FreeColObject;
@@ -93,29 +92,4 @@ public class PartialMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final String id = getStringAttribute(ID_TAG);
-
-        if (id == null) {
-            logger.warning("Partial update is missing identifier attribute");
-            return;
-        }
-        FreeColGameObject fcgo = game.getFreeColGameObject(id);
-        if (fcgo == null) {
-            logger.warning("Partial update of missing object: " + id);
-            return;
-        }
-                
-        if (freeColClient.isInGame()) {
-            igc(freeColClient).partialHandler(fcgo, getStringAttributeMap());
-        } else {
-            logger.warning("Partial update when not in game.");
-        }
-        clientGeneric(freeColClient);
-    }
 }

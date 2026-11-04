@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Player;
@@ -75,22 +74,6 @@ public class SetDeadMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final Game game = freeColClient.getGame();
-        final Player player = getPlayer(game);
-
-        if (player == null) {
-            logger.warning("Invalid player for setDead");
-            return;
-        }
-
-        igc(freeColClient).setDeadHandler(player);
-        clientGeneric(freeColClient);
-    }
 
 
     // Public interface

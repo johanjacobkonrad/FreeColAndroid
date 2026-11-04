@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Turn;
@@ -77,22 +76,6 @@ public class NewTurnMessage extends AttributeMessage {
         // Ignored
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final int turn = getTurnNumber();
-
-        if (turn < 0) {
-            logger.warning("Invalid turn for newTurn: "
-                + Integer.toString(turn) );
-            return;
-        }
-
-        igc(freeColClient).newTurnHandler(turn);
-        clientGeneric(freeColClient);
-    }
 
 
     // Public interface

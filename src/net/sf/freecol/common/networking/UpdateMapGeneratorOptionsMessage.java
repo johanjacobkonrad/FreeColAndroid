@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.option.OptionGroup;
@@ -90,7 +89,7 @@ public class UpdateMapGeneratorOptionsMessage extends ObjectMessage {
      *
      * @return The options.
      */
-    private OptionGroup getMapGeneratorOptions() {
+    public OptionGroup getMapGeneratorOptions() {
         return getChild(0, OptionGroup.class);
     }
 
@@ -103,19 +102,6 @@ public class UpdateMapGeneratorOptionsMessage extends ObjectMessage {
         return MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final OptionGroup mapOptions = getMapGeneratorOptions();
-
-        if (freeColClient.isInGame()) {
-            ; // Ignore
-        } else {
-            pgc(freeColClient).updateMapGeneratorOptionsHandler(mapOptions);
-        }
-    }
 
     /**
      * {@inheritDoc}

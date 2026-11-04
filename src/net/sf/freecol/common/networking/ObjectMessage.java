@@ -86,7 +86,7 @@ public abstract class ObjectMessage extends AttributeMessage {
      * {@inheritDoc}
      */
     @Override
-    protected List<FreeColObject> getChildren() {
+    public List<FreeColObject> getChildren() {
         return this.objects;
     }
 

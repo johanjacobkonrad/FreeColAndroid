@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.HighScore;
@@ -85,7 +84,7 @@ public class HighScoresMessage extends ObjectMessage {
      *
      * @return The key.
      */
-    private String getKey() {
+    public String getKey() {
         return getStringAttribute(KEY_TAG);
     }
 
@@ -94,7 +93,7 @@ public class HighScoresMessage extends ObjectMessage {
      *
      * @return The list of {@code HighScore}s.
      */
-    private List<HighScore> getScores() {
+    public List<HighScore> getScores() {
         return getChildren(HighScore.class);
     }
 
@@ -107,17 +106,6 @@ public class HighScoresMessage extends ObjectMessage {
         return Message.MessagePriority.NORMAL;
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void clientHandler(FreeColClient freeColClient) {
-        final String key = getKey();
-        final List<HighScore> scores = getScores();
-
-        igc(freeColClient).highScoresHandler(key, scores);
-        clientGeneric(freeColClient);
-    }
         
     /**
      * {@inheritDoc}

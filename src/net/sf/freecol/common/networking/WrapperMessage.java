@@ -21,7 +21,6 @@ package net.sf.freecol.common.networking;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -89,15 +88,6 @@ public abstract class WrapperMessage extends AttributeMessage {
         return this.message == null && super.isEmpty();
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    public void clientHandler(FreeColClient freeColClient)
-        throws FreeColException {
-        if (this.message != null) {
-            this.message.clientHandler(freeColClient);
-        }
-    }
 
     /**
      * {@inheritDoc}
