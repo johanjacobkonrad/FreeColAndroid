@@ -114,7 +114,8 @@ public final class IsometricRenderer implements MapRenderer {
     // Drawing
 
     @Override
-    public void draw(Surface s, Map map, Player me, Unit selected, Viewport v) {
+    public void draw(Surface s, Map map, Player me, Unit selected, Viewport v,
+                     java.util.function.Predicate<Tile> only, boolean units) {
         // Tall pictures (forests, hills, units) reach up into the rows
         // above, so draw a few extra rows below the screen's edge.
         int row0 = Math.max(0, (int)Math.floor(v.toWorldY(0) / HALF_H) - 1);
@@ -128,18 +129,24 @@ public final class IsometricRenderer implements MapRenderer {
         for (int y = row0; y <= row1; y++) {
             for (int x = col0; x <= col1; x++) {
                 Tile t = map.getTile(x, y);
-                if (t != null) drawGround(s, t, me, v);
+                if (t != null && (only == null || only.test(t))) {
+                    drawGround(s, t, me, v);
+                }
             }
         }
         // Pass 2: everything standing on the ground, back to front.
         for (int y = row0; y <= row1; y++) {
             for (int x = col0; x <= col1; x++) {
                 Tile t = map.getTile(x, y);
-                if (t != null && t.isExplored()) drawItems(s, t, me, selected, v);
+                if (t != null && t.isExplored()
+                    && (only == null || only.test(t))) {
+                    drawItems(s, t, me, selected, v, units);
+                }
             }
         }
         // The selected unit's destination.
-        if (selected != null && selected.getDestination() instanceof Tile) {
+        if (units && selected != null
+            && selected.getDestination() instanceof Tile) {
             Tile d = (Tile)selected.getDestination();
             image(s, art.get("image.tile.tileSelect"), d, 0, 0, v, false);
         }
@@ -181,7 +188,7 @@ public final class IsometricRenderer implements MapRenderer {
     }
 
     private void drawItems(Surface s, Tile t, Player me, Unit selected,
-                           Viewport v) {
+                           Viewport v, boolean units) {
         final boolean fog = !me.canSee(t);
         final int seed = seed(t.getX(), t.getY());
         final TileType type = t.getType();
@@ -207,10 +214,10 @@ public final class IsometricRenderer implements MapRenderer {
         }
 
         Settlement settlement = t.getSettlement();
-        if (settlement != null) drawSettlement(s, settlement, t, v, fog);
+        if (settlement != null) drawSettlement(s, settlement, t, v, fog, units);
 
         // Units are only shown where the player can see right now.
-        if (fog) return;
+        if (fog || !units) return;
         Unit shown = null;
         if (selected != null && selected.getTile() == t) {
             shown = (selected.isOnCarrier()) ? selected.getCarrier() : selected;
@@ -232,13 +239,14 @@ public final class IsometricRenderer implements MapRenderer {
     }
 
     private void drawSettlement(Surface s, Settlement settlement, Tile t,
-                                Viewport v, boolean fog) {
+                                Viewport v, boolean fog, boolean label) {
         Art.Img img = art.get(settlementKey(settlement));
         if (img == null) return;
         float y = TILE_H - img.height;
         if (y > 0) y /= 2;
         image(s, img, t, (TILE_W - img.width) / 2f, y, v, fog);
 
+        if (!label) return;
         float cx = v.toScreenX(centreX(t));
         float by = v.toScreenY(top(t.getY()) + TILE_H + 12);
         float size = 13 * v.scale;
@@ -277,7 +285,13 @@ public final class IsometricRenderer implements MapRenderer {
 
     // Image keys, as in the desktop ImageLibrary
 
-    private String unitKey(Unit unit) {
+    /**
+     * The art key for a unit's picture (also used by the unit list).
+     *
+     * @param unit The {@code Unit}.
+     * @return Its image key.
+     */
+    public String unitKey(Unit unit) {
         String roleId = unit.getRole().getId();
         String roleQual = (Role.isDefaultRoleId(roleId)) ? ""
             : "." + Role.getRoleIdSuffix(roleId);

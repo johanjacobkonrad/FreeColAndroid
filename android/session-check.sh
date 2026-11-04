@@ -29,7 +29,7 @@ app=android/app/src/main/java/net/sf/freecol/android
     find src/net/sf/freecol/common src/net/sf/freecol/server -name '*.java'
     # The platform-neutral parts of the app.
     echo $app/Engine.java $app/LocalServerAPI.java $app/GameSession.java \
-         $app/SessionCheck.java
+         $app/SessionCheck.java $app/ColonyInfo.java
     find $app/map -name '*.java'
     if [ "${1:-}" = "--preview" ]; then
         find android/preview -name '*.java'

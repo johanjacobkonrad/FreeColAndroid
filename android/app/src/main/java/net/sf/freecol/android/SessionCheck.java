@@ -27,8 +27,8 @@ import net.sf.freecol.common.model.Unit;
 
 /**
  * Plays a few turns of a {@link GameSession} as a human would, with
- * no user interface: sail west towards land, put a colonist ashore
- * and found a colony, ending each turn and waiting for the AI to hand
+ * no user interface: sail west towards land, put a colonist ashore,
+ * found a colony and give it some colony screen orders, ending each turn and waiting for the AI to hand
  * the turn back.  Runs on a desktop JVM
  * with only the engine on the class path.
  *
@@ -38,7 +38,19 @@ public final class SessionCheck {
 
     private SessionCheck() {} // Static only
 
-    public static void main(String[] args) throws Exception {
+    public static void main(String[] args) {
+        // Any failure must end the run: the game's threads would
+        // otherwise keep the process alive.
+        try {
+            run(args);
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.out.println("FAILED: " + t);
+            System.exit(1);
+        }
+    }
+
+    private static void run(String[] args) throws Exception {
         final int turns = (args.length > 1) ? Integer.parseInt(args[1]) : 8;
         Engine.init(new File(args[0]));
         GameSession s = new GameSession(new GameSession.Listener() {
@@ -49,10 +61,10 @@ public final class SessionCheck {
             });
         s.start(Engine.loadSpecification());
         Unit ship = null, colonist = null;
-        Tile shipStart = null;
-        boolean landed = false, founded = false;
+        Tile shipStart = null, colonyTile = null;
+        boolean landed = false, founded = false, colonyOk = false;
         int played = 0;
-        for (int turn = 0; turn < turns && !founded; turn++) {
+        for (int turn = 0; turn < turns && !colonyOk; turn++) {
             waitForTurn(s, 120_000);
             s.sync();
             Tile target = null, land = null;
@@ -75,13 +87,16 @@ public final class SessionCheck {
                 // Head west towards land, staying on the same row.
                 target = map.getTile(Math.max(0, t.getX() - 30), t.getY());
             }
-            if (landed) {
+            if (founded) {
+                colonyOk = checkColony(s, colonyTile);
+            } else if (landed) {
                 // Found a colony where the colonist landed.
                 select(s, colonist);
                 s.buildColony();
                 s.sync();
                 synchronized (s.lock()) {
-                    founded = colonist.getTile().getColony() != null;
+                    colonyTile = colonist.getTile();
+                    founded = colonyTile.getColony() != null;
                 }
             } else if (land != null) {
                 // Next to land: put the first colonist ashore.
@@ -109,10 +124,123 @@ public final class SessionCheck {
         boolean moved = ship != null && shipStart != null
             && ship.getTile() != shipStart;
         System.out.println("Played " + played + " turns; ship moved: " + moved
-            + "; landed: " + landed + "; colony founded: " + founded);
-        boolean ok = moved && (founded || played == turns);
+            + "; landed: " + landed + "; colony founded: " + founded
+            + "; colony orders: " + colonyOk);
+        boolean ok = moved && (colonyOk || played == turns);
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
+    }
+
+    /**
+     * Colony screen orders: move the founder into a building and back
+     * out to a tile, and change what the colony builds.
+     *
+     * @return True if it all worked.
+     */
+    private static boolean checkColony(GameSession s, Tile colonyTile)
+        throws Exception {
+        Unit founder;
+        net.sf.freecol.common.model.Colony colony;
+        net.sf.freecol.common.model.Building building = null;
+        net.sf.freecol.common.model.ColonyTile tile = null;
+        java.util.List<net.sf.freecol.common.model.BuildableType> buildable;
+        synchronized (s.lock()) {
+            colony = colonyTile.getColony();
+            if (colony == null || colony.getUnitCount() == 0) {
+                System.out.println("  the colony is gone");
+                return false;
+            }
+            founder = colony.getUnitList().get(0);
+            System.out.println("Colony " + colony.getName() + ": founder at "
+                + founder.getLocation() + ", building "
+                + colony.getCurrentlyBuilding());
+            for (net.sf.freecol.common.model.Building b : colony.getBuildings()) {
+                if (b.getNoAddReason(founder)
+                    == net.sf.freecol.common.model.UnitLocation.NoAddReason.NONE
+                    && b.canBeWorked()) {
+                    building = b;
+                    break;
+                }
+            }
+            for (net.sf.freecol.common.model.ColonyTile ct : colony.getColonyTiles()) {
+                if (!ct.isColonyCenterTile() && ct != founder.getLocation()
+                    && ct.getWorkTile().isLand() && ct.isEmpty()
+                    && (s.getMyPlayer().owns(ct.getWorkTile())
+                        || s.getMyPlayer().canClaimForSettlement(ct.getWorkTile()))) {
+                    tile = ct;
+                    break;
+                }
+            }
+            buildable = s.getBuildable(colony);
+        }
+        System.out.println("  can build " + buildable.size() + " things");
+        s.work(founder, building);
+        s.sync();
+        boolean inBuilding;
+        synchronized (s.lock()) {
+            inBuilding = founder.getLocation() == building;
+            System.out.println("  moved to " + building + ": " + inBuilding);
+        }
+        // There may be no free land near the colony (natives own it).
+        if (tile != null) s.work(founder, tile);
+        s.sync();
+        boolean onTile;
+        synchronized (s.lock()) {
+            onTile = tile == null || founder.getLocation() == tile;
+            System.out.println("  moved to " + tile + ": " + onTile
+                + " producing " + founder.getWorkType());
+        }
+        net.sf.freecol.common.model.BuildableType want = null;
+        synchronized (s.lock()) {
+            for (net.sf.freecol.common.model.BuildableType bt : buildable) {
+                if (bt != colony.getCurrentlyBuilding()) {
+                    want = bt;
+                    break;
+                }
+            }
+        }
+        s.setBuild(colony, want);
+        s.sync();
+        boolean built;
+        synchronized (s.lock()) {
+            built = colony.getCurrentlyBuilding() == want;
+            System.out.println("  now building " + colony.getCurrentlyBuilding()
+                + ": " + built);
+        }
+        // What the colony screen would show.
+        boolean summary;
+        synchronized (s.lock()) {
+            net.sf.freecol.android.map.Art noArt
+                = new net.sf.freecol.android.map.Art() {
+                    @Override protected java.io.InputStream open(String p)
+                        throws java.io.IOException {
+                        throw new java.io.FileNotFoundException(p);
+                    }
+                    @Override protected String[] list(String d) { return null; }
+                    @Override protected Img decode(java.io.InputStream in) { return null; }
+                };
+            ColonyInfo info = new ColonyInfo(colony, s.getMyPlayer(),
+                new net.sf.freecol.android.map.IsometricRenderer(noArt));
+            System.out.println("  screen: " + info.title + " | " + info.stats
+                + " | " + info.building);
+            System.out.println("  land " + info.land.size() + ", buildings "
+                + info.buildings.size() + ", outside " + info.outside.size()
+                + ", ships " + info.carriers.size() + ", goods "
+                + info.warehouse.size());
+            int choices = 0;
+            for (ColonyInfo.LandItem li : info.land) {
+                if (li.worker != null && !li.centre) {
+                    choices = ColonyInfo.workChoices(li.colonyTile, li.worker.unit).size();
+                    System.out.println("  " + li.worker.name + " could produce "
+                        + choices + " things on " + li.tile);
+                }
+            }
+            int builds = ColonyInfo.buildChoices(s, colony).size();
+            summary = info.land.size() == 9 && !info.buildings.isEmpty()
+                && info.warehouse.size() > 10 && builds > 0
+                && (tile == null || choices > 0);
+        }
+        return inBuilding && onTile && built && !buildable.isEmpty() && summary;
     }
 
     /** Tap a unit's tile until that unit is selected. */
