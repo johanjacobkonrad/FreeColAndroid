@@ -19,13 +19,11 @@
 
 package net.sf.freecol.tools;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
-import javax.imageio.ImageIO;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
@@ -59,9 +57,9 @@ public class MapConverter {
                     }
                     System.out.println("Renamed " + filename + " to " + newName + ".");
                     FreeColSavegameFile savegame = new FreeColSavegameFile(in);
-                    BufferedImage thumbnail = null;
+                    byte[] thumbnail = null;
                     try (InputStream thumbnailIn = savegame.getInputStream(FreeColSavegameFile.THUMBNAIL_FILE)) {
-                        thumbnail = ImageIO.read(thumbnailIn);
+                        thumbnail = thumbnailIn.readAllBytes();
                         System.out.println("Loaded thumbnail.");
                     } catch (FileNotFoundException e) {
                         System.err.println("No thumbnail present.");

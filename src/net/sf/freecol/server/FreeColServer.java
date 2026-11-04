@@ -28,7 +28,6 @@ import static net.sf.freecol.common.util.Utils.garbageCollect;
 import static net.sf.freecol.common.util.Utils.getRandomState;
 import static net.sf.freecol.common.util.Utils.restoreRandomState;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -46,7 +45,6 @@ import java.util.jar.JarOutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.imageio.ImageIO;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
@@ -814,17 +812,17 @@ public final class FreeColServer {
      * Save a game from the map editor.
      *
      * @param file The file where the data will be written.
-     * @param image A thumbnail image for the map.
+     * @param pngThumbnail An optional PNG-encoded thumbnail of the map.
      * @exception IOException If a problem was encountered while trying
      *     to open, write or close the file.
      */
-    public void saveMapEditorGame(File file, BufferedImage image) 
+    public void saveMapEditorGame(File file, byte[] pngThumbnail) 
         throws IOException {
         this.setAIMain(null);
         // Mask out spec while saving map.
         Specification spec = getSpecification();
         getGame().setSpecification(null);
-        saveGame(file, MAP_EDITOR_NAME, null, null, image);
+        saveGame(file, MAP_EDITOR_NAME, null, null, pngThumbnail);
         getGame().setSpecification(spec);
     }
 
@@ -849,21 +847,22 @@ public final class FreeColServer {
      * @param owner An optional name to use as the owner of the game.
      * @param options Optional client options to save in the game.
      * @param active An optional active {@code Unit}.
-     * @param image A thumbnail {@code Image} value to save in the game.
+     * @param pngThumbnail An optional PNG-encoded thumbnail to save
+     *     in the game.
      * @exception IOException If a problem was encountered while trying
      *     to open, write or close the file.
      */
     private void saveGame(File file, String owner, OptionGroup options,
-                          Unit active, BufferedImage image) throws IOException {
+                          Unit active, byte[] pngThumbnail) throws IOException {
         // Try to GC now before launching into the save, as a failure
         // here can lead to a corrupt saved game file (BR#3146).
         // Alas, gc is only advisory, but it is all we have got.
         garbageCollect();
         try (JarOutputStream fos = new JarOutputStream(Files
                 .newOutputStream(file.toPath()))) {
-            if (image != null) {
+            if (pngThumbnail != null) {
                 fos.putNextEntry(new JarEntry(FreeColSavegameFile.THUMBNAIL_FILE));
-                ImageIO.write(image, "png", fos);
+                fos.write(pngThumbnail);
                 fos.closeEntry();
             }
 

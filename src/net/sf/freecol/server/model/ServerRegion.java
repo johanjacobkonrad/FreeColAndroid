@@ -19,7 +19,6 @@
 
 package net.sf.freecol.server.model;
 
-import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -37,6 +36,7 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.networking.ChangeSet;
 import net.sf.freecol.common.networking.ChangeSet.See;
 import net.sf.freecol.common.option.GameOptions;
+import net.sf.freecol.common.util.IntRectangle;
 import net.sf.freecol.common.util.LogBuilder;
 
 
@@ -51,8 +51,8 @@ public class ServerRegion extends Region {
     /** The size of this Region (number of Tiles). */
     private int size = 0;
 
-    /** A Rectangle that contains all points of the Region. */
-    private Rectangle bounds = new Rectangle();
+    /** A rectangle that contains all points of the Region. */
+    private IntRectangle bounds = new IntRectangle();
 
 
     /**
@@ -159,9 +159,9 @@ public class ServerRegion extends Region {
     /**
      * Get the bounding rectangle for this region.
      *
-     * @return The bounding {@code Rectangle}.
+     * @return The bounding {@code IntRectangle}.
      */
-    public final Rectangle getBounds() {
+    public final IntRectangle getBounds() {
         return bounds;
     }
 
@@ -307,13 +307,13 @@ public class ServerRegion extends Region {
         return result;
     }
     
-    private static Rectangle ensureWithinMap(Map map, Rectangle bounds) {
+    private static IntRectangle ensureWithinMap(Map map, IntRectangle bounds) {
         final int capX = Math.max(0, bounds.x);
         final int capY = Math.max(0, bounds.y);
         final int capWidth = Math.min(map.getWidth() - 1, bounds.x + Math.min(map.getWidth() - 1, bounds.width)) - capX;
         final int capHeight = Math.min(map.getHeight() - 1, bounds.y + Math.min(map.getHeight() - 1, bounds.height)) - capY;
         
-        return new Rectangle(capX, capY, capWidth, capHeight);
+        return new IntRectangle(capX, capY, capWidth, capHeight);
     }
 
     /**
@@ -377,7 +377,7 @@ public class ServerRegion extends Region {
         
         map.removeRegionsByKey("model.region.northWest");
         final ServerRegion northWest = new ServerRegion(map, "model.region.northWest", RegionType.LAND, null);
-        northWest.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        northWest.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 0,
                 0,
                 xDelimiterThirds[0],
@@ -387,7 +387,7 @@ public class ServerRegion extends Region {
 
         map.removeRegionsByKey("model.region.north");
         final ServerRegion north = new ServerRegion(map, "model.region.north",RegionType.LAND, null);
-        north.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        north.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 xDelimiterThirds[0],
                 0,
                 xDelimiterThirds[1] - xDelimiterThirds[0],
@@ -397,7 +397,7 @@ public class ServerRegion extends Region {
 
         map.removeRegionsByKey("model.region.northEast");
         final ServerRegion northEast = new ServerRegion(map, "model.region.northEast", RegionType.LAND, null);
-        northEast.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        northEast.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 xDelimiterThirds[1],
                 0,
                 Integer.MAX_VALUE,
@@ -410,7 +410,7 @@ public class ServerRegion extends Region {
         
         map.removeRegionsByKey("model.region.west");
         final ServerRegion west = new ServerRegion(map, "model.region.west", RegionType.LAND, null);
-        west.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        west.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 0,
                 yDelimiterThirds[0],
                 xDelimiterThirds[0],
@@ -420,7 +420,7 @@ public class ServerRegion extends Region {
 
         map.removeRegionsByKey("model.region.center");
         final ServerRegion center = new ServerRegion(map, "model.region.center", RegionType.LAND, null);
-        center.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        center.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 xDelimiterThirds[0],
                 yDelimiterThirds[0],
                 xDelimiterThirds[1] - xDelimiterThirds[0],
@@ -430,7 +430,7 @@ public class ServerRegion extends Region {
 
         map.removeRegionsByKey("model.region.east");
         final ServerRegion east = new ServerRegion(map, "model.region.east", RegionType.LAND, null);
-        east.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        east.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 xDelimiterThirds[1],
                 yDelimiterThirds[0],
                 Integer.MAX_VALUE,
@@ -443,7 +443,7 @@ public class ServerRegion extends Region {
         
         map.removeRegionsByKey("model.region.southWest");
         final ServerRegion southWest = new ServerRegion(map, "model.region.southWest", RegionType.LAND, null);
-        southWest.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        southWest.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 0,
                 yDelimiterThirds[1],
                 xDelimiterThirds[0],
@@ -453,7 +453,7 @@ public class ServerRegion extends Region {
 
         map.removeRegionsByKey("model.region.south");
         final ServerRegion south = new ServerRegion(map, "model.region.south", RegionType.LAND, null);
-        south.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        south.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 xDelimiterThirds[0],
                 yDelimiterThirds[1],
                 xDelimiterThirds[1] - xDelimiterThirds[0],
@@ -463,7 +463,7 @@ public class ServerRegion extends Region {
 
         map.removeRegionsByKey("model.region.southEast");
         final ServerRegion southEast = new ServerRegion(map, "model.region.southEast", RegionType.LAND, null);
-        southEast.bounds.setBounds(ensureWithinMap(map, new Rectangle(
+        southEast.bounds.setBounds(ensureWithinMap(map, new IntRectangle(
                 xDelimiterThirds[1],
                 yDelimiterThirds[1],
                 Integer.MAX_VALUE,
@@ -560,23 +560,23 @@ public class ServerRegion extends Region {
             }
             int nNP = 0, nSP = 0, nNA = 0, nSA = 0;
             
-            Rectangle rNP = new Rectangle(0,0,       midx,midy);
-            Rectangle rSP = new Rectangle(0,midy,    midx,maxy-midy);
-            Rectangle rNA = new Rectangle(midx,0,    maxx-midx,midy);
-            Rectangle rSA = new Rectangle(midx,midy, maxx-midx,maxy-midy);
+            IntRectangle rNP = new IntRectangle(0,0,       midx,midy);
+            IntRectangle rSP = new IntRectangle(0,midy,    midx,maxy-midy);
+            IntRectangle rNA = new IntRectangle(midx,0,    maxx-midx,midy);
+            IntRectangle rSA = new IntRectangle(midx,midy, maxx-midx,maxy-midy);
             if (tNP != null) nNP += fillOcean(map, tNP, northPacific,  rNP);
             if (tSP != null) nSP += fillOcean(map, tSP, southPacific,  rSP);
             if (tNA != null) nNA += fillOcean(map, tNA, northAtlantic, rNA);
             if (tSA != null) nSA += fillOcean(map, tSA, southAtlantic, rSA);
 
-            Rectangle rN = new Rectangle(0,0,    maxx,midy);
-            Rectangle rS = new Rectangle(0,midy, maxx,maxy-midy);
+            IntRectangle rN = new IntRectangle(0,0,    maxx,midy);
+            IntRectangle rS = new IntRectangle(0,midy, maxx,maxy-midy);
             if (tNP != null) nNP += fillOcean(map, tNP, northPacific,  rN);
             if (tSP != null) nSP += fillOcean(map, tSP, southPacific,  rS);
             if (tNA != null) nNA += fillOcean(map, tNA, northAtlantic, rN);
             if (tSA != null) nSA += fillOcean(map, tSA, southAtlantic, rS);
 
-            Rectangle rAll = new Rectangle(0,0, maxx,maxy);
+            IntRectangle rAll = new IntRectangle(0,0, maxx,maxy);
             if (tNP != null) nNP += fillOcean(map, tNP, northPacific,  rAll);
             if (tSP != null) nSP += fillOcean(map, tSP, southPacific,  rAll);
             if (tNA != null) nNA += fillOcean(map, tNA, northAtlantic, rAll);
@@ -596,11 +596,11 @@ public class ServerRegion extends Region {
      * @param map The {@code Map} to fill in.
      * @param tile A valid starting {@code Tile}.
      * @param region A {@code ServerRegion} to fill with.
-     * @param bounds A {@code Rectangle} that bounds the filling.
+     * @param bounds A {@code IntRectangle} that bounds the filling.
      * @return The number of tiles filled.
      */
     private static int fillOcean(Map map, Tile tile, ServerRegion region,
-                                 Rectangle bounds) {
+                                 IntRectangle bounds) {
         Queue<Tile> q = new LinkedList<>();
         int n = 0;
         boolean[][] visited = new boolean[map.getWidth()][map.getHeight()];
