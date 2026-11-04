@@ -19,6 +19,9 @@
 
 package net.sf.freecol.common.option;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 import javax.xml.stream.XMLStreamException;
@@ -226,6 +229,25 @@ public abstract class AbstractOption<T> extends FreeColSpecObject
         }
     }
     /**
+     * Factories for option types defined outside the shared engine
+     * (such as desktop-only client options), keyed by XML tag.
+     */
+    private static final Map<String, Function<Specification, AbstractOption<?>>>
+        extraOptionTypes = new ConcurrentHashMap<>();
+
+    /**
+     * Register an option type defined outside the shared engine, so
+     * that {@link #readOption(FreeColXMLReader)} can create it.
+     *
+     * @param tag The XML tag of the option type.
+     * @param factory A function creating a new option of that type.
+     */
+    public static void registerOptionType(String tag,
+        Function<Specification, AbstractOption<?>> factory) {
+        extraOptionTypes.put(tag, factory);
+    }
+
+    /**
      * General option reader routine.
      *
      * @param xr The {@code FreeColXMLReader} to read from.
@@ -245,12 +267,6 @@ public abstract class AbstractOption<T> extends FreeColSpecObject
 
         } else if (AbstractUnitOption.TAG.equals(tag)) {
             option = new AbstractUnitOption(spec);
-
-        } else if (AudioMixerOption.TAG.equals(tag)) {
-            option = new AudioMixerOption(spec);
-
-        } else if (FullscreenDisplayModeOption.TAG.equals(tag)) {
-            option = new FullscreenDisplayModeOption(spec);
 
         } else if (BooleanOption.TAG.equals(tag)) {
             option = new BooleanOption(spec);
@@ -293,6 +309,9 @@ public abstract class AbstractOption<T> extends FreeColSpecObject
 
         } else if (TextOption.TAG.equals(tag)) {
             option = new TextOption(spec);
+
+        } else if (extraOptionTypes.containsKey(tag)) {
+            option = extraOptionTypes.get(tag).apply(spec);
 
         } else {
             logger.warning("Not an option type: " + tag);

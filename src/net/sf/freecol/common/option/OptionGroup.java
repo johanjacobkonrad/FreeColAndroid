@@ -32,7 +32,6 @@ import java.util.logging.Logger;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -240,9 +239,10 @@ public class OptionGroup extends AbstractOption<OptionGroup>
                 // @compat 0.11.6
                 // Placement options move to their own group
                 if (o.getId().startsWith("net.sf.freecol.client.gui.panel.")) {
-                    if (etc == null) etc = getOptionGroup(ClientOptions.ETC);
+                    final String etcGroup = "clientOptions.etc"; // ClientOptions.ETC
+                    if (etc == null) etc = getOptionGroup(etcGroup);
                     etc.add(o);
-                    lb.add(o.getId(), " moved to ", ClientOptions.ETC, ".\n");
+                    lb.add(o.getId(), " moved to ", etcGroup, ".\n");
                     continue;
                 }
                 // end @compat 0.11.6

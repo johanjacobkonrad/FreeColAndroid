@@ -17,7 +17,7 @@
  *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.sf.freecol.common.option;
+package net.sf.freecol.client.option;
 
 import java.awt.DisplayMode;
 
@@ -25,6 +25,7 @@ import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.option.AbstractOption;
 import net.sf.freecol.common.io.FreeColXMLWriter;
 import net.sf.freecol.common.model.Specification;
 

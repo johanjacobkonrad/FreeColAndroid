@@ -32,13 +32,13 @@ import javax.swing.JPanel;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.client.gui.plaf.FreeColComboBoxRenderer;
-import net.sf.freecol.common.option.AudioMixerOption;
-import net.sf.freecol.common.option.AudioMixerOption.MixerWrapper;
+import net.sf.freecol.client.option.AudioMixerOption;
+import net.sf.freecol.client.option.AudioMixerOption.MixerWrapper;
 
 
 /**
  * This class provides visualization for an
- * {@link net.sf.freecol.common.option.AudioMixerOption}
+ * {@link net.sf.freecol.client.option.AudioMixerOption}
  * in order to enable values to be both seen and changed.
  */
 public final class AudioMixerOptionUI extends OptionUI<AudioMixerOption> {

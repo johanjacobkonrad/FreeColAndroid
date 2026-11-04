@@ -42,8 +42,8 @@ import javax.sound.sampled.SourceDataLine;
 import javax.sound.sampled.UnsupportedAudioFileException;
 
 import net.sf.freecol.FreeCol;
-import net.sf.freecol.common.option.AudioMixerOption;
-import net.sf.freecol.common.option.AudioMixerOption.MixerWrapper;
+import net.sf.freecol.client.option.AudioMixerOption;
+import net.sf.freecol.client.option.AudioMixerOption.MixerWrapper;
 import net.sf.freecol.common.option.PercentageOption;
 
 

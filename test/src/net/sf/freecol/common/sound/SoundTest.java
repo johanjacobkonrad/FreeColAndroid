@@ -24,7 +24,7 @@ import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.common.io.FreeColDataFile;
 import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.io.FreeColTcFile;
-import net.sf.freecol.common.option.AudioMixerOption;
+import net.sf.freecol.client.option.AudioMixerOption;
 import net.sf.freecol.common.option.PercentageOption;
 import net.sf.freecol.common.resources.ResourceManager;
 import net.sf.freecol.common.util.Utils;
