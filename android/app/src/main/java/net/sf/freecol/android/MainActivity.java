@@ -29,6 +29,8 @@ import android.content.res.AssetManager;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.ViewGroup.LayoutParams;
+import android.view.Window;
+import android.view.WindowInsets;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -52,11 +54,24 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // No title bar: Android 15+ draws apps edge-to-edge, and the
+        // title bar would otherwise cover the top of the screen.
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
 
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int)(16 * getResources().getDisplayMetrics().density);
-        layout.setPadding(pad, pad * 2, pad, pad);
+        final int pad = (int)(16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(pad, pad, pad, pad);
+        // Keep clear of the status bar, navigation bar and any camera
+        // cutout, which edge-to-edge drawing would otherwise overlap.
+        layout.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad + bars.top,
+                         pad + bars.right, pad + bars.bottom);
+            return WindowInsets.CONSUMED;
+        });
 
         runButton = new Button(this);
         runButton.setText("Run " + TURNS + " AI turns");
