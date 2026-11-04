@@ -204,13 +204,4 @@ public interface Location extends ObjectWithId {
     public static int rankOf(Location loc) {
         return (loc == null) ? Location.LOCATION_RANK_NOWHERE : loc.getRank();
     }
-
-    /**
-     * Get an image key for this location.
-     *
-     * @return A key for image lookup, null by default.
-     */
-    public default String getLocationImageKey() {
-        return null;
-    }
 }

@@ -38,6 +38,8 @@ import java.util.logging.Logger;
 import javax.swing.JPanel;
 import javax.swing.event.MouseInputListener;
 
+import net.sf.freecol.client.gui.GraphicsUtils;
+import net.sf.freecol.client.gui.ColorUtils;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.GUI;
@@ -46,7 +48,6 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
-import net.sf.freecol.common.util.Utils;
 
 
 /**
@@ -177,7 +178,7 @@ public final class MiniMap extends JPanel implements MouseInputListener {
         final int theTileSize = tileSize;
         final Dimension size = new Dimension(theTileSize * map.getWidth() + theTileSize / 2,
                 theTileSize * map.getHeight() / 2 + theTileSize / 4);
-        final BufferedImage nextPaintedMinimapImage = Utils.getGoodGraphicsDevice()
+        final BufferedImage nextPaintedMinimapImage = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleImage(size.width, size.height, Transparency.OPAQUE);
         final Graphics2D g2d = nextPaintedMinimapImage.createGraphics();
@@ -366,7 +367,7 @@ public final class MiniMap extends JPanel implements MouseInputListener {
                     g.fill(tilePath);
                     
                     if (tile.getOwner() != null) {
-                        Color nationOwner = tile.getOwner().getNationColor();
+                        Color nationOwner = ColorUtils.toColor(tile.getOwner().getNationColor());
                         Color colorTransparent =
                             new Color(nationOwner.getRed(), nationOwner.getGreen(), nationOwner.getBlue(), 100);
                         g.setColor(colorTransparent);
@@ -381,13 +382,13 @@ public final class MiniMap extends JPanel implements MouseInputListener {
                     if (unit != null) {
                         g.setColor(Color.BLACK);
                         g.draw(unitPath);
-                        g.setColor(unit.getOwner().getNationColor());
+                        g.setColor(ColorUtils.toColor(unit.getOwner().getNationColor()));
                         g.fill(unitPath);
                     }
                 } else {
                     g.setColor(Color.BLACK);
                     g.draw(settlementPath);
-                    g.setColor(tile.getSettlement().getOwner().getNationColor());
+                    g.setColor(ColorUtils.toColor(tile.getSettlement().getOwner().getNationColor()));
                     g.fill(settlementPath);
                 }
                 if (!freeColClient.isMapEditor()

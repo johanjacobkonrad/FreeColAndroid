@@ -19,7 +19,7 @@
 
 package net.sf.freecol.client.gui.panel;
 
-import static net.sf.freecol.common.util.ImageUtils.fillTexture;
+import static net.sf.freecol.client.gui.ImageUtils.fillTexture;
 
 import java.awt.Component;
 import java.awt.Dimension;
@@ -34,8 +34,8 @@ import java.util.List;
 
 import javax.swing.border.AbstractBorder;
 
-import net.sf.freecol.common.resources.ImageResource;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.ImageResource;
+import net.sf.freecol.client.resources.ResourceManager;
 
 
 /**

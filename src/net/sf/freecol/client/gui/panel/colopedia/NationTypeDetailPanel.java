@@ -50,7 +50,7 @@ import net.sf.freecol.common.model.EuropeanNationType;
 import net.sf.freecol.common.model.IndianNationType;
 import net.sf.freecol.common.model.NationType;
 import net.sf.freecol.common.model.UnitType;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 import net.sf.freecol.common.util.RandomChoice;
 
 

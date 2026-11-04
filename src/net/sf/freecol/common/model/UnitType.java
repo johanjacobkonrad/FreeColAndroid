@@ -25,8 +25,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
-import javax.swing.JList;
-import javax.swing.ListModel;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.common.io.FreeColXMLReader;
@@ -621,21 +619,19 @@ public final class UnitType extends BuildableType implements Consumer {
     }
 
     @Override
-    public int getMinimumIndex(Colony colony, JList<BuildableType> buildQueueList, int UNABLE_TO_BUILD) {
-        ListModel<BuildableType> buildQueue = buildQueueList.getModel();
+    public int getMinimumIndex(Colony colony, List<BuildableType> buildQueue, int UNABLE_TO_BUILD) {
         if (colony.canBuild(this))
             return 0;
-        for (int index = 0; index < buildQueue.getSize(); index++) {
-            if (buildQueue.getElementAt(index).hasAbility(Ability.BUILD, this))
+        for (int index = 0; index < buildQueue.size(); index++) {
+            if (buildQueue.get(index).hasAbility(Ability.BUILD, this))
                 return index + 1;
         }
         return UNABLE_TO_BUILD;
     }
 
     @Override
-    public int getMaximumIndex(Colony colony, JList<BuildableType> buildQueueList, int UNABLE_TO_BUILD) {
-        ListModel<BuildableType> buildQueue = buildQueueList.getModel();
-        final int buildQueueLastPos = buildQueue.getSize();
+    public int getMaximumIndex(Colony colony, List<BuildableType> buildQueue, int UNABLE_TO_BUILD) {
+        final int buildQueueLastPos = buildQueue.size();
 
         boolean canBuild = false;
         if (colony.canBuild(this)) {
@@ -647,8 +643,8 @@ public final class UnitType extends BuildableType implements Consumer {
         if (canBuild)
             return buildQueueLastPos;
         // check for building in queue that allows builting this unit
-        for (int index = 0; index < buildQueue.getSize(); index++) {
-            BuildableType toBuild = buildQueue.getElementAt(index);
+        for (int index = 0; index < buildQueue.size(); index++) {
+            BuildableType toBuild = buildQueue.get(index);
             if (toBuild == this)
                 continue;
             if (toBuild.hasAbility(Ability.BUILD, this)) {

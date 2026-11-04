@@ -305,7 +305,7 @@ public final class ReportTurnPanel extends ReportPanel {
 
     private void insertMessage(StyledDocument document, ModelMessage message,
                                Player player) throws BadLocationException {
-        for (Object o : message.splitLinks(player)) {
+        for (Object o : Utility.splitLinks(message, player)) {
             if (o instanceof String) {
                 document.insertString(document.getLength(), (String)o,
                                       document.getStyle("regular"));

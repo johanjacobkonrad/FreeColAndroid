@@ -22,6 +22,7 @@ package net.sf.freecol.client.control;
 import java.awt.Dimension;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.logging.Logger;
 
+import javax.imageio.ImageIO;
 import javax.swing.SwingUtilities;
 import javax.xml.stream.XMLStreamException;
 
@@ -51,8 +53,8 @@ import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.option.MapGeneratorOptions;
-import net.sf.freecol.common.resources.AudioResource;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.AudioResource;
+import net.sf.freecol.client.resources.ResourceManager;
 import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.generator.MapGenerator;
 import net.sf.freecol.server.model.ServerGame;
@@ -333,7 +335,7 @@ public final class MapEditorController extends FreeColClientHolder {
             public void run() {
                 try {
                     BufferedImage thumb = createMiniMapThumbNail();
-                    getFreeColServer().saveMapEditorGame(file, thumb);
+                    getFreeColServer().saveMapEditorGame(file, toPNG(thumb));
                     SwingUtilities.invokeLater(() -> {
                             gui.closeStatusPanel();
                         });
@@ -402,5 +404,19 @@ public final class MapEditorController extends FreeColClientHolder {
                 }
             }
         }.start();
+    }
+
+    /**
+     * Encode an image as PNG.
+     *
+     * @param image The image to encode, or null.
+     * @return The PNG data, or null if there is no image.
+     * @exception IOException if the image can not be encoded.
+     */
+    private static byte[] toPNG(BufferedImage image) throws IOException {
+        if (image == null) return null;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, "png", out);
+        return out.toByteArray();
     }
 }

@@ -10,9 +10,9 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import net.sf.freecol.client.gui.GraphicsUtils;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Tile;
-import net.sf.freecol.common.util.Utils;
 
 /**
  * Supports asynchronous painting to a buffer. This allows frames to be rendered
@@ -88,10 +88,10 @@ public final class MapAsyncPainter {
         this.keepScrollPixelsForChangingDirection = tb.getWidth();
         this.mapFocusPointBackBuffer = mvb.getFocusMapPoint();
         
-        this.backBufferImage = Utils.getGoodGraphicsDevice()
+        this.backBufferImage = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleImage(size.width, size.height, Transparency.OPAQUE);
-        this.nextBackBufferImage = Utils.getGoodGraphicsDevice()
+        this.nextBackBufferImage = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleImage(size.width, size.height, Transparency.OPAQUE);
         

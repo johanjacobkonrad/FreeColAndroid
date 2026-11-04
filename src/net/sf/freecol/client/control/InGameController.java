@@ -45,6 +45,7 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import net.sf.freecol.client.gui.ColorUtils;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
@@ -54,7 +55,7 @@ import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.option.FreeColActionUI;
 import net.sf.freecol.client.gui.panel.FreeColPanel;
 import net.sf.freecol.common.FreeColException;
-import net.sf.freecol.common.debug.DebugUtils;
+import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.i18n.NameCache;
@@ -2887,7 +2888,7 @@ public final class InGameController extends FreeColClientHolder {
 
         final Player player = getMyPlayer();
         final boolean sent = askServer().chat(player, chat);
-        displayChat(player.getName(), chat, player.getNationColor(), false);
+        displayChat(player.getName(), chat, ColorUtils.toColor(player.getNationColor()), false);
         return sent;
     }
 
@@ -4968,7 +4969,7 @@ public final class InGameController extends FreeColClientHolder {
         if (getMyPlayer().equals(player)) {
             moveMode = MoveMode.NEXT_ACTIVE_UNIT;
             
-            FreeColDebugger.finishDebugRun(getFreeColClient(), false);
+            DebugUtils.finishDebugRun(getFreeColClient(), false);
             if (FreeColDebugger.isInDebugMode(FreeColDebugger.DebugMode.DESYNC)
                 && DebugUtils.checkDesyncAction(getFreeColClient())) {
                 FreeCol.fatal(logger, "Exiting on desynchronization");
@@ -5042,7 +5043,7 @@ public final class InGameController extends FreeColClientHolder {
                 reason = LogoutReason.DEFEATED;
             }
         }
-        FreeColDebugger.finishDebugRun(fcc, true);
+        DebugUtils.finishDebugRun(fcc, true);
         if (reason != null) {
             fcc.getConnectController().requestLogout(reason);
         }

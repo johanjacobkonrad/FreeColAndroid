@@ -31,7 +31,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.model.Player;
 import static net.sf.freecol.common.util.CollectionUtils.*;
@@ -270,36 +269,6 @@ public class FreeColDebugger {
      */
     public static void setNormalGameFogOfWar(boolean normalGameFogOfWar) {
         FreeColDebugger.normalGameFogOfWar = normalGameFogOfWar;
-    }
-
-    /**
-     * Try to complete a debug run if one is happening.
-     *
-     * @param freeColClient The {@code FreeColClient} for the game.
-     * @param force Force early completion of a run.
-     * @return True if a debug run was completed.
-     */
-    public static boolean finishDebugRun(FreeColClient freeColClient,
-                                         boolean force) {
-        int turns = getDebugRunTurns();
-        if (turns < 0              // Not a debug run
-            || turns > 0 && !force // Still going
-            ) return false;
-
-        // Zero => signalEndDebugRun was called
-        setDebugRunTurns(-1);
-
-        if (getDebugRunSave() != null) {
-            FreeColServer fcs = freeColClient.getFreeColServer();
-            if (fcs != null) {
-                try {
-                    fcs.saveGame(FreeColDirectories.getDebugRunSaveFile(),
-                                 freeColClient.getClientOptions(), null);
-                } catch (IOException e) {}
-            }
-            freeColClient.quit();
-        }
-        return true;
     }
     
     /**

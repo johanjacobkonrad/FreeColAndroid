@@ -38,7 +38,7 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.menu.FreeColMenuBar;
-import net.sf.freecol.common.option.FullscreenDisplayModeOption;
+import net.sf.freecol.client.option.FullscreenDisplayModeOption;
 
 
 /**

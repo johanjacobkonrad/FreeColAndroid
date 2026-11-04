@@ -385,7 +385,10 @@ public final class TradeRouteInputPanel extends FreeColPanel
             if (location instanceof TradeLocation) {
                 TradeLocation tl = (TradeLocation) location;
                 if (tl.canBeInput() == true) {
-                    name = tl.getNameAsJlabel();
+                    final String locName = tl.getLocationName(tl);
+                    name = (tl instanceof Europe)
+                        ? Utility.localizedLabel(locName)
+                        : new JLabel(locName);
                 } else   {
                     throw new IllegalStateException("Bogus location: " + location);
                 }

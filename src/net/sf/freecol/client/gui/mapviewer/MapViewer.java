@@ -56,6 +56,7 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import net.sf.freecol.client.gui.ColorUtils;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.control.FreeColClientHolder;
@@ -82,7 +83,7 @@ import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.option.GameOptions;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 import net.sf.freecol.server.ai.AIObject;
 import net.sf.freecol.server.ai.EuropeanAIPlayer;
 import net.sf.freecol.server.ai.military.DefensiveMap;
@@ -786,7 +787,7 @@ public final class MapViewer extends FreeColClientHolder {
             }
             if (areas.size() == 1) {
                 final Area area = areas.get(0);
-                tileG2d.setColor(area.getColor());
+                tileG2d.setColor(ColorUtils.toColor(area.getColor()));
                 tileG2d.fill(baseTileOutline);
                 return;
             }
@@ -802,7 +803,7 @@ public final class MapViewer extends FreeColClientHolder {
             int index = 0;
             while (step * stepSize < tileBounds.getHeight()) {
                 final Area area = areas.get(index);
-                tileG2d.setColor(area.getColor());
+                tileG2d.setColor(ColorUtils.toColor(area.getColor()));
                 tileG2d.drawLine(0, step*stepSize, tileBounds.getWidth(), step*stepSize);
                 
                 step++;
@@ -898,7 +899,7 @@ public final class MapViewer extends FreeColClientHolder {
         String name = Messages.message(settlement.getLocationLabelFor(player));
         if (name == null) return;
 
-        Color backgroundColor = settlement.getOwner().getNationColor();
+        Color backgroundColor = ColorUtils.toColor(settlement.getOwner().getNationColor());
         if (backgroundColor == null) backgroundColor = Color.WHITE;
         // int yOffset = this.lib.getSettlementImage(settlement).getHeight() + 1;
         int yOffset = tileBounds.getHeight();
@@ -960,7 +961,7 @@ public final class MapViewer extends FreeColClientHolder {
                 Unit missionary = is.getMissionary();
                 if (missionary != null) {
                     boolean expert = missionary.hasAbility(Ability.EXPERT_MISSIONARY);
-                    backgroundColor = missionary.getOwner().getNationColor();
+                    backgroundColor = ColorUtils.toColor(missionary.getOwner().getNationColor());
                     backgroundColor = new Color(backgroundColor.getRed(),
                                                 backgroundColor.getGreen(),
                                                 backgroundColor.getBlue(), 128);
@@ -1403,7 +1404,7 @@ public final class MapViewer extends FreeColClientHolder {
             Color oldColor = g2d.getColor();
             Color c = null;
             if (type == BorderType.COUNTRY)
-                c = owner.getNationColor();
+                c = ColorUtils.toColor(owner.getNationColor());
             if (c == null)
                 c = Color.WHITE;
             Color newColor = new Color(c.getRed(), c.getGreen(), c.getBlue(),

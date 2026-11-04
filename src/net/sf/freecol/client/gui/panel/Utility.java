@@ -35,6 +35,8 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.util.AbstractMap.SimpleEntry;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -70,6 +72,7 @@ import net.sf.freecol.common.model.FreeColGameObject;
 import net.sf.freecol.common.model.FreeColSpecObjectType;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.Named;
+import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.StringTemplate;
@@ -800,5 +803,55 @@ public final class Utility {
         g2d.fill(textShape);
         
         g2d.translate(-x, -y);
+    }
+
+    /**
+     * Split a message into a list of text and link objects.
+     *
+     * @param message The {@code ModelMessage} to split.
+     * @param player The {@code Player} who will see the result.
+     * @return A list of strings and buttons.
+     */
+    public static List<Object> splitLinks(ModelMessage message,
+                                          Player player) {
+        final FreeColGameObject source = player.getGame()
+            .getMessageSource(message);
+
+        // Build a list of objects, initially containing just the plain
+        // text of the message.
+        List<Object> result = new ArrayList<>();
+        result.add(Messages.message(message));
+
+        for (SimpleEntry<String,StringTemplate> e : message.entryList()) {
+            // Then for each key, check if it can be made into a link.
+            // If not, ignore it.
+            String key = e.getKey();
+            String val = Messages.message(e.getValue());
+            if (val == null) continue;
+            Object b = getMessageButton(key, val, player, source);
+            if (b == null) continue;
+
+            // ...if so, find all instances of the replacement of the key
+            // in the object list texts, and replace them with buttons.
+            List<Object> next = new ArrayList<>();
+            for (Object o : result) {
+                if (o instanceof String) {
+                    String str = (String)o;
+                    int index, start = 0;
+                    while ((index = str.indexOf(val, start)) >= 0) {
+                        if (index > start) {
+                            next.add(str.substring(start, index));
+                        }
+                        next.add(getMessageButton(key, val, player, source));
+                        start = index + val.length();
+                    }
+                    next.add(str.substring(start, str.length()));
+                } else {
+                    next.add(o);
+                }
+            }
+            result = next;
+        }
+        return result;
     }
 }

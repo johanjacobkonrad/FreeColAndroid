@@ -29,9 +29,9 @@ import java.util.logging.Logger;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.common.debug.DebugUtils;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
+import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Direction;
@@ -1070,7 +1070,36 @@ public abstract class Mission extends AIObject {
      * This is used by "Display additional AI mission information" in the debug menu.
      */
     public String toStringForDebugExtraMissionInfo() {
-        final String targetString = DebugUtils.locationDisplayString(getTarget());
+        final String targetString = locationDisplayString(getTarget());
         return targetString;
+    }
+
+    /**
+     * Describe a mission target for debug displays.
+     *
+     * @param target The target {@code Location}.
+     * @return A short description of the target.
+     */
+    public static String locationDisplayString(Location target) {
+        if (target == null) {
+            return "No target";
+        }
+        if (target.getTile() == null) {
+            return target.toString();
+        }
+        
+        final String tileCoordinates = "(" + target.getTile().getX() + ", " + target.getTile().getY() + ")";
+        if (target instanceof Settlement) {
+            return ((Settlement) target).getName() + "\n " + tileCoordinates;
+        }
+        if (target instanceof Unit) {
+            final Unit unit = (Unit) target;
+            return Messages.message(unit.getLabel()) + "\n" + tileCoordinates;
+        }
+        if (target instanceof Tile) {
+            return tileCoordinates;
+        }
+        
+        return target.toString();
     }
 }

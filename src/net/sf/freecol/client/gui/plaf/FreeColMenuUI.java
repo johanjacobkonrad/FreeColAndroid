@@ -39,7 +39,7 @@ import javax.swing.plaf.basic.BasicMenuUI;
 import net.sf.freecol.client.gui.FontLibrary;
 import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.client.gui.panel.FreeColImageBorder;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**

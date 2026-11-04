@@ -54,7 +54,6 @@ import java.util.stream.Stream;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -2699,14 +2698,6 @@ ok:     while (!openMap.isEmpty()) {
         return "Map";
     }
 
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getLocationImageKey() {
-        return ImageLibrary.LOST_CITY_RUMOUR;
-    }
 
 
     // Override FreeColGameObject

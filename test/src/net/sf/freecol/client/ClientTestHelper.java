@@ -53,7 +53,7 @@ public class ClientTestHelper {
         Messages.loadMessageBundle(FreeCol.getLocale());
 
         logger.info("Debug value: " + FreeColDebugger.isInDebugMode());
-        client = FreeCol.startTestClient(specification);
+        client = DesktopClientLauncher.startTestClient(specification);
         assertNotNull(client);
 
         ConnectController connectController = client.getConnectController();

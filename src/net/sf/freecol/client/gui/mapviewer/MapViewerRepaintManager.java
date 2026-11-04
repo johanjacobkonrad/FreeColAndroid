@@ -16,10 +16,10 @@ import java.util.Set;
 
 import javax.swing.SwingUtilities;
 
+import net.sf.freecol.client.gui.GraphicsUtils;
 import net.sf.freecol.client.gui.Canvas;
 import net.sf.freecol.client.gui.SwingGUI;
 import net.sf.freecol.common.model.Tile;
-import net.sf.freecol.common.util.Utils;
 
 /**
  * Internal class that handles buffers and dirty state of {@link MapViewer}.
@@ -91,10 +91,10 @@ public class MapViewerRepaintManager {
 
 
     private void initializeBuffers(final Dimension size) {
-        backBufferImage = Utils.getGoodGraphicsDevice()
+        backBufferImage = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleVolatileImage(size.width, size.height, Transparency.OPAQUE);
-        nonAnimationBufferImage = Utils.getGoodGraphicsDevice()
+        nonAnimationBufferImage = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleImage(size.width, size.height, Transparency.TRANSLUCENT);
     }
@@ -344,7 +344,7 @@ public class MapViewerRepaintManager {
      * @return The new image.
      */
     private static BufferedImage moveContentsAndRecreateImage(BufferedImage image, final int dx, final int dy) {
-        final BufferedImage result = Utils.getGoodGraphicsDevice()
+        final BufferedImage result = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleImage(image.getWidth(), image.getHeight(), Transparency.TRANSLUCENT);
         final Graphics2D g2d = result.createGraphics();

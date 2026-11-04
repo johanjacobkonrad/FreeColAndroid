@@ -30,7 +30,7 @@ import net.sf.freecol.client.gui.plaf.FreeColComboBoxRenderer;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColModFile;
 import net.sf.freecol.common.option.ModOption;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.ResourceManager;
 
 
 /**

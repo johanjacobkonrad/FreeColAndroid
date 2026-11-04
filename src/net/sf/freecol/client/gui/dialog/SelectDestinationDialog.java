@@ -84,7 +84,7 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitChangeType;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.pathfinding.GoalDeciders.MultipleAdjacentDecider;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.ResourceManager;
 import net.sf.freecol.common.util.LogBuilder;
 
 
@@ -302,7 +302,7 @@ public final class SelectDestinationDialog extends DeprecatedFreeColDialog<Locat
         @Override
         public void setLabelValues(JLabel label, Destination value) {
             label.setText(value.text);
-            String key = value.location.getLocationImageKey();
+            String key = ImageLibrary.getLocationImageKey(value.location);
             label.setIcon(new ImageIcon(this.lib.getSizedImage(key,
                         new Dimension(-1, CELL_HEIGHT))));
         }

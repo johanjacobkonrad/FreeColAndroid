@@ -37,8 +37,8 @@ import net.sf.freecol.common.ObjectWithId;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Nameable;
 import net.sf.freecol.common.model.Named;
-import net.sf.freecol.common.option.AudioMixerOption.MixerWrapper;
-import net.sf.freecol.common.option.FullscreenDisplayModeOption.FullscreenDisplayModeWrapper;
+import net.sf.freecol.client.option.AudioMixerOption.MixerWrapper;
+import net.sf.freecol.client.option.FullscreenDisplayModeOption.FullscreenDisplayModeWrapper;
 import net.sf.freecol.common.option.LanguageOption.Language;
 
 

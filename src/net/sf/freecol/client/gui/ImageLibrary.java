@@ -46,7 +46,7 @@ import javax.swing.JLabel;
 
 import net.sf.freecol.client.gui.images.ColorizedImageCreator;
 import net.sf.freecol.client.gui.images.ImageCreators;
-import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
+import net.sf.freecol.client.io.sza.SimpleZippedAnimation;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
@@ -57,6 +57,7 @@ import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Nation;
@@ -72,12 +73,12 @@ import net.sf.freecol.common.model.TileImprovementStyle;
 import net.sf.freecol.common.model.TileType;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
-import net.sf.freecol.common.resources.ImageCache;
-import net.sf.freecol.common.resources.ImageResource;
-import net.sf.freecol.common.resources.ResourceManager;
-import net.sf.freecol.common.resources.StringResource;
-import net.sf.freecol.common.resources.Video;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageResource;
+import net.sf.freecol.client.resources.ResourceManager;
+import net.sf.freecol.client.resources.StringResource;
+import net.sf.freecol.client.resources.Video;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**
@@ -981,7 +982,7 @@ public final class ImageLibrary {
     }
     
     public BufferedImage createColonyTitleImage(Graphics2D g2d, String title, Player owner, boolean poles) {
-        final Color backgroundColor = owner.getNationColor();
+        final Color backgroundColor = ColorUtils.toColor(owner.getNationColor());
         final Color foregroundColor = makeForegroundColor(backgroundColor);
         
         final Font font = FontLibrary.getScaledFont("header-plain-large", title);
@@ -1126,6 +1127,23 @@ public final class ImageLibrary {
     }
             
         
+    /**
+     * Get an image key for a location.
+     *
+     * @param location The {@code Location} to find a key for.
+     * @return A key for image lookup, or null if there is none.
+     */
+    public static String getLocationImageKey(Location location) {
+        if (location instanceof Settlement) {
+            return getSettlementKey((Settlement)location);
+        } else if (location instanceof Europe) {
+            return getNationKey(((Europe)location).getOwner().getNation());
+        } else if (location instanceof net.sf.freecol.common.model.Map) {
+            return LOST_CITY_RUMOUR;
+        }
+        return null;
+    }
+
     public static String getNationKey(Nation nation) {
         return "image.miscicon." + nation.getId();
     }
@@ -1898,10 +1916,10 @@ public final class ImageLibrary {
     public BufferedImage getAlarmChip(Graphics2D g, IndianSettlement is,
                                       Player player) {
         if (player == null || !is.hasContacted(player)) return null;
-        Color ownerColor = is.getOwner().getNationColor();
+        Color ownerColor = ColorUtils.toColor(is.getOwner().getNationColor());
         Player enemy = is.getMostHated();
-        Color enemyColor = (enemy == null) ? Nation.UNKNOWN_NATION_COLOR
-            : enemy.getNationColor();
+        Color enemyColor = (enemy == null) ? ColorUtils.toColor(Nation.UNKNOWN_NATION_COLOR)
+            : ColorUtils.toColor(enemy.getNationColor());
         // Set amount to [0-4] corresponding to HAPPY, CONTENT,
         // DISPLEASED, ANGRY, HATEFUL but only if the player is the
         // most hated, because other nation alarm is not nor should be
@@ -1932,7 +1950,7 @@ public final class ImageLibrary {
                                                  IndianSettlement is) {
         final String key = ResourceManager.getString("indianSettlementChip."
             + ((is.getType().isCapital()) ? "capital" : "normal"));
-        Color background = is.getOwner().getNationColor();
+        Color background = ColorUtils.toColor(is.getOwner().getNationColor());
         return createChip(g, key, Color.BLACK, background, 0, Color.BLACK,
                           makeForegroundColor(background), true);
     }
@@ -1947,7 +1965,7 @@ public final class ImageLibrary {
      */
     public BufferedImage getMissionChip(Graphics2D g,
                                         Player owner, boolean expert) {
-        final Color background = owner.getNationColor();
+        final Color background = ColorUtils.toColor(owner.getNationColor());
         final String key = "color.foreground.mission."
             + ((expert) ? "expert" : "normal");
         final Color foreground = getColor(key,
@@ -1967,7 +1985,7 @@ public final class ImageLibrary {
      */
     public BufferedImage getOccupationIndicatorChip(Graphics2D g,
                                                     Unit unit, String text) {
-        final Color background = unit.getOwner().getNationColor();
+        final Color background = ColorUtils.toColor(unit.getOwner().getNationColor());
         final Color foreground = (unit.getState() == Unit.UnitState.FORTIFIED)
             ? Color.GRAY : makeForegroundColor(background);
         return createChip(g, text, Color.BLACK,

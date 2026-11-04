@@ -25,6 +25,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
+import net.sf.freecol.client.gui.ColorUtils;
+import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.debug.FreeColDebugger;
@@ -306,7 +308,7 @@ public final class ClientMessageHandler {
 
     private static void chat(FreeColClient freeColClient,
         ChatMessage msg) throws FreeColException {
-        final Color color = msg.getColor();
+        final Color color = ColorUtils.toColor(msg.getColor());
         final String sender = msg.getSender();
         final String text = msg.getMessage();
         final boolean isPrivate = msg.isPrivate();
@@ -447,7 +449,7 @@ public final class ClientMessageHandler {
             logger.warning("Invalid player for gameEnded");
             return;
         }
-        FreeColDebugger.finishDebugRun(freeColClient, true);
+        DebugUtils.finishDebugRun(freeColClient, true);
         if (winner != freeColClient.getMyPlayer()) return;
         
         igc(freeColClient).gameEndedHandler(highScore);
@@ -721,7 +723,7 @@ public final class ClientMessageHandler {
         final Game game = freeColClient.getGame();
         final Specification spec = game.getSpecification();
         final Nation nation = msg.getNation(spec);
-        final Color color = msg.getColor();
+        final Color color = ColorUtils.toColor(msg.getColor());
       
         if (nation == null) {
             logger.warning("Invalid nation: " + msg.toString());

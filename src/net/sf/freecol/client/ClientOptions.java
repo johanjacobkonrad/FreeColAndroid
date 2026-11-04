@@ -43,6 +43,8 @@ import java.util.logging.Logger;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
+import net.sf.freecol.client.option.AudioMixerOption;
+import net.sf.freecol.client.option.FullscreenDisplayModeOption;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.io.FreeColModFile;
@@ -53,8 +55,8 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.ModelMessage;
 import net.sf.freecol.common.model.Specification;
+import net.sf.freecol.common.option.AbstractOption;
 import net.sf.freecol.common.option.BooleanOption;
-import net.sf.freecol.common.option.FullscreenDisplayModeOption;
 import net.sf.freecol.common.option.IntegerOption;
 import net.sf.freecol.common.option.Option;
 import net.sf.freecol.common.option.OptionGroup;
@@ -87,6 +89,15 @@ import net.sf.freecol.common.util.LogBuilder;
 public class ClientOptions extends OptionGroup {
 
     private static final Logger logger = Logger.getLogger(ClientOptions.class.getName());
+
+    static {
+        // Desktop-only option types live in the client, so the shared
+        // engine has to be told how to read them.
+        AbstractOption.registerOptionType(AudioMixerOption.TAG,
+                                          AudioMixerOption::new);
+        AbstractOption.registerOptionType(FullscreenDisplayModeOption.TAG,
+                                          FullscreenDisplayModeOption::new);
+    }
 
     public static final String TAG = "clientOptions";
 

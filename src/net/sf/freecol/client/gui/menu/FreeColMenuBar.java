@@ -42,7 +42,7 @@ import net.sf.freecol.client.gui.action.FreeColAction;
 import net.sf.freecol.client.gui.action.SelectableOptionAction;
 import net.sf.freecol.client.gui.panel.FreeColImageBorder;
 import net.sf.freecol.client.gui.panel.Utility;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**

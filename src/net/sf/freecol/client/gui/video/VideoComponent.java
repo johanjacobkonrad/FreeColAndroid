@@ -31,7 +31,7 @@ import javax.swing.border.Border;
 import com.fluendo.player.Cortado;
 
 import net.sf.freecol.client.gui.panel.FreeColImageBorder;
-import net.sf.freecol.common.resources.Video;
+import net.sf.freecol.client.resources.Video;
 
 
 /**

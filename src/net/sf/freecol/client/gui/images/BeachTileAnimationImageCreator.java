@@ -9,9 +9,9 @@ import java.util.Optional;
 import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.TileType;
-import net.sf.freecol.common.resources.ImageCache;
-import net.sf.freecol.common.resources.ImageResource;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageResource;
+import net.sf.freecol.client.gui.ImageUtils;
 
 /**
  * Class for generating the combined animated image for ocean and beach

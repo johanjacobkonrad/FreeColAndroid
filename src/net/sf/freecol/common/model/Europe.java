@@ -28,11 +28,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Stream;
 
-import javax.swing.JLabel;
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.gui.ImageLibrary;
-import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -411,14 +408,6 @@ public class Europe extends UnitLocation implements Ownable, Named, TradeLocatio
         return "Europe";
     }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getLocationImageKey() {
-        return ImageLibrary.getNationKey(this.getOwner().getNation());
-    }
-
 
     // Interface UnitLocation
     // Inheriting
@@ -526,14 +515,6 @@ public class Europe extends UnitLocation implements Ownable, Named, TradeLocatio
     @Override
     public String getLocationName(TradeLocation tradeLocation) {
         return ((Europe) tradeLocation).getNameKey();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public JLabel getNameAsJlabel() {
-        return Utility.localizedLabel(getLocationName(this));
     }
 
     /**

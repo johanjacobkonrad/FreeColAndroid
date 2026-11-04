@@ -19,7 +19,6 @@
 
 package net.sf.freecol.common.model;
 
-import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -160,9 +159,9 @@ public class Area extends FreeColGameObject {
     
     /**
      * Returns the color to be used for displaying the area in the map editor.
-     * @return The color that can be used by the map editor.
+     * @return The ARGB color that can be used by the map editor.
      */
-    public Color getColor() {
+    public Integer getColor() {
         if (getId().startsWith(PREFIX_PLAYER_STARTING_POSITION)) {
             final String nationId = getId().substring(PREFIX_PLAYER_STARTING_POSITION.length());
             final Nation nation = getGame().getSpecification().getAlreadyInitializedType(nationId, Nation.class);
@@ -171,10 +170,10 @@ public class Area extends FreeColGameObject {
             }
         }
         final int hashCode = getId().hashCode();
-        final int r = hashCode % 256;
-        final int g = (hashCode / 256) % 256;
-        final int b = (hashCode / (256 * 256)) % 256;
-        return new Color(r, g, b);
+        final int r = (hashCode % 256) & 0xFF;
+        final int g = ((hashCode / 256) % 256) & 0xFF;
+        final int b = ((hashCode / (256 * 256)) % 256) & 0xFF;
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     /**

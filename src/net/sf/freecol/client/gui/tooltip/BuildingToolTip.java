@@ -47,7 +47,7 @@ import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.ProductionInfo;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Unit;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.ResourceManager;
 
 
 /**

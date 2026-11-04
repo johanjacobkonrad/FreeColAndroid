@@ -34,7 +34,6 @@ import static net.sf.freecol.common.util.RandomUtils.getRandomMember;
 import static net.sf.freecol.common.util.RandomUtils.randomInt;
 import static net.sf.freecol.common.util.RandomUtils.randomShuffle;
 
-import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -69,6 +68,7 @@ import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.option.MapGeneratorOptions;
 import net.sf.freecol.common.option.OptionGroup;
+import net.sf.freecol.common.util.IntRectangle;
 import net.sf.freecol.common.util.LogBuilder;
 import net.sf.freecol.common.util.RandomChoice;
 import net.sf.freecol.common.util.RandomUtils.RandomIntCache;
@@ -355,7 +355,7 @@ public class SimpleMapGenerator implements MapGenerator {
             }
 
             final IndianNationType indianNationType = (IndianNationType) player.getNationType();
-            final List<Rectangle> otherRegions = indianNationType.getRegions().stream()
+            final List<IntRectangle> otherRegions = indianNationType.getRegions().stream()
                     .map(key -> ((ServerRegion) map.getRegionByKey(key)).getBounds())
                     .filter(bounds -> !bounds.isEmpty())
                     .collect(Collectors.toList());

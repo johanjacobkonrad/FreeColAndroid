@@ -30,8 +30,8 @@ import javax.swing.JComponent;
 
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.plaf.FreeColComboBoxRenderer;
-import net.sf.freecol.common.option.FullscreenDisplayModeOption;
-import net.sf.freecol.common.option.FullscreenDisplayModeOption.FullscreenDisplayModeWrapper;
+import net.sf.freecol.client.option.FullscreenDisplayModeOption;
+import net.sf.freecol.client.option.FullscreenDisplayModeOption.FullscreenDisplayModeWrapper;
 
 
 public final class FullscreenDisplayModeOptionUI extends OptionUI<FullscreenDisplayModeOption> {

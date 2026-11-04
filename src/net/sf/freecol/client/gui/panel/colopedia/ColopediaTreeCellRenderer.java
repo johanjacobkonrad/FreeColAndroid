@@ -30,7 +30,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 
 import net.sf.freecol.client.gui.ImageLibrary;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**

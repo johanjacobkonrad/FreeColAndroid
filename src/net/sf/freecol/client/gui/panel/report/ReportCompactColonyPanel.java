@@ -69,7 +69,7 @@ import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
 import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.model.WorkLocation.Suggestion;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.ResourceManager;
 import static net.sf.freecol.common.util.CollectionUtils.*;
 
 

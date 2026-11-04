@@ -38,7 +38,7 @@ import javax.swing.plaf.basic.BasicRadioButtonUI;
 import javax.swing.plaf.metal.MetalLookAndFeel;
 
 import net.sf.freecol.client.gui.FontLibrary;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.ResourceManager;
 
 
 /**

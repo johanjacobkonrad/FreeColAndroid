@@ -25,6 +25,7 @@ import java.util.logging.Logger;
 
 import javax.swing.SwingUtilities;
 
+import net.sf.freecol.client.gui.ColorUtils;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
@@ -43,8 +44,8 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.option.MapGeneratorOptions;
 import net.sf.freecol.common.option.OptionGroup;
-import net.sf.freecol.common.resources.AudioResource;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.AudioResource;
+import net.sf.freecol.client.resources.ResourceManager;
 import net.sf.freecol.common.util.Utils;
 
 
@@ -182,9 +183,9 @@ public final class PreGameController extends FreeColClientHolder {
      * @param color The {@code Color} to set.
      */
     public void setColor(Nation nation, Color color) {
-        nation.setColor(color);
+        nation.setColor(ColorUtils.toARGB(color));
 
-        askServer().setColor(nation, color);
+        askServer().setColor(nation, ColorUtils.toARGB(color));
     }
 
     /**
@@ -194,7 +195,7 @@ public final class PreGameController extends FreeColClientHolder {
      * @param color The {@code Color} to set.
      */
     public void setColorHandler(Nation nation, Color color) {
-        nation.setColor(color);
+        nation.setColor(ColorUtils.toARGB(color));
     }
         
     /**

@@ -25,8 +25,6 @@ import static net.sf.freecol.common.util.CollectionUtils.map;
 import static net.sf.freecol.common.util.CollectionUtils.transform;
 import static net.sf.freecol.common.util.StringUtils.upCase;
 
-import java.awt.Dimension;
-import java.awt.GraphicsDevice;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,7 +49,6 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 
-import javax.swing.SwingUtilities;
 import javax.xml.stream.XMLStreamException;
 
 import org.apache.commons.cli.CommandLine;
@@ -63,9 +60,6 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import net.sf.freecol.client.ClientOptions;
-import net.sf.freecol.client.FreeColClient;
-import net.sf.freecol.client.gui.SplashScreen;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.FreeColSeed;
 import net.sf.freecol.common.FreeColUserMessageException;
@@ -92,7 +86,6 @@ import net.sf.freecol.server.control.Controller;
  * This class is responsible for handling the command-line arguments
  * and starting either the stand-alone server or the client-GUI.
  *
- * @see net.sf.freecol.client.FreeColClient FreeColClient
  * @see net.sf.freecol.server.FreeColServer FreeColServer
  */
 public final class FreeCol {
@@ -172,7 +165,8 @@ public final class FreeCol {
     public static final long    TIMEOUT_DEFAULT = 60L; // 1 minute
     public static final long    TIMEOUT_MIN = 10L; // 10s
     public static final long    TIMEOUT_MAX = 3600000L; // 1000hours:-)
-    private static final Dimension WINDOWSIZE_FALLBACK = new Dimension(-1, -1);
+    /** Window size meaning `windowed, but as large as possible'. */
+    private static final int[] WINDOWSIZE_FALLBACK = { -1, -1 };
 
 
     // Cli values.  Often set to null so the default can be applied in
@@ -255,7 +249,7 @@ public final class FreeCol {
      * The size of window to create, defaults to impossible dimensions
      * to require windowed mode with best determined screen size.
      */
-    private static Dimension windowSize = WINDOWSIZE_FALLBACK;
+    private static int[] windowSize = WINDOWSIZE_FALLBACK;
 
     /** The special client options that must be processed early. */
     private static Map<String,String> specialOptions = null;
@@ -270,6 +264,11 @@ public final class FreeCol {
      */
     public static void main(String[] args) {
         freeColRevision = FREECOL_VERSION;
+        final DesktopClient dc = getDesktopClient();
+        if (dc != null) {
+            FreeColDirectories
+                .setUserDefaultDirectorySupplier(dc::getUserDefaultDirectory);
+        }
         JarURLConnection juc;
         
         try {
@@ -375,14 +374,15 @@ public final class FreeCol {
         // If the user has selected automatic language selection, do
         // nothing, since we have already set up the default locale.
         try {
-            specialOptions = ClientOptions.getSpecialOptions();
+            specialOptions = (dc == null) ? new HashMap<>()
+                : dc.getSpecialOptions();
         } catch (FreeColException fce) {
             specialOptions = new HashMap<>();
             logger.log(Level.WARNING, "Special options unavailable", fce);
         }
         String cLang;
         if (localeArg == null
-            && (cLang = specialOptions.get(ClientOptions.LANGUAGE)) != null
+            && (cLang = specialOptions.get(DesktopClient.LANGUAGE)) != null
             && !Messages.AUTOMATIC.equalsIgnoreCase(cLang)
             && setLocale(cLang)) {
             Locale loc = getLocale();
@@ -441,7 +441,7 @@ public final class FreeCol {
         final String pmoffscreen = "sun.java2d.pmoffscreen";
         final String pmoValue = System.getProperty(pmoffscreen);
         if (pmoValue == null) {
-            String usePixmaps = specialOptions.get(ClientOptions.USE_PIXMAPS);
+            String usePixmaps = specialOptions.get(DesktopClient.USE_PIXMAPS);
             if (usePixmaps != null) {
                 System.setProperty(pmoffscreen, usePixmaps);
                 lb.add(pmoffscreen, " using client option: ", usePixmaps);
@@ -456,7 +456,7 @@ public final class FreeCol {
         final String openGL = "sun.java2d.opengl";
         final String openGLValue = System.getProperty(openGL);
         if (openGLValue == null) {
-            String useOpenGL = specialOptions.get(ClientOptions.USE_OPENGL);
+            String useOpenGL = specialOptions.get(DesktopClient.USE_OPENGL);
             if (useOpenGL != null) {
                 System.setProperty(openGL, useOpenGL);
                 lb.add(", ", openGL, " using client option: ", useOpenGL);
@@ -472,7 +472,7 @@ public final class FreeCol {
             final String xrender = "sun.java2d.xrender";
             final String xrValue = System.getProperty(xrender);
             if (xrValue == null) {
-                String useXR = specialOptions.get(ClientOptions.USE_XRENDER);
+                String useXR = specialOptions.get(DesktopClient.USE_XRENDER);
                 if (useXR != null) {
                     System.setProperty(xrender, useXR);
                     lb.add(", ", xrender, " using client option: ", useXR);
@@ -991,7 +991,7 @@ public final class FreeCol {
      *
      * @return A {@code Specification}, quits on error.
      */
-    private static Specification getRulesSpecification() {
+    public static Specification getRulesSpecification() {
         Specification spec = loadSpecification(getRulesFile(), getAdvantages(),
                                                getDifficulty());
         if (spec == null) {
@@ -1467,8 +1467,8 @@ public final class FreeCol {
             String[] xy = arg.split("[^0-9]");
             if (xy.length == 2) {
                 try {
-                    windowSize = new Dimension(Integer.parseInt(xy[0]),
-                                               Integer.parseInt(xy[1]));
+                    windowSize = new int[] { Integer.parseInt(xy[0]),
+                                             Integer.parseInt(xy[1]) };
                 } catch (NumberFormatException nfe) {}
             }
         }
@@ -1571,71 +1571,89 @@ public final class FreeCol {
     // The major final actions.
 
     /**
-     * Start a client.
+     * The desktop (Swing) client, as seen by the launcher.
+     *
+     * The launcher reaches the client only through this interface, and
+     * loads the implementation by name, so that this class and the
+     * shared engine can be built without the desktop client (for
+     * example on Android, which has no Swing/AWT).
      */
-    private static void startClient() {
-        SwingUtilities.invokeLater(() -> {
-            /*
-             * Please do NOT move the splash screen into SwingGUI again. Make a separate
-             * interface if this needs to be pluggable.
-             * 
-             * The Swing-classes need to be constructed in the EDT -- and the splash screen
-             * is never displayed correctly if SwingGUI is loaded correctly in the EDT.
-             * 
-             * In addition, the splash screen should not be displayed at the same time
-             * as a fullscreen frame.
-             */
-            
-            final SplashScreen splashScreen = createSplashScreen();
-            SwingUtilities.invokeLater(() -> {
-                Specification spec = null;
-                File savegame = FreeColDirectories.getSavegameFile();
-                if (debugStart) {
-                    spec = FreeCol.getRulesSpecification();
-                } else if (fastStart) {
-                    if (savegame == null) {
-                        // continue last saved game if possible,
-                        // otherwise start a new one
-                        savegame = FreeColDirectories.getLastSaveGameFile();
-                        if (savegame == null) {
-                            spec = FreeCol.getRulesSpecification();
-                        }
-                    }
-                    // savegame was specified on command line
-                }
-                
-                new FreeColClient(splashScreen, fontName, windowSize,
-                                      (String)null, sound, introVideo, savegame, spec);
-            });
-        });
-        
+    public interface DesktopClient {
 
+        /** Name of the implementing class. */
+        String IMPLEMENTATION = "net.sf.freecol.client.DesktopClientLauncher";
+
+        /** Special option keys, see {@link #getSpecialOptions()}. */
+        String LANGUAGE = "model.option.languageOption";
+        String USE_PIXMAPS = "model.option.usePixmaps";
+        String USE_OPENGL = "model.option.useOpenGL";
+        String USE_XRENDER = "model.option.useXRender";
+
+        /**
+         * Get the client options that must be processed before the
+         * GUI starts (language and Java2D pipeline settings).
+         *
+         * @return A map of option key to value.
+         * @exception FreeColException if the options can not be read.
+         */
+        Map<String,String> getSpecialOptions() throws FreeColException;
+
+        /**
+         * Get the user's default directory as the platform sees it
+         * (for example "Documents" on Windows).
+         *
+         * @return The default directory.
+         */
+        File getUserDefaultDirectory();
+
+        /**
+         * Start the desktop client.
+         *
+         * @param splashStream An optional splash image stream.
+         * @param fontName An optional font name.
+         * @param windowSize The window size as {width, height}, with
+         *     -1 meaning as large as possible, or null for full screen.
+         * @param sound Enable sound.
+         * @param introVideo Show the introduction video.
+         * @param debugStart Start a new game immediately, in debug mode.
+         * @param fastStart Skip the menus and continue or start a game.
+         */
+        void start(InputStream splashStream, String fontName,
+                   int[] windowSize, boolean sound, boolean introVideo,
+                   boolean debugStart, boolean fastStart);
     }
 
-    private static SplashScreen createSplashScreen() {
-        SplashScreen splashScreen = null;
-        if (splashStream != null) {
+    /** The desktop client, loaded on demand. */
+    private static DesktopClient desktopClient = null;
+
+    /**
+     * Get the desktop client, if it is available in this build.
+     *
+     * @return The {@code DesktopClient}, or null if not present.
+     */
+    private static synchronized DesktopClient getDesktopClient() {
+        if (desktopClient == null) {
             try {
-                final GraphicsDevice defaultScreenDevice = Utils.getGoodGraphicsDevice();
-                splashScreen = new SplashScreen(defaultScreenDevice, splashStream);
-                splashScreen.setVisible(true);
-            } catch (Exception e) {
-                logger.log(Level.WARNING, "Splash screen failure", e);
+                desktopClient = (DesktopClient)Class
+                    .forName(DesktopClient.IMPLEMENTATION)
+                    .getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException | LinkageError e) {
+                logger.log(Level.WARNING, "Desktop client unavailable", e);
             }
         }
-        return splashScreen;
+        return desktopClient;
     }
 
     /**
-     * Wrapper for the test suite to start a test client.
-     *
-     * @param spec The {@code Specification} to use in the new client.
-     * @return The new {@code FreeColClient}.
+     * Start a client.
      */
-    public static FreeColClient startTestClient(Specification spec) {
-        FreeCol.setHeadless(true);
-        return new FreeColClient(null, (String)null, (Dimension)null,
-                                 (String)null, false, false, (File)null, spec);
+    private static void startClient() {
+        final DesktopClient dc = getDesktopClient();
+        if (dc == null) {
+            fatal(logger, "The desktop client is not available in this build.");
+        }
+        dc.start(splashStream, fontName, windowSize, sound, introVideo,
+                 debugStart, fastStart);
     }
 
     /**

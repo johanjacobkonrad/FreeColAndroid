@@ -19,7 +19,6 @@
 
 package net.sf.freecol.common.networking;
 
-import java.awt.Color;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -52,7 +51,7 @@ public class ChatMessage extends AttributeMessage {
      * @param privateChat Whether this message is private.
      */
     public ChatMessage(Player player, String message, boolean privateChat) {
-        super(TAG, COLOR_TAG, String.valueOf(player.getNationColor().getRGB()),
+        super(TAG, COLOR_TAG, String.valueOf(player.getNationColor()),
               MESSAGE_TAG, message,
               PRIVATE_TAG, String.valueOf(privateChat),
               SENDER_TAG, player.getName());
@@ -109,15 +108,14 @@ public class ChatMessage extends AttributeMessage {
     /**
      * Get the color.
      *
-     * @return The new {@code Color}.
+     * @return The new ARGB color, or null if invalid.
      */
-    public Color getColor() {
-        Color color = null;
+    public Integer getColor() {
         try {
             int rgb = getIntegerAttribute(COLOR_TAG, 0);
-            color = new Color(rgb);
+            return 0xFF000000 | rgb;
         } catch (NumberFormatException nfe) {}
-        return color;
+        return null;
     }
 
     /**
