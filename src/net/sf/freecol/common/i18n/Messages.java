@@ -37,11 +37,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.swing.UIManager;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.common.ObjectWithId;
@@ -113,6 +113,12 @@ public class Messages {
      * for the established locale.
      */
     private static final Map<String, String> messageBundle = new HashMap<>();
+
+    /** Prefix of messages that localize the desktop file chooser. */
+    private static final String FILE_CHOOSER_PREFIX = "FileChooser.";
+
+    /** Receives file chooser messages, set by the desktop client. */
+    private static volatile BiConsumer<String,String> fileChooserSink = null;
 
     /**
      * A map with Selector values and the tag keys used in choice
@@ -228,10 +234,28 @@ public class Messages {
                     String value = line.substring(index + 1).trim()
                         .replace("\\n", "\n").replace("\\t", "\t");
                     messageBundle.put(key, value);
-                    if (key.startsWith("FileChooser.")) {
-                        UIManager.put(key, value);
+                    if (key.startsWith(FILE_CHOOSER_PREFIX)) {
+                        final BiConsumer<String,String> sink = fileChooserSink;
+                        if (sink != null) sink.accept(key, value);
                     }
                 }
+            }
+        }
+    }
+
+    /**
+     * Set a receiver for the messages that localize the desktop file
+     * chooser (keys starting with "FileChooser.").  Messages already
+     * loaded are passed to it immediately, later ones as they load.
+     *
+     * @param sink The receiver, for example {@code UIManager::put}.
+     */
+    public static synchronized void setFileChooserSink(BiConsumer<String,String> sink) {
+        fileChooserSink = sink;
+        if (sink == null) return;
+        for (Map.Entry<String,String> e : messageBundle.entrySet()) {
+            if (e.getKey().startsWith(FILE_CHOOSER_PREFIX)) {
+                sink.accept(e.getKey(), e.getValue());
             }
         }
     }

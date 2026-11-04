@@ -33,8 +33,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
-import javax.swing.filechooser.FileSystemView;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.FreeColException;
@@ -246,6 +246,12 @@ public class FreeColDirectories {
      */
     private static File userModsDirectory = null;
 
+    /** Finds the user's default directory, see getUserDefaultDirectory. */
+    private static Supplier<File> userDefaultDirectory = () -> {
+        final String home = System.getProperty("user.home");
+        return (home == null) ? null : new File(home);
+    };
+
     /** The comms writer. */
     private static AtomicReference<Writer> commsWriter
         = new AtomicReference<Writer>(null);
@@ -257,7 +263,19 @@ public class FreeColDirectories {
      * @return The user home directory.
      */
     private static File getUserDefaultDirectory() {
-        return FileSystemView.getFileSystemView().getDefaultDirectory();
+        return userDefaultDirectory.get();
+    }
+
+    /**
+     * Set how the user's default directory is found.
+     *
+     * The desktop client uses the platform's notion (for example
+     * "Documents" on Windows); the default is the user's home.
+     *
+     * @param supplier A supplier of the default directory.
+     */
+    public static void setUserDefaultDirectorySupplier(Supplier<File> supplier) {
+        userDefaultDirectory = supplier;
     }
 
     /**

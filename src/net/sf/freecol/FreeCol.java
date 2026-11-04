@@ -264,6 +264,11 @@ public final class FreeCol {
      */
     public static void main(String[] args) {
         freeColRevision = FREECOL_VERSION;
+        final DesktopClient dc = getDesktopClient();
+        if (dc != null) {
+            FreeColDirectories
+                .setUserDefaultDirectorySupplier(dc::getUserDefaultDirectory);
+        }
         JarURLConnection juc;
         
         try {
@@ -369,7 +374,6 @@ public final class FreeCol {
         // If the user has selected automatic language selection, do
         // nothing, since we have already set up the default locale.
         try {
-            DesktopClient dc = getDesktopClient();
             specialOptions = (dc == null) ? new HashMap<>()
                 : dc.getSpecialOptions();
         } catch (FreeColException fce) {
@@ -1593,6 +1597,14 @@ public final class FreeCol {
          * @exception FreeColException if the options can not be read.
          */
         Map<String,String> getSpecialOptions() throws FreeColException;
+
+        /**
+         * Get the user's default directory as the platform sees it
+         * (for example "Documents" on Windows).
+         *
+         * @return The default directory.
+         */
+        File getUserDefaultDirectory();
 
         /**
          * Start the desktop client.

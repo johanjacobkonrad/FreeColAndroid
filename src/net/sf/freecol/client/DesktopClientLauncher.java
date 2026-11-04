@@ -29,11 +29,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.filechooser.FileSystemView;
 
 import net.sf.freecol.client.gui.GraphicsUtils;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.gui.SplashScreen;
 import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.model.Specification;
 
@@ -74,12 +77,21 @@ public final class DesktopClientLauncher implements FreeCol.DesktopClient {
      * {@inheritDoc}
      */
     @Override
+    public File getUserDefaultDirectory() {
+        return FileSystemView.getFileSystemView().getDefaultDirectory();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void start(final InputStream splashStream, final String fontName,
                       final int[] windowSize, final boolean sound,
                       final boolean introVideo, final boolean debugStart,
                       final boolean fastStart) {
         final Dimension size = (windowSize == null) ? null
             : new Dimension(windowSize[0], windowSize[1]);
+        Messages.setFileChooserSink(UIManager::put);
         SwingUtilities.invokeLater(() -> {
             /*
              * Please do NOT move the splash screen into SwingGUI again. Make a separate
@@ -137,6 +149,7 @@ public final class DesktopClientLauncher implements FreeCol.DesktopClient {
      */
     public static FreeColClient startTestClient(Specification spec) {
         FreeCol.setHeadless(true);
+        Messages.setFileChooserSink(UIManager::put);
         return new FreeColClient(null, (String)null, (Dimension)null,
                                  (String)null, false, false, (File)null, spec);
     }
