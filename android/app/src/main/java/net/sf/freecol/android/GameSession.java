@@ -35,6 +35,10 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.BuildableType;
+import net.sf.freecol.common.model.BuildingType;
+import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Constants.IndianDemandAction;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Europe;
@@ -56,6 +60,9 @@ import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.Unit.MoveType;
 import net.sf.freecol.common.model.Unit.UnitState;
+import net.sf.freecol.common.model.UnitLocation;
+import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.networking.AddPlayerMessage;
 import net.sf.freecol.common.networking.ChooseFoundingFatherMessage;
 import net.sf.freecol.common.networking.Connection;
@@ -408,6 +415,213 @@ public final class GameSession implements MessageHandler {
             }
             afterOrders(null);
         });
+    }
+
+    // Colony orders
+
+    /**
+     * Put a unit to work in a colony building or on a colony tile,
+     * claiming the tile first if need be (paying for native land if
+     * we can afford it).
+     *
+     * @param unit The {@code Unit} to move.
+     * @param wl The {@code WorkLocation} to work at.
+     */
+    public void work(Unit unit, WorkLocation wl) {
+        if (unit == null || wl == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Tile claim = null;
+            int price = 0;
+            Colony colony;
+            synchronized (lock) {
+                colony = wl.getColony();
+                if (unit.getLocation() == wl) return;
+                UnitLocation.NoAddReason why = wl.getNoAddReason(unit);
+                Tile t = wl.getWorkTile();
+                if (t != null && t.hasLostCityRumour()) {
+                    status("Explore the rumour on that tile first.");
+                    return;
+                }
+                if (why == UnitLocation.NoAddReason.CLAIM_REQUIRED
+                    || (t != null && !me.owns(t))) {
+                    claim = t;
+                    price = (me.canClaimForSettlement(t)) ? 0
+                        : me.getLandPrice(t);
+                    if (price < 0) {
+                        status("That land can not be claimed.");
+                        return;
+                    }
+                    if (price > me.getGold()) {
+                        status("The natives want " + price
+                            + " gold for that land, which you do not have.");
+                        return;
+                    }
+                } else if (why != UnitLocation.NoAddReason.NONE) {
+                    status(noAddText(why));
+                    return;
+                }
+            }
+            boolean aboard;
+            synchronized (lock) {
+                aboard = unit.isOnCarrier();
+            }
+            if (aboard) api.disembark(unit);
+            if (claim != null) {
+                api.claimTile(claim, colony, price);
+                synchronized (lock) {
+                    if (!me.owns(claim)) {
+                        status("Could not claim that land.");
+                        return;
+                    }
+                }
+                if (price > 0) status("Bought the land for " + price + " gold.");
+            }
+            api.work(unit, wl);
+            synchronized (lock) {
+                if (unit.getLocation() != wl) status("Could not work there.");
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Change what a unit on a colony tile produces.
+     *
+     * @param unit The {@code Unit}.
+     * @param type The {@code GoodsType} to produce.
+     */
+    public void changeWorkType(Unit unit, GoodsType type) {
+        if (unit == null || type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            api.changeWorkType(unit, type);
+            changed();
+        });
+    }
+
+    /**
+     * Take a unit out of a colony onto the colony's tile.
+     *
+     * @param unit The {@code Unit}.
+     */
+    public void putOutsideColony(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (unit.getColony() == null || !unit.isInColony()) return;
+            }
+            api.putOutsideColony(unit);
+            changed();
+        });
+    }
+
+    /**
+     * Set what a colony builds next.
+     *
+     * @param colony The {@code Colony}.
+     * @param type The {@code BuildableType} to build.
+     */
+    public void setBuild(Colony colony, BuildableType type) {
+        if (colony == null || type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            List<BuildableType> queue = new ArrayList<>();
+            queue.add(type);
+            api.setBuildQueue(colony, queue);
+            changed();
+        });
+    }
+
+    /**
+     * What a colony could build now.  Call while holding {@link #lock()}.
+     *
+     * @param colony The {@code Colony}.
+     * @return The buildings and units it can build.
+     */
+    public List<BuildableType> getBuildable(Colony colony) {
+        List<BuildableType> result = new ArrayList<>();
+        final Specification spec = game.getSpecification();
+        for (BuildingType bt : spec.getBuildingTypeList()) {
+            if (colony.getNoBuildReason(bt, null) == Colony.NoBuildReason.NONE) {
+                result.add(bt);
+            }
+        }
+        for (UnitType ut : spec.getBuildableUnitTypes()) {
+            if (colony.getNoBuildReason(ut, null) == Colony.NoBuildReason.NONE
+                && colony.hasAbility(Ability.BUILD, ut, game.getTurn())) {
+                result.add(ut);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Load goods from a colony onto a ship (or wagon train) there.
+     *
+     * @param carrier The carrier {@code Unit}.
+     * @param type The {@code GoodsType} to load.
+     * @param amount The amount to load.
+     */
+    public void loadGoods(Unit carrier, GoodsType type, int amount) {
+        if (carrier == null || type == null || amount <= 0) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Colony colony;
+            synchronized (lock) {
+                colony = carrier.getColony();
+                if (colony == null) colony = (carrier.getTile() == null) ? null
+                    : carrier.getTile().getColony();
+            }
+            if (colony == null) return;
+            api.loadGoods(colony, type, amount, carrier);
+            changed();
+        });
+    }
+
+    /**
+     * Unload goods from a carrier into the colony it is in.
+     *
+     * @param carrier The carrier {@code Unit}.
+     * @param type The {@code GoodsType} to unload.
+     * @param amount The amount to unload.
+     */
+    public void unloadGoods(Unit carrier, GoodsType type, int amount) {
+        if (carrier == null || type == null || amount <= 0) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            api.unloadGoods(type, amount, carrier);
+            changed();
+        });
+    }
+
+    /**
+     * Take a unit off a ship in a colony's port, onto the colony tile.
+     *
+     * @param unit The {@code Unit} on board.
+     */
+    public void disembark(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            api.disembark(unit);
+            changed();
+        });
+    }
+
+    private static String noAddText(UnitLocation.NoAddReason why) {
+        switch (why) {
+        case CAPACITY_EXCEEDED: return "There is no room there.";
+        case OCCUPIED_BY_ENEMY: return "Someone else's unit is on that land.";
+        case OWNED_BY_ENEMY: return "That land belongs to someone else.";
+        case ANOTHER_COLONY: return "Another colony is using that land.";
+        case COLONY_CENTER: return "The colony centre works itself.";
+        case MISSING_SKILL: case MINIMUM_SKILL: case MAXIMUM_SKILL:
+            return "This colonist does not have the right skill for that.";
+        case WRONG_TYPE: return "This unit can not work there.";
+        default: return "Can not work there.";
+        }
     }
 
     /** End our turn. */
@@ -831,8 +1045,8 @@ public final class GameSession implements MessageHandler {
         } else if (m instanceof IndianDemandMessage) {
             IndianDemandMessage im = (IndianDemandMessage)m;
             final Unit u = im.getUnit(game);
-            final net.sf.freecol.common.model.Colony c = im.getColony(game);
-            final net.sf.freecol.common.model.GoodsType gt = im.getType(game);
+            final Colony c = im.getColony(game);
+            final GoodsType gt = im.getType(game);
             final int amount = im.getAmount();
             if (u != null && c != null) {
                 status("Natives make demands of " + c.getName() + "; you agree.");

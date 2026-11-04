@@ -19,22 +19,15 @@
 package net.sf.freecol.android;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.graphics.Canvas;
-import android.graphics.ColorMatrix;
-import android.graphics.ColorMatrixColorFilter;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Typeface;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
-import net.sf.freecol.android.map.Art;
 import net.sf.freecol.android.map.MapRenderer;
-import net.sf.freecol.android.map.Surface;
 import net.sf.freecol.android.map.Viewport;
+import net.sf.freecol.common.model.Colony;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
@@ -42,9 +35,10 @@ import net.sf.freecol.common.model.Unit;
 
 /**
  * The map: drag to scroll, pinch to zoom, tap a unit to select it
- * and tap somewhere else to send it there.  A long press sends the
- * selected unit to a tile even if your own units are there (to board
- * a ship, say).
+ * and tap somewhere else to send it there.  Tap your colony to open
+ * it.  A long press sends the selected unit to a tile even if your
+ * own units or colony are there (to board a ship, or enter the
+ * colony).
  */
 public final class MapView extends View {
 
@@ -55,6 +49,12 @@ public final class MapView extends View {
     private final GestureDetector gestures;
     private final CanvasSurface surface = new CanvasSurface();
 
+    /** Opens a colony screen. */
+    interface ColonyOpener {
+        void open(Colony colony);
+    }
+
+    private ColonyOpener colonyOpener = null;
     private boolean centred = false;
     private Unit lastSelected = null;
 
@@ -102,6 +102,10 @@ public final class MapView extends View {
             });
     }
 
+    void setColonyOpener(ColonyOpener opener) {
+        this.colonyOpener = opener;
+    }
+
     /** Show the selected unit, if it is off screen. */
     public void showSelected() {
         Unit u = session.getSelectedUnit();
@@ -117,12 +121,21 @@ public final class MapView extends View {
 
     private void tap(float sx, float sy, boolean force) {
         Tile tile;
+        Colony colony = null;
         synchronized (session.lock()) {
             Map map = (session.getGame() == null) ? null : session.getGame().getMap();
             if (map == null || !session.isInGame()) return;
             tile = renderer.tileAt(map, viewport, sx, sy);
+            if (tile != null && tile.getColony() != null
+                && tile.getColony().getOwner() == session.getMyPlayer()) {
+                colony = tile.getColony();
+            }
         }
         if (tile == null) return;
+        if (!force && colony != null && colonyOpener != null) {
+            colonyOpener.open(colony);
+            return;
+        }
         if (!force && session.selectOnTile(tile)) {
             lastSelected = session.getSelectedUnit();
             invalidate();
@@ -172,46 +185,6 @@ public final class MapView extends View {
             renderer.draw(surface, map, session.getMyPlayer(),
                           session.getSelectedUnit(), viewport);
             surface.canvas = null;
-        }
-    }
-
-
-    /** Draws on an Android canvas. */
-    private static final class CanvasSurface implements Surface {
-        Canvas canvas;
-        private final RectF dst = new RectF();
-        private final Paint plain = new Paint(Paint.FILTER_BITMAP_FLAG);
-        private final Paint faded = new Paint(Paint.FILTER_BITMAP_FLAG);
-        private final Paint fill = new Paint();
-        private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-        CanvasSurface() {
-            ColorMatrix m = new ColorMatrix();
-            m.setScale(0.62f, 0.62f, 0.62f, 1f);
-            faded.setColorFilter(new ColorMatrixColorFilter(m));
-            text.setTypeface(Typeface.DEFAULT_BOLD);
-            text.setTextAlign(Paint.Align.CENTER);
-        }
-
-        @Override
-        public void drawImage(Art.Img img, float x, float y, float w, float h,
-                              boolean fade) {
-            dst.set(x, y, x + w, y + h);
-            canvas.drawBitmap((Bitmap)img.handle, null, dst, fade ? faded : plain);
-        }
-
-        @Override
-        public void fillRect(float x, float y, float w, float h, int argb) {
-            fill.setColor(argb);
-            canvas.drawRect(x, y, x + w, y + h, fill);
-        }
-
-        @Override
-        public void drawText(String s, float cx, float baseline, float size,
-                             int argb) {
-            text.setColor(argb);
-            text.setTextSize(size);
-            canvas.drawText(s, cx, baseline, text);
         }
     }
 }

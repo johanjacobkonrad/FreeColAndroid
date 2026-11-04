@@ -63,5 +63,21 @@ public interface MapRenderer {
      * @param selected The selected unit, if any.
      * @param v The {@code Viewport}.
      */
-    void draw(Surface s, Map map, Player me, Unit selected, Viewport v);
+    default void draw(Surface s, Map map, Player me, Unit selected, Viewport v) {
+        draw(s, map, me, selected, v, null, true);
+    }
+
+    /**
+     * Draw part of the map, for close-ups such as a colony's land.
+     *
+     * @param s The {@code Surface} to draw on.
+     * @param map The {@code Map} to draw.
+     * @param me The player whose view this is.
+     * @param selected The selected unit, if any.
+     * @param v The {@code Viewport}.
+     * @param only If not null, draw only the tiles it accepts.
+     * @param units Draw units on the map.
+     */
+    void draw(Surface s, Map map, Player me, Unit selected, Viewport v,
+              java.util.function.Predicate<Tile> only, boolean units);
 }

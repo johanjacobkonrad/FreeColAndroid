@@ -60,6 +60,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private AndroidArt art;
     private IsometricRenderer renderer;
     private MapView mapView;
+    private ColonyPanel colonyPanel;
     private LinearLayout unitRow;
     private List<Unit> unitRowUnits = new ArrayList<>();
     private Unit unitRowSelected = null;
@@ -149,6 +150,22 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.addView(hud, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+        colonyPanel = new ColonyPanel(this, session, renderer, art,
+                                      this::closeColony);
+        colonyPanel.setVisibility(android.view.View.GONE);
+        // The colony screen also keeps clear of the system bars.
+        colonyPanel.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad / 2 + bars.top,
+                         pad + bars.right, pad / 2 + bars.bottom);
+            return insets;
+        });
+        root.addView(colonyPanel, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+        mapView.setColonyOpener(this::openColony);
         setContentView(root);
         refresh();
 
@@ -165,6 +182,26 @@ public final class GameActivity extends Activity implements GameSession.Listener
         }, "GameStart").start();
     }
 
+    private void openColony(net.sf.freecol.common.model.Colony colony) {
+        colonyPanel.setVisibility(android.view.View.VISIBLE);
+        colonyPanel.show(colony);
+        colonyPanel.requestApplyInsets();
+    }
+
+    private void closeColony() {
+        colonyPanel.setVisibility(android.view.View.GONE);
+        refresh();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
+            closeColony();
+        } else {
+            super.onBackPressed();
+        }
+    }
+
     @Override
     protected void onDestroy() {
         session.stop();
@@ -177,6 +214,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     @Override
     public void onChanged() {
         runOnUiThread(this::refresh);
+        colonyPanel.onChanged();
     }
 
     @Override
@@ -185,6 +223,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
             newsLines.addLast(text);
             while (newsLines.size() > NEWS_LINES) newsLines.removeFirst();
             news.setText(String.join("\n", newsLines));
+            if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
+                colonyPanel.onStatus(text);
+            }
         });
     }
 

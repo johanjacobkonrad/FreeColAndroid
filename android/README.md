@@ -81,7 +81,35 @@ the app does (sail to land, put a colonist ashore, found a colony) and
 runs in CI. With `--preview DIR` it also saves PNG pictures of the map
 as a phone would draw it.
 
-After that: the colony screen, Europe, then dialogs (natives, diplomacy,
+### Second slice: the colony screen
+
+Tap your colony on the map to open it (long press still moves the
+selected unit into it). Close, or the back gesture, returns to the map.
+
+- Left: the colony's land, drawn by the map renderer, with each
+  worker and what their tile produces.
+- Middle: the buildings, with their workers, free places and output.
+- Right: units outside the colony, and ships in port with their
+  cargo and passengers.
+- Bottom: the warehouse, with stock and change per turn (red when
+  over the warehouse's capacity).
+- Header: colonists, rebel percentage, hammers, bells and crosses,
+  and what is being built (tap it to choose what to build next).
+
+Moving people works like the map: tap a colonist, then tap a tile, a
+building or "Outside the colony". Native land is bought automatically
+if you can afford it. Tap a worked tile with nobody selected to change
+its crop (or select its worker). Tap a ship, then warehouse goods to
+load up to 100, or its cargo to unload.
+
+`ColonyInfo` reads everything the screen shows in one go, with no
+Android code, so the session check tests it along with the colony
+orders (move into a building, onto a tile, change the build).
+
+Not yet: equipping soldiers and pioneers, the full build queue,
+teaching in the schoolhouse, and buying the current build.
+
+Still to come: save/load, Europe, then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.
 
 Workflow: Claude writes the code on a branch and opens a PR. GitHub Actions
