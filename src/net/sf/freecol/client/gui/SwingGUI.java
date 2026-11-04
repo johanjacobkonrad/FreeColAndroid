@@ -90,7 +90,7 @@ import net.sf.freecol.client.gui.plaf.FreeColLookAndFeel;
 import net.sf.freecol.client.gui.plaf.FreeColToolTipUI;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.MemoryManager;
-import net.sf.freecol.common.debug.DebugUtils;
+import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColDataFile;

@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import net.sf.freecol.client.gui.ColorUtils;
+import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.debug.FreeColDebugger;
@@ -448,7 +449,7 @@ public final class ClientMessageHandler {
             logger.warning("Invalid player for gameEnded");
             return;
         }
-        FreeColDebugger.finishDebugRun(freeColClient, true);
+        DebugUtils.finishDebugRun(freeColClient, true);
         if (winner != freeColClient.getMyPlayer()) return;
         
         igc(freeColClient).gameEndedHandler(highScore);

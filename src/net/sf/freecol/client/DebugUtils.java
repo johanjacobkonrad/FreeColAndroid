@@ -17,9 +17,13 @@
  *  along with FreeCol.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package net.sf.freecol.common.debug;
+package net.sf.freecol.client;
+
+import static net.sf.freecol.common.util.CollectionUtils.*;
+import static net.sf.freecol.common.util.StringUtils.*;
 
 import java.awt.event.ActionEvent;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,10 +39,11 @@ import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
 import javax.swing.event.ChangeEvent;
 
-import net.sf.freecol.client.FreeColClient;
-import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.ChoiceItem;
+import net.sf.freecol.client.gui.GUI;
+import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.io.FreeColXMLWriter.WriteScope;
 import net.sf.freecol.common.model.AbstractGoods;
 import net.sf.freecol.common.model.AbstractUnit;
@@ -50,19 +55,17 @@ import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Disaster;
 import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.FoundingFather;
-import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Game.LogoutReason;
+import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.GoodsContainer;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour.RumourType;
-import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Map;
+import net.sf.freecol.common.model.Market;
 import net.sf.freecol.common.model.Monarch.MonarchAction;
-import net.sf.freecol.common.networking.ChangeSet;
-import net.sf.freecol.common.networking.ChangeSet.See;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.Settlement;
@@ -74,12 +77,11 @@ import net.sf.freecol.common.model.TileImprovement;
 import net.sf.freecol.common.model.TileType;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
+import net.sf.freecol.common.networking.ChangeSet.See;
+import net.sf.freecol.common.networking.ChangeSet;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.util.LogBuilder;
-import static net.sf.freecol.common.util.CollectionUtils.*;
 import net.sf.freecol.common.util.RandomChoice;
-import static net.sf.freecol.common.util.StringUtils.*;
-
 import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.ai.AIColony;
 import net.sf.freecol.server.ai.AIMain;
@@ -1321,26 +1323,33 @@ public class DebugUtils {
         serverGame.sendToAll(cs);
     }
     
-    public static String locationDisplayString(Location target) {
-        if (target == null) {
-            return "No target";
+    /**
+     * Try to complete a debug run if one is happening.
+     *
+     * @param freeColClient The {@code FreeColClient} for the game.
+     * @param force Force early completion of a run.
+     * @return True if a debug run was completed.
+     */
+    public static boolean finishDebugRun(FreeColClient freeColClient,
+                                         boolean force) {
+        int turns = FreeColDebugger.getDebugRunTurns();
+        if (turns < 0              // Not a debug run
+            || turns > 0 && !force // Still going
+            ) return false;
+
+        // Zero => signalEndDebugRun was called
+        FreeColDebugger.setDebugRunTurns(-1);
+
+        if (FreeColDebugger.getDebugRunSave() != null) {
+            FreeColServer fcs = freeColClient.getFreeColServer();
+            if (fcs != null) {
+                try {
+                    fcs.saveGame(FreeColDirectories.getDebugRunSaveFile(),
+                                 freeColClient.getClientOptions(), null);
+                } catch (IOException e) {}
+            }
+            freeColClient.quit();
         }
-        if (target.getTile() == null) {
-            return target.toString();
-        }
-        
-        final String tileCoordinates = "(" + target.getTile().getX() + ", " + target.getTile().getY() + ")";
-        if (target instanceof Settlement) {
-            return ((Settlement) target).getName() + "\n " + tileCoordinates;
-        }
-        if (target instanceof Unit) {
-            final Unit unit = (Unit) target;
-            return Messages.message(unit.getLabel()) + "\n" + tileCoordinates;
-        }
-        if (target instanceof Tile) {
-            return tileCoordinates;
-        }
-        
-        return target.toString();
+        return true;
     }
 }

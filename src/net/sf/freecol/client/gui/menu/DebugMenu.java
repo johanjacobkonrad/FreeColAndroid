@@ -37,7 +37,7 @@ import javax.swing.event.ChangeEvent;
 import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.GUI;
 import net.sf.freecol.client.gui.panel.Utility;
-import net.sf.freecol.common.debug.DebugUtils;
+import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.debug.FreeColDebugger.DebugMode;
 import net.sf.freecol.common.i18n.Messages;

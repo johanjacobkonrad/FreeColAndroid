@@ -93,7 +93,7 @@ import net.sf.freecol.client.gui.panel.FreeColButton.ButtonStyle;
 import net.sf.freecol.client.gui.panel.WrapLayout.HorizontalGap;
 import net.sf.freecol.client.gui.panel.WrapLayout.LayoutStyle;
 import net.sf.freecol.client.gui.tooltip.RebelToolTip;
-import net.sf.freecol.common.debug.DebugUtils;
+import net.sf.freecol.client.DebugUtils;
 import net.sf.freecol.common.debug.FreeColDebugger;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;

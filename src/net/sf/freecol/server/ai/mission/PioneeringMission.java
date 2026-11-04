@@ -25,7 +25,6 @@ import java.util.Comparator;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.common.debug.DebugUtils;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -795,7 +794,7 @@ public final class PioneeringMission extends Mission {
     public String getXMLTagName() { return TAG; }
     
     public String toStringForDebugExtraMissionInfo() {
-        final String targetString = DebugUtils.locationDisplayString(getTarget());
+        final String targetString = locationDisplayString(getTarget());
         final String tileImprovement = (tileImprovementPlan != null) ? Messages.message(tileImprovementPlan.getType().getNameKey()) : "No plan";
         return tileImprovement + " at " + targetString;
     }
