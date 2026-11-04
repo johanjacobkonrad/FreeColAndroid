@@ -33,7 +33,8 @@ import android.widget.TextView;
 
 
 /**
- * The start screen: begin a new game, or run the Phase 1 engine test
+ * The start screen: continue the saved game, begin a new one, or run
+ * the Phase 1 engine test
  * (an all-AI game with no map, showing its progress as text).
  */
 public final class MainActivity extends Activity {
@@ -43,6 +44,7 @@ public final class MainActivity extends Activity {
     private TextView output;
     private ScrollView scroll;
     private Button runButton;
+    private Button continueButton;
 
 
     @Override
@@ -67,11 +69,28 @@ public final class MainActivity extends Activity {
             return WindowInsets.CONSUMED;
         });
 
+        continueButton = new Button(this);
+        continueButton.setAllCaps(false);
+        continueButton.setOnClickListener(v -> startActivity(
+            new android.content.Intent(this, GameActivity.class)
+                .putExtra(GameActivity.EXTRA_CONTINUE, true)));
+        layout.addView(continueButton);
+
         Button newGame = new Button(this);
         newGame.setText("New game (you against the AI)");
         newGame.setAllCaps(false);
-        newGame.setOnClickListener(v -> startActivity(
-            new android.content.Intent(this, GameActivity.class)));
+        newGame.setOnClickListener(v -> {
+                if (GameSession.describeSave(GameActivity.saveFile(this)) == null) {
+                    startNewGame();
+                    return;
+                }
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage("A new game will replace your saved game "
+                        + "when its first turn starts.")
+                    .setPositiveButton("New game", (d, w) -> startNewGame())
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            });
         layout.addView(newGame);
 
         runButton = new Button(this);
@@ -91,6 +110,19 @@ public final class MainActivity extends Activity {
             LayoutParams.MATCH_PARENT, 0, 1f));
 
         setContentView(layout);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        String about = GameSession.describeSave(GameActivity.saveFile(this));
+        continueButton.setVisibility((about == null) ? android.view.View.GONE
+                                     : android.view.View.VISIBLE);
+        if (about != null) continueButton.setText("Continue: " + about);
+    }
+
+    private void startNewGame() {
+        startActivity(new android.content.Intent(this, GameActivity.class));
     }
 
     private void startRun() {

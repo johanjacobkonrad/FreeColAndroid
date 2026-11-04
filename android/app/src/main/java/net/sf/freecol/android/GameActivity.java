@@ -56,6 +56,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     private static final int NEWS_LINES = 4;
 
+    /** Intent extra: carry on with the saved game. */
+    static final String EXTRA_CONTINUE = "continue";
+
     private GameSession session;
     private AndroidArt art;
     private IsometricRenderer renderer;
@@ -179,7 +182,14 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 File data = new File(getFilesDir(), "data");
                 Assets.copy(getAssets(), "data", data);
                 Engine.init(data);
-                session.start(Engine.loadSpecification());
+                File save = saveFile(this);
+                session.setSaveFile(save);
+                if (getIntent().getBooleanExtra(EXTRA_CONTINUE, false)
+                    && save.isFile()) {
+                    session.load(save);
+                } else {
+                    session.start(Engine.loadSpecification());
+                }
             } catch (Throwable t) {
                 onStatus("Could not start: " + t);
             }
@@ -204,6 +214,25 @@ public final class GameActivity extends Activity implements GameSession.Listener
         } else {
             super.onBackPressed();
         }
+    }
+
+    /**
+     * The saved game.  It is saved at the start of each of your turns
+     * and when the app goes into the background.
+     *
+     * @param context The app {@code Context}.
+     * @return The save file.
+     */
+    static File saveFile(android.content.Context context) {
+        return new File(new File(context.getFilesDir(), "saves"), "autosave.fsg");
+    }
+
+    @Override
+    protected void onPause() {
+        // Android may stop the app at any time once it is in the
+        // background, so save now (only does so during our turn).
+        session.saveNow();
+        super.onPause();
     }
 
     @Override

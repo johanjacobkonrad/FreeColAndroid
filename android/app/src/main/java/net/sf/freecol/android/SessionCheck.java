@@ -59,6 +59,10 @@ public final class SessionCheck {
                     System.out.println("  > " + text);
                 }
             });
+        File save = File.createTempFile("freecol-check", ".fsg");
+        save.deleteOnExit();
+        new File(save.getPath() + ".txt").deleteOnExit();
+        s.setSaveFile(save);
         s.start(Engine.loadSpecification());
         Unit ship = null, colonist = null;
         Tile shipStart = null, colonyTile = null;
@@ -120,13 +124,15 @@ public final class SessionCheck {
             waitForOthers(s, 120_000);
             played++;
         }
-        s.stop();
+        // Autosave happened at the start of this turn; load it into a
+        // fresh session and check the game carries on.
+        boolean reloaded = checkLoad(s, save);
         boolean moved = ship != null && shipStart != null
             && ship.getTile() != shipStart;
         System.out.println("Played " + played + " turns; ship moved: " + moved
             + "; landed: " + landed + "; colony founded: " + founded
-            + "; colony orders: " + colonyOk);
-        boolean ok = moved && (colonyOk || played == turns);
+            + "; colony orders: " + colonyOk + "; save and load: " + reloaded);
+        boolean ok = moved && (colonyOk || played == turns) && reloaded;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
     }
@@ -264,6 +270,57 @@ public final class SessionCheck {
         }
         return inBuilding && onTile && built && !buildable.isEmpty() && summary
             && joined;
+    }
+
+    /**
+     * Load the autosave into a new session and play a turn.
+     *
+     * @return True if the loaded game matches and plays.
+     */
+    private static boolean checkLoad(GameSession old, File save) throws Exception {
+        waitForTurn(old, 120_000);
+        old.sync();
+        int units, colonies;
+        String turn;
+        synchronized (old.lock()) {
+            units = old.getMyPlayer().getUnitCount();
+            colonies = old.getMyPlayer().getColonyList().size();
+            turn = old.getGame().getTurn().toString();
+        }
+        String about = GameSession.describeSave(save);
+        old.stop();
+        Thread.sleep(500);
+        System.out.println("Saved game: " + about + " (" + save.length() + " bytes)");
+
+        GameSession s = new GameSession(new GameSession.Listener() {
+                @Override public void onChanged() {}
+                @Override public void onStatus(String text) {
+                    System.out.println("  >> " + text);
+                }
+            });
+        s.load(save);
+        waitForTurn(s, 120_000);
+        s.sync();
+        boolean same;
+        synchronized (s.lock()) {
+            same = s.getMyPlayer().getUnitCount() == units
+                && s.getMyPlayer().getColonyList().size() == colonies
+                && s.getGame().getTurn().toString().equals(turn);
+            System.out.println("Loaded: " + s.getGame().getTurn() + ", "
+                + s.getMyPlayer().getUnitCount() + " units (was " + units
+                + "), " + s.getMyPlayer().getColonyList().size()
+                + " colonies (was " + colonies + ")");
+        }
+        s.endTurn();
+        s.sync();
+        waitForOthers(s, 120_000);
+        waitForTurn(s, 120_000);
+        s.sync();
+        synchronized (s.lock()) {
+            System.out.println("Played on to " + s.getGame().getTurn());
+        }
+        s.stop();
+        return same && about != null;
     }
 
     /** Tap a unit's tile until that unit is selected. */

@@ -18,7 +18,12 @@
  */
 package net.sf.freecol.android;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.InetAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +38,7 @@ import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.FreeColException;
+import net.sf.freecol.common.io.FreeColSavegameFile;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
@@ -91,6 +97,7 @@ import net.sf.freecol.common.networking.UpdateMessage;
 import net.sf.freecol.common.networking.WrapperMessage;
 import net.sf.freecol.common.util.Introspector;
 import net.sf.freecol.server.FreeColServer;
+import net.sf.freecol.server.FreeColServer.ServerState;
 
 
 /**
@@ -149,6 +156,8 @@ public final class GameSession implements MessageHandler {
     private Player me = null;
     private volatile boolean inGame = false;
     private volatile Unit selected = null;
+    /** Where to save automatically, or null not to. */
+    private volatile File saveFile = null;
 
 
     public GameSession(Listener listener) {
@@ -188,6 +197,98 @@ public final class GameSession implements MessageHandler {
     // Starting and stopping
 
     /**
+     * Save automatically to this file at the start of each of our
+     * turns (and when asked by {@link #saveNow}).  A small text file
+     * next to it ("NAME.txt") describes the game for the start screen.
+     *
+     * @param file The save file.
+     */
+    public void setSaveFile(File file) {
+        this.saveFile = file;
+    }
+
+    /**
+     * Load a saved game and carry on playing it.
+     *
+     * @param file The saved game.
+     */
+    public void load(File file) {
+        worker.execute(() -> {
+            try {
+                status("Loading your game...");
+                server = new FreeColServer(new FreeColSavegameFile(file),
+                    (Specification)null, InetAddress.getLoopbackAddress(), -1,
+                    "android");
+                if (!connectAndLogin()) return;
+                if (!inGame) {
+                    // A loaded game waits, like a new one, for the
+                    // players to be ready; then the server resumes it.
+                    api.setReady(true);
+                    api.requestLaunch();
+                }
+            } catch (Throwable t) {
+                logger.log(Level.SEVERE, "Load failed", t);
+                status("Could not load the game: " + t);
+            }
+        });
+    }
+
+    /**
+     * Save now, if it is our turn (when nothing else is changing the
+     * game).  Used when the app is put in the background.
+     */
+    public void saveNow() {
+        if (worker.isShutdown()) return;
+        worker.execute(() -> {
+            if (isMyTurn()) save();
+        });
+    }
+
+    /** Save to the save file, safely: to a temporary file first. */
+    private void save() {
+        final File file = saveFile;
+        if (file == null || server == null) return;
+        try {
+            file.getParentFile().mkdirs();
+            File tmp = new File(file.getPath() + ".tmp");
+            server.saveGame(tmp, null, getSelectedUnit());
+            if (!tmp.renameTo(file)) {
+                throw new java.io.IOException("could not replace " + file);
+            }
+            String about;
+            synchronized (lock) {
+                about = Messages.message(game.getTurn().getLabel()) + ", "
+                    + Messages.message(me.getNationLabel());
+            }
+            try (Writer w = new OutputStreamWriter(new FileOutputStream(
+                     new File(file.getPath() + ".txt")), StandardCharsets.UTF_8)) {
+                w.write(about);
+            }
+        } catch (Throwable t) {
+            logger.log(Level.WARNING, "Save failed", t);
+            status("Could not save the game: " + t.getMessage());
+        }
+    }
+
+    /**
+     * Describe a saved game for the start screen.
+     *
+     * @param file The save file.
+     * @return Its description (year and nation), or null if there is
+     *     no saved game.
+     */
+    public static String describeSave(File file) {
+        if (!file.isFile()) return null;
+        File txt = new File(file.getPath() + ".txt");
+        try {
+            return new String(java.nio.file.Files.readAllBytes(txt.toPath()),
+                              StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return "Saved game";
+        }
+    }
+
+    /**
      * Start a new game: the server, then our login, then the launch.
      * Runs on the worker; progress is reported through the listener.
      *
@@ -199,13 +300,7 @@ public final class GameSession implements MessageHandler {
                 status("Starting the game...");
                 server = new FreeColServer(false, true, spec,
                     InetAddress.getLoopbackAddress(), -1, "android");
-                api.setMessageHandler(this);
-                api.connect("Android", server.getHost(), server.getPort());
-                if (!api.login(USER, null, FreeCol.getVersion(), true, false)
-                    || me == null) {
-                    status("Could not join the game.");
-                    return;
-                }
+                if (!connectAndLogin()) return;
                 status("Playing as " + Messages.message(me.getNationLabel())
                     + ". Creating the New World...");
                 api.setReady(true);
@@ -215,6 +310,32 @@ public final class GameSession implements MessageHandler {
                 status("Could not start the game: " + t);
             }
         });
+    }
+
+    /**
+     * Connect to the server and log in.  For a saved game the login
+     * puts us straight back into the running game.
+     *
+     * @return True if logged in.
+     * @exception java.io.IOException if the connection fails.
+     */
+    private boolean connectAndLogin() throws java.io.IOException {
+        api.setMessageHandler(this);
+        api.connect("Android", server.getHost(), server.getPort());
+        if (!api.login(USER, null, FreeCol.getVersion(), true, false)
+            || me == null) {
+            status("Could not join the game.");
+            return false;
+        }
+        if (inGame) {
+            status("Welcome back. Playing as "
+                + Messages.message(me.getNationLabel()) + ".");
+            synchronized (lock) {
+                if (game.getCurrentPlayer() == me) worker.execute(this::beginTurn);
+            }
+            changed();
+        }
+        return true;
     }
 
     /**
@@ -867,6 +988,7 @@ public final class GameSession implements MessageHandler {
             if (!api.emigrate(slot)) break;
         }
         for (Unit u : going) followPath(u);
+        save();
         reportMessages();
         synchronized (lock) {
             me.resetIterators();
@@ -919,6 +1041,8 @@ public final class GameSession implements MessageHandler {
             LoginMessage lm = (LoginMessage)m;
             game = lm.getGame();
             me = game.getPlayerByName(lm.getUserName());
+            // Joining a game already under way (a saved game).
+            if (lm.getState() == ServerState.IN_GAME) inGame = true;
         } else if (m instanceof UpdateMessage) {
             update(((UpdateMessage)m).getChildren());
         } else if (m instanceof RemoveMessage) {

@@ -109,7 +109,21 @@ orders (move into a building, onto a tile, change the build).
 Not yet: equipping soldiers and pioneers, the full build queue,
 teaching in the schoolhouse, and buying the current build.
 
-Still to come: save/load, Europe, then dialogs (natives, diplomacy,
+### Saving
+
+The game saves itself (in the app's private storage) at the start of
+each of your turns, and when the app goes into the background during
+your turn, since Android may stop it at any time after that. It
+writes to a temporary file first, so a save cut short leaves the
+last good one. The start screen then offers **Continue** with the
+year and nation of the saved game. There is one save; a new game
+replaces it once its first turn starts. The files are the desktop
+game's own save format.
+
+The session check saves, loads the save into a fresh session, checks
+the colonies and units are all there, and plays on a turn.
+
+Still to come: Europe, then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.
 
 Workflow: Claude writes the code on a branch and opens a PR. GitHub Actions
