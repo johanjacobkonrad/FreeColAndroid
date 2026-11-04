@@ -20,7 +20,7 @@
 package net.sf.freecol.client.gui.animation;
 
 import static net.sf.freecol.common.util.CollectionUtils.makeUnmodifiableList;
-import static net.sf.freecol.common.util.ImageUtils.createMirroredImage;
+import static net.sf.freecol.client.gui.ImageUtils.createMirroredImage;
 import static net.sf.freecol.common.util.StringUtils.downCase;
 
 import java.awt.Dimension;
@@ -35,9 +35,9 @@ import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 
 import net.sf.freecol.client.gui.ImageLibrary;
-import net.sf.freecol.common.io.sza.AnimationEvent;
-import net.sf.freecol.common.io.sza.ImageAnimationEvent;
-import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
+import net.sf.freecol.client.io.sza.AnimationEvent;
+import net.sf.freecol.client.io.sza.ImageAnimationEvent;
+import net.sf.freecol.client.io.sza.SimpleZippedAnimation;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;

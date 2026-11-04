@@ -1,7 +1,7 @@
 package net.sf.freecol.client.gui.images;
 
 import net.sf.freecol.client.gui.ImageLibrary;
-import net.sf.freecol.common.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageCache;
 
 /**
  * Lists the image creators that can be used by {@link ImageLibrary} to

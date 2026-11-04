@@ -42,7 +42,7 @@ import javax.swing.Timer;
 import net.sf.freecol.client.gui.FontLibrary;
 import net.sf.freecol.client.gui.action.FreeColAction;
 import net.sf.freecol.client.gui.panel.Utility;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**

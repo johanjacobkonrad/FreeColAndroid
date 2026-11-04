@@ -44,8 +44,8 @@ import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.option.GameOptions;
 import net.sf.freecol.common.option.MapGeneratorOptions;
 import net.sf.freecol.common.option.OptionGroup;
-import net.sf.freecol.common.resources.AudioResource;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.AudioResource;
+import net.sf.freecol.client.resources.ResourceManager;
 import net.sf.freecol.common.util.Utils;
 
 

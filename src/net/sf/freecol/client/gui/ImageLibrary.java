@@ -46,7 +46,7 @@ import javax.swing.JLabel;
 
 import net.sf.freecol.client.gui.images.ColorizedImageCreator;
 import net.sf.freecol.client.gui.images.ImageCreators;
-import net.sf.freecol.common.io.sza.SimpleZippedAnimation;
+import net.sf.freecol.client.io.sza.SimpleZippedAnimation;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.Building;
@@ -73,12 +73,12 @@ import net.sf.freecol.common.model.TileImprovementStyle;
 import net.sf.freecol.common.model.TileType;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.UnitType;
-import net.sf.freecol.common.resources.ImageCache;
-import net.sf.freecol.common.resources.ImageResource;
-import net.sf.freecol.common.resources.ResourceManager;
-import net.sf.freecol.common.resources.StringResource;
-import net.sf.freecol.common.resources.Video;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageResource;
+import net.sf.freecol.client.resources.ResourceManager;
+import net.sf.freecol.client.resources.StringResource;
+import net.sf.freecol.client.resources.Video;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**

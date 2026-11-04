@@ -42,8 +42,8 @@ import net.sf.freecol.client.FreeColClient;
 import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Unit;
-import net.sf.freecol.common.resources.PropertyList;
-import net.sf.freecol.common.resources.ResourceManager;
+import net.sf.freecol.client.resources.PropertyList;
+import net.sf.freecol.client.resources.ResourceManager;
 
 
 /**

@@ -23,7 +23,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.image.BufferedImage;
 
-import net.sf.freecol.common.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageCache;
 
 /**
  * Colorizes an image.

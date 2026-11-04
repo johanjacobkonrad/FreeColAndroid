@@ -7,9 +7,9 @@ import java.util.Random;
 import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Tile;
-import net.sf.freecol.common.resources.ImageCache;
-import net.sf.freecol.common.resources.ImageResource;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageResource;
+import net.sf.freecol.client.gui.ImageUtils;
 
 /**
  * Creates a transition between base tiles. For example, this transition will make the prairie graphics blend into the grassland graphics.

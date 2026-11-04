@@ -27,7 +27,7 @@ import java.io.IOException;
 
 import javax.imageio.ImageIO;
 
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.gui.ImageUtils;
 
 
 /**

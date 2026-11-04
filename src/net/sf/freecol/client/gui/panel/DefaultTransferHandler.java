@@ -22,7 +22,7 @@ package net.sf.freecol.client.gui.panel;
 import static net.sf.freecol.common.util.CollectionUtils.any;
 import static net.sf.freecol.common.util.CollectionUtils.matchKeyEquals;
 import static net.sf.freecol.common.util.CollectionUtils.transform;
-import static net.sf.freecol.common.util.ImageUtils.createResizedImage;
+import static net.sf.freecol.client.gui.ImageUtils.createResizedImage;
 
 import java.awt.Cursor;
 import java.awt.Dimension;

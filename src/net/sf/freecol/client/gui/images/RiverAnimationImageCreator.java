@@ -11,9 +11,9 @@ import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.model.Direction;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TileImprovement;
-import net.sf.freecol.common.resources.ImageCache;
-import net.sf.freecol.common.resources.ImageResource;
-import net.sf.freecol.common.util.ImageUtils;
+import net.sf.freecol.client.resources.ImageCache;
+import net.sf.freecol.client.resources.ImageResource;
+import net.sf.freecol.client.gui.ImageUtils;
 
 /**
  * Class for generating the combined animated images for rivers.

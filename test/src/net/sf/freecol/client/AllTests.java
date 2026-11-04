@@ -30,6 +30,7 @@ public class AllTests {
         //$JUnit-BEGIN$
         suite.addTest(net.sf.freecol.client.control.AllTests.suite());
         suite.addTest(net.sf.freecol.client.gui.AllTests.suite());
+        // suite.addTest(net.sf.freecol.client.sound.AllTests.suite());
         //$JUnit-END$
         return suite;
     }
