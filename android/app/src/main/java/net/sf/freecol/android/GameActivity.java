@@ -67,6 +67,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private float dp;
     private TextView info, news;
     private Button nextButton, waitButton, fortifyButton, colonyButton, endButton;
+    /** The colony button joins a colony next to the unit, not founds one. */
+    private boolean joinMode = false;
     private final Deque<String> newsLines = new ArrayDeque<>();
 
 
@@ -130,7 +132,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
         nextButton = button(bar, "Next unit", v -> session.nextUnit());
         waitButton = button(bar, "Wait", v -> session.waitUnit());
         fortifyButton = button(bar, "Fortify", v -> session.fortifyUnit());
-        colonyButton = button(bar, "Build colony", v -> session.buildColony());
+        colonyButton = button(bar, "Build colony", v -> {
+                if (joinMode) session.joinColony(); else session.buildColony();
+            });
         endButton = button(bar, "End turn", v -> session.endTurn());
         hud.addView(bar, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -235,6 +239,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         Unit unit = session.getSelectedUnit();
         String text = "";
         boolean canColony = false, canFortify = false, naval = false;
+        boolean canJoin = false;
         List<Unit> here = new ArrayList<>();
         synchronized (session.lock()) {
             Player me = session.getMyPlayer();
@@ -246,6 +251,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
                     text += "   " + unit.getDescription()
                         + " (moves " + unit.getMovesAsString() + ")";
                     canColony = session.canBuildColonyHere(unit);
+                    canJoin = session.joinableColony(unit) != null;
                     canFortify = unit.hasTile() && !unit.isOnCarrier();
                     naval = unit.isNaval();
                     Tile t = unit.getTile();
@@ -259,7 +265,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
         fortifyButton.setEnabled(myTurn && canFortify);
         fortifyButton.setText(naval ? "Sentry" : "Fortify");
         updateUnitRow(here, unit);
-        colonyButton.setEnabled(myTurn && canColony);
+        joinMode = canJoin;
+        colonyButton.setText(canJoin ? "Join colony" : "Build colony");
+        colonyButton.setEnabled(myTurn && (canColony || canJoin));
         endButton.setEnabled(myTurn);
         mapView.showSelected();
         mapView.invalidate();
