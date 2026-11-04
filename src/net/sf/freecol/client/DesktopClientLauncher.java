@@ -30,12 +30,12 @@ import java.util.logging.Logger;
 
 import javax.swing.SwingUtilities;
 
+import net.sf.freecol.client.gui.GraphicsUtils;
 import net.sf.freecol.FreeCol;
 import net.sf.freecol.client.gui.SplashScreen;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColDirectories;
 import net.sf.freecol.common.model.Specification;
-import net.sf.freecol.common.util.Utils;
 
 
 /**
@@ -119,7 +119,7 @@ public final class DesktopClientLauncher implements FreeCol.DesktopClient {
         SplashScreen splashScreen = null;
         if (splashStream != null) {
             try {
-                final GraphicsDevice defaultScreenDevice = Utils.getGoodGraphicsDevice();
+                final GraphicsDevice defaultScreenDevice = GraphicsUtils.getGoodGraphicsDevice();
                 splashScreen = new SplashScreen(defaultScreenDevice, splashStream);
                 splashScreen.setVisible(true);
             } catch (Exception e) {

@@ -129,7 +129,6 @@ import net.sf.freecol.client.resources.ImageCache;
 import net.sf.freecol.client.resources.ImageResource;
 import net.sf.freecol.client.resources.ResourceManager;
 import net.sf.freecol.common.util.Introspector;
-import net.sf.freecol.common.util.Utils;
 
 
 /**
@@ -213,12 +212,12 @@ public class SwingGUI extends GUI {
     public SwingGUI(FreeColClient freeColClient) {
         super(freeColClient);
 
-        this.graphicsDevice = Utils.getGoodGraphicsDevice();
+        this.graphicsDevice = GraphicsUtils.getGoodGraphicsDevice();
         if (this.graphicsDevice == null) {
             FreeCol.fatal(logger, "Could not find a GraphicsDevice!");
         }
         
-        final float scaleFactor = determineScaleFactorUsingClientOptions(Utils.determineDpi(graphicsDevice));
+        final float scaleFactor = determineScaleFactorUsingClientOptions(GraphicsUtils.determineDpi(graphicsDevice));
         this.imageCache = new ImageCache();
         this.scaledImageLibrary = new ImageLibrary(constrainToMaxMapScale(scaleFactor), this.imageCache);
         this.fixedImageLibrary = new ImageLibrary(scaleFactor, this.imageCache);
@@ -779,7 +778,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void installLookAndFeel(String fontName) throws FreeColException {
-        final int dpi = Utils.determineDpi(graphicsDevice);
+        final int dpi = GraphicsUtils.determineDpi(graphicsDevice);
         final int fontSize = determineMainFontSizeUsingClientOptions(dpi);
         FontLibrary.setMainFontSize(fontSize);
         FreeColImageBorder.setScaleFactor(fixedImageLibrary.getScaleFactor());
@@ -1942,7 +1941,7 @@ public class SwingGUI extends GUI {
      */
     @Override
     public void refreshGuiUsingClientOptions() {
-        final int dpi = Utils.determineDpi(graphicsDevice);
+        final int dpi = GraphicsUtils.determineDpi(graphicsDevice);
         final float scaleFactor = determineScaleFactorUsingClientOptions(dpi);
         
         this.fixedImageLibrary.changeScaleFactor(scaleFactor);
@@ -2872,7 +2871,7 @@ public class SwingGUI extends GUI {
             return;
         }
         
-        final int dpi = Utils.determineDpi(graphicsDevice);
+        final int dpi = GraphicsUtils.determineDpi(graphicsDevice);
         final float scaleFactor = determineScaleFactorUsingClientOptions(dpi);
         if (Math.abs(getFixedImageLibrary().getScaleFactor() - scaleFactor) <= 0.1) {
             return;

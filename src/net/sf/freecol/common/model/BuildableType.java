@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import javax.swing.JList;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.common.model.Colony.NoBuildReason;
@@ -270,11 +269,11 @@ public abstract class BuildableType extends FreeColSpecObjectType {
     public abstract NoBuildReason canBeBuiltInColony(Colony colony,
         List<BuildableType> assumeBuilt);
 
-    public int getMinimumIndex(Colony colony, JList<BuildableType> buildQueueList, int UNABLE_TO_BUILD) {
+    public int getMinimumIndex(Colony colony, List<BuildableType> buildQueue, int UNABLE_TO_BUILD) {
         return UNABLE_TO_BUILD;
     }
 
-    public int getMaximumIndex(Colony colony, JList<BuildableType> buildQueueList, int UNABLE_TO_BUILD) {
+    public int getMaximumIndex(Colony colony, List<BuildableType> buildQueue, int UNABLE_TO_BUILD) {
         return UNABLE_TO_BUILD;
     }
 

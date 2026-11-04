@@ -19,10 +19,10 @@
 
 package net.sf.freecol.common.util;
 
-import java.awt.FontMetrics;
 import java.util.Collection;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.ToIntFunction;
 import java.util.Locale;
 
 
@@ -173,13 +173,14 @@ public class StringUtils {
      *
      * @param text The text to split.
      * @param delim Characters to consider as word delimiting.
-     * @param fontMetrics {@code FontMetrics} used to calculate
-     *     text width.
+     * @param widthOf A function giving the display width of a string
+     *     (for example {@code FontMetrics::stringWidth}).
      * @param width The text width maximum.
      * @return A list of split text.
      */
     public static List<String> splitText(String text, String delim,
-                                         FontMetrics fontMetrics, int width) {
+                                         ToIntFunction<String> widthOf,
+                                         int width) {
         List<String> result = new ArrayList<>();
         final int len = text.length();
         int i = 0, start;
@@ -196,7 +197,7 @@ public class StringUtils {
             }
             String s = text.substring(start, i);
             String t = (top.isEmpty()) ? s : top + d + s;
-            if (fontMetrics.stringWidth(t) > width) {
+            if (widthOf.applyAsInt(t) > width) {
                 if (top.isEmpty()) {
                     result.add(s);
                 } else {

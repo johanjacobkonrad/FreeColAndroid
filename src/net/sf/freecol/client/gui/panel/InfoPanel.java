@@ -276,7 +276,7 @@ public final class InfoPanel extends FreeColPanel
         final int width = (int)(0.3 * this.getWidth());
         panel.add(new JLabel("")); // hack, one blank entry at top
         for (String s : splitText(labelString, " /",
-                                  getFontMetrics(this.font), width)) {
+                                  getFontMetrics(this.font)::stringWidth, width)) {
             JLabel label = new JLabel(s);
             label.setFont(this.font);
             panel.add(label);
@@ -329,7 +329,7 @@ public final class InfoPanel extends FreeColPanel
                 final int width = panel.getWidth() - SLACK;
                 String text = Messages.message(tile.getLabel());
                 for (String s : splitText(text, " /",
-                                          getFontMetrics(this.font), width)) {
+                                          getFontMetrics(this.font)::stringWidth, width)) {
                     JLabel label = new JLabel(s);
                     label.setFont(this.font);
                     panel.add(label, "span, align center");
@@ -424,7 +424,7 @@ public final class InfoPanel extends FreeColPanel
         panel.add(new JLabel(ii), "spany, center");
         String text = unit.getDescription(Unit.UnitLabelType.FULL);
         JLabel textLabel;
-        for (String s : splitText(text, " /", getFontMetrics(this.font),
+        for (String s : splitText(text, " /", getFontMetrics(this.font)::stringWidth,
                                   panel.getWidth() - width)) {
             textLabel = new JLabel(s);
             textLabel.setFont(this.font);

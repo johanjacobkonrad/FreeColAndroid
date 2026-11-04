@@ -30,8 +30,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.swing.JList;
-import javax.swing.ListModel;
 import javax.xml.stream.XMLStreamException;
 
 import net.sf.freecol.common.io.FreeColXMLReader;
@@ -412,16 +410,15 @@ public final class BuildingType extends BuildableType
     }
 
     @Override
-    public int getMinimumIndex(Colony colony, JList<BuildableType> buildQueueList, int UNABLE_TO_BUILD) {
-        ListModel<BuildableType> buildQueue = buildQueueList.getModel();
+    public int getMinimumIndex(Colony colony, List<BuildableType> buildQueue, int UNABLE_TO_BUILD) {
         BuildingType upgradesFrom = this.getUpgradesFrom();
         if (upgradesFrom == null) return 0;
         Building building = colony.getBuilding(this);
         BuildingType buildingType = (building == null) ? null
                 : building.getType();
         if (buildingType == upgradesFrom) return 0;
-        for (int index = 0; index < buildQueue.getSize(); index++) {
-            if (upgradesFrom.equals(buildQueue.getElementAt(index))) {
+        for (int index = 0; index < buildQueue.size(); index++) {
+            if (upgradesFrom.equals(buildQueue.get(index))) {
                 return index + 1;
             }
         }
@@ -429,9 +426,8 @@ public final class BuildingType extends BuildableType
     }
 
     @Override
-    public int getMaximumIndex(Colony colony, JList<BuildableType> buildQueueList, int UNABLE_TO_BUILD) {
-        ListModel<BuildableType> buildQueue = buildQueueList.getModel();
-        final int buildQueueLastPos = buildQueue.getSize();
+    public int getMaximumIndex(Colony colony, List<BuildableType> buildQueue, int UNABLE_TO_BUILD) {
+        final int buildQueueLastPos = buildQueue.size();
 
         boolean canBuild = false;
         if (colony.canBuild(this)) {
@@ -454,8 +450,8 @@ public final class BuildingType extends BuildableType
         // if can be built, does not depend on anything, mark
         // upgrades from as found
         boolean foundUpgradesFrom = canBuild;
-        for (int index = 0; index < buildQueue.getSize(); index++) {
-            BuildableType toBuild = buildQueue.getElementAt(index);
+        for (int index = 0; index < buildQueue.size(); index++) {
+            BuildableType toBuild = buildQueue.get(index);
 
             if (toBuild == this) continue;
 

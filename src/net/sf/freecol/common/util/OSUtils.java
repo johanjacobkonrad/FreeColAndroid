@@ -19,9 +19,6 @@
 
 package net.sf.freecol.common.util;
 
-import java.io.IOException;
-import java.net.URI;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -69,55 +66,5 @@ public class OSUtils {
      */
     public static boolean onWindows() {
         return getOperatingSystem().startsWith("Windows");
-    }
-
-    /**
-     * Launches the web browser based on a given operating system
-     *
-     * @param url The URL to launch
-     */
-    final public static void launchBrowser(String url) {
-        // Use Desktop Class first
-        try {
-            URI uri = java.net.URI.create(url);
-            java.awt.Desktop.getDesktop().browse(uri);
-        } catch (IOException e) {
-
-            // If Desktop Class fails to launch browser, log the error
-            logger.log(Level.FINEST, "Web browser failed to launch via Desktop Class.", e);
-
-            // Use Runtime to launch browser
-            String[] browser = getBrowserExecString(url);
-            try {
-                Runtime.getRuntime().exec(browser);
-            } catch (IOException re) {
-                logger.log(Level.FINEST, "Web browser failed to launch via Runtime Class.", re);
-            }
-        }
-    }
-
-    /**
-     * What should we run to launch a browser?
-     *
-     * @param url The URL to launch
-     * @return An OS-dependent array of commands to exec a browser.
-     *
-     * @see #launchBrowser(String)
-     */
-    final private static String[] getBrowserExecString(String url) {
-        if (onMacOSX()) {
-            // Apple Macintosh, Safari is the main browser
-            return new String[] { "open" , "-a", "Safari", url };
-        } else if (onUnix()) {
-            // GNU Linux, use xdg-utils to launch the default
-            // browser (portland.freedesktop.org)
-            return new String[] { "xdg-open", url };
-        } else if (onWindows()) {
-            // Microsoft Windows, use the default browser
-            return new String[] { "rundll32.exe",
-                    "url.dll,FileProtocolHandler", url };
-        } else {
-            return new String[] { "firefox", url };
-        }
     }
 }

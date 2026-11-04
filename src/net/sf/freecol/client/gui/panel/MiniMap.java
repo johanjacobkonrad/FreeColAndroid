@@ -38,6 +38,7 @@ import java.util.logging.Logger;
 import javax.swing.JPanel;
 import javax.swing.event.MouseInputListener;
 
+import net.sf.freecol.client.gui.GraphicsUtils;
 import net.sf.freecol.client.gui.ColorUtils;
 import net.sf.freecol.client.ClientOptions;
 import net.sf.freecol.client.FreeColClient;
@@ -47,7 +48,6 @@ import net.sf.freecol.common.model.Game;
 import net.sf.freecol.common.model.Map;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
-import net.sf.freecol.common.util.Utils;
 
 
 /**
@@ -178,7 +178,7 @@ public final class MiniMap extends JPanel implements MouseInputListener {
         final int theTileSize = tileSize;
         final Dimension size = new Dimension(theTileSize * map.getWidth() + theTileSize / 2,
                 theTileSize * map.getHeight() / 2 + theTileSize / 4);
-        final BufferedImage nextPaintedMinimapImage = Utils.getGoodGraphicsDevice()
+        final BufferedImage nextPaintedMinimapImage = GraphicsUtils.getGoodGraphicsDevice()
                 .getDefaultConfiguration()
                 .createCompatibleImage(size.width, size.height, Transparency.OPAQUE);
         final Graphics2D g2d = nextPaintedMinimapImage.createGraphics();

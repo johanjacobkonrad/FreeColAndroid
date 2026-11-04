@@ -19,8 +19,13 @@
 
 package net.sf.freecol.client.gui.panel;
 
+import java.awt.Desktop;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
+import java.net.URI;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
@@ -65,6 +70,8 @@ import net.sf.freecol.common.util.OSUtils;
  *
  */
 public final class AboutPanel extends FreeColPanel {
+
+    private static final Logger logger = Logger.getLogger(AboutPanel.class.getName());
 
     /** The main FreeCol website */
     private static final String SITE_URL
@@ -168,7 +175,7 @@ public final class AboutPanel extends FreeColPanel {
      *
      * Launch a browser with the link clicked from the panel.
      *
-     * @see OSUtils#launchBrowser(String)
+     * @see #launchBrowser(String)
      */
     @Override
     public void actionPerformed(ActionEvent ae) {
@@ -178,10 +185,60 @@ public final class AboutPanel extends FreeColPanel {
                 || MANUAL_URL.equals(url)
                 || GITHUB_URL.equals(url)
                 ) {
-            OSUtils.launchBrowser(url);
+            launchBrowser(url);
         }
         else {
             super.actionPerformed(ae);
+        }
+    }
+
+    /**
+     * Launches the web browser based on a given operating system
+     *
+     * @param url The URL to launch
+     */
+    private static void launchBrowser(String url) {
+        // Use Desktop Class first
+        try {
+            URI uri = URI.create(url);
+            Desktop.getDesktop().browse(uri);
+        } catch (IOException e) {
+
+            // If Desktop Class fails to launch browser, log the error
+            logger.log(Level.FINEST, "Web browser failed to launch via Desktop Class.", e);
+
+            // Use Runtime to launch browser
+            String[] browser = getBrowserExecString(url);
+            try {
+                Runtime.getRuntime().exec(browser);
+            } catch (IOException re) {
+                logger.log(Level.FINEST, "Web browser failed to launch via Runtime Class.", re);
+            }
+        }
+    }
+
+    /**
+     * What should we run to launch a browser?
+     *
+     * @param url The URL to launch
+     * @return An OS-dependent array of commands to exec a browser.
+     *
+     * @see #launchBrowser(String)
+     */
+    private static String[] getBrowserExecString(String url) {
+        if (OSUtils.onMacOSX()) {
+            // Apple Macintosh, Safari is the main browser
+            return new String[] { "open" , "-a", "Safari", url };
+        } else if (OSUtils.onUnix()) {
+            // GNU Linux, use xdg-utils to launch the default
+            // browser (portland.freedesktop.org)
+            return new String[] { "xdg-open", url };
+        } else if (OSUtils.onWindows()) {
+            // Microsoft Windows, use the default browser
+            return new String[] { "rundll32.exe",
+                    "url.dll,FileProtocolHandler", url };
+        } else {
+            return new String[] { "firefox", url };
         }
     }
 }
