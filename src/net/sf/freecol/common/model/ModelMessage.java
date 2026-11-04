@@ -19,14 +19,11 @@
 
 package net.sf.freecol.common.model;
 
-import java.util.AbstractMap.SimpleEntry;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.gui.panel.Utility;
 import net.sf.freecol.common.i18n.Messages;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -343,54 +340,6 @@ public class ModelMessage extends StringTemplate {
             break;
         }
         return null;
-    }
-
-    /**
-     * Split a message into a list of text and link objects.
-     *
-     * @param player The {@code Player} who will see the result.
-     * @return A list of strings and buttons.
-     */
-    public List<Object> splitLinks(Player player) {
-        final FreeColGameObject source = player.getGame()
-            .getMessageSource(this);
-
-        // Build a list of objects, initially containing just the plain
-        // text of the message.
-        List<Object> result = new ArrayList<>();
-        result.add(Messages.message(this));
-
-        for (SimpleEntry<String,StringTemplate> e : entryList()) {
-            // Then for each key, check if it can be made into a link.
-            // If not, ignore it.
-            String key = e.getKey();
-            String val = Messages.message(e.getValue());
-            if (val == null) continue;
-            Object b = Utility.getMessageButton(key, val, player, source);
-            if (b == null) continue;
-
-            // ...if so, find all instances of the replacement of the key
-            // in the object list texts, and replace them with buttons.
-            List<Object> next = new ArrayList<>();
-            for (Object o : result) {
-                if (o instanceof String) {
-                    String str = (String)o;
-                    int index, start = 0;
-                    while ((index = str.indexOf(val, start)) >= 0) {
-                        if (index > start) {
-                            next.add(str.substring(start, index));
-                        }
-                        next.add(Utility.getMessageButton(key, val, player, source));
-                        start = index + val.length();
-                    }
-                    next.add(str.substring(start, str.length()));
-                } else {
-                    next.add(o);
-                }
-            }
-            result = next;
-        }
-        return result;
     }
 
     /**

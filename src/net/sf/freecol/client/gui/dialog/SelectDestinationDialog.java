@@ -302,7 +302,7 @@ public final class SelectDestinationDialog extends DeprecatedFreeColDialog<Locat
         @Override
         public void setLabelValues(JLabel label, Destination value) {
             label.setText(value.text);
-            String key = value.location.getLocationImageKey();
+            String key = ImageLibrary.getLocationImageKey(value.location);
             label.setIcon(new ImageIcon(this.lib.getSizedImage(key,
                         new Dimension(-1, CELL_HEIGHT))));
         }

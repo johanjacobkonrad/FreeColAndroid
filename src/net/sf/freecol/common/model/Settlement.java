@@ -37,7 +37,6 @@ import java.util.function.Predicate;
 
 import javax.xml.stream.XMLStreamException;
 
-import net.sf.freecol.client.gui.ImageLibrary;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColXMLReader;
 import net.sf.freecol.common.io.FreeColXMLWriter;
@@ -597,14 +596,6 @@ public abstract class Settlement extends GoodsLocation implements Nameable, Owna
     @Override
     public final int getRank() {
         return Location.rankOf(getTile());
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getLocationImageKey() {
-        return ImageLibrary.getSettlementKey(this);
     }
 
 

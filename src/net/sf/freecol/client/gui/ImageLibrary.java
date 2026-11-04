@@ -57,6 +57,7 @@ import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.FreeColObject;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.Europe;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.LostCityRumour;
 import net.sf.freecol.common.model.Nation;
@@ -1126,6 +1127,23 @@ public final class ImageLibrary {
     }
             
         
+    /**
+     * Get an image key for a location.
+     *
+     * @param location The {@code Location} to find a key for.
+     * @return A key for image lookup, or null if there is none.
+     */
+    public static String getLocationImageKey(Location location) {
+        if (location instanceof Settlement) {
+            return getSettlementKey((Settlement)location);
+        } else if (location instanceof Europe) {
+            return getNationKey(((Europe)location).getOwner().getNation());
+        } else if (location instanceof net.sf.freecol.common.model.Map) {
+            return LOST_CITY_RUMOUR;
+        }
+        return null;
+    }
+
     public static String getNationKey(Nation nation) {
         return "image.miscicon." + nation.getId();
     }
