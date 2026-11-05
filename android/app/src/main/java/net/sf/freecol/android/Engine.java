@@ -70,9 +70,19 @@ public final class Engine {
      * @exception IllegalStateException if the rules do not load.
      */
     public static Specification loadSpecification() {
+        return loadSpecification("model.difficulty.medium");
+    }
+
+    /**
+     * Load the classic rules at a given difficulty.
+     *
+     * @param difficulty A difficulty id such as "model.difficulty.hard".
+     * @return A new {@code Specification}.
+     * @exception IllegalStateException if the rules do not load.
+     */
+    public static Specification loadSpecification(String difficulty) {
         Specification spec = FreeCol.loadSpecification(
-            FreeColRules.getFreeColRulesFile("freecol"), null,
-            "model.difficulty.medium");
+            FreeColRules.getFreeColRulesFile("freecol"), null, difficulty);
         if (spec == null) throw new IllegalStateException("rules failed to load");
         return spec;
     }

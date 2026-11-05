@@ -47,6 +47,8 @@ def syncArtAssets = tasks.register('syncArtAssets', Sync) {
         include 'resources/images/misc/*.png'
         include 'resources/images/buildings/*.png'
         include 'resources/images/goods/*.png'
+        include 'resources/images/coat-of-arms/*.png'
+        include 'resources/images/ui/landing.png'
         exclude '**/*.size*.png'
         // Forests: only the plain image, not the river and corner
         // pieces (forest/mixed/mixed.png, but not mixed0110.png or
