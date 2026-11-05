@@ -160,6 +160,8 @@ public final class GameSession implements MessageHandler {
     private Player me = null;
     private volatile boolean inGame = false;
     private volatile Unit selected = null;
+    /** Pause after a unit's last move, in ms (see setMovePause). */
+    private volatile int movePause = 900;
     /** Where to save automatically, or null not to. */
     private volatile File saveFile = null;
 
@@ -1526,15 +1528,42 @@ public final class GameSession implements MessageHandler {
 
     /** After a unit's orders: keep it selected while it can move. */
     private void afterOrders(Unit unit) {
+        boolean pause = false;
         synchronized (lock) {
             if (unit != null && !unit.isDisposed() && unit.getOwner() == me
                 && unit.getMovesLeft() > 0 && unit.getDestination() == null) {
                 selected = unit;
+            } else if (unit != null && !unit.isDisposed() && movePause > 0) {
+                // Show where the unit got to, and what it found, before
+                // moving on to the next one.
+                selected = unit;
+                pause = true;
             } else {
                 selectNextLocked();
             }
         }
         changed();
+        if (!pause) return;
+        try {
+            Thread.sleep(movePause);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        }
+        synchronized (lock) {
+            // Unless the player picked another unit meanwhile.
+            if (selected == unit) selectNextLocked();
+        }
+        changed();
+    }
+
+    /**
+     * How long to show a unit that has used its moves before
+     * selecting the next one.
+     *
+     * @param millis The pause in milliseconds (0 for none).
+     */
+    public void setMovePause(int millis) {
+        this.movePause = millis;
     }
 
     private void selectNext() {
