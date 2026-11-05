@@ -23,11 +23,9 @@ import java.util.List;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -56,8 +54,8 @@ import net.sf.freecol.common.model.Unit;
  */
 final class ColonyPanel extends LinearLayout implements GameSession.Listener {
 
-    private static final int BG = 0xFF2B2118, CELL = 0xFF3E3125,
-        CELL_SELECTED = 0xFFE8D9B0, SHIP_CELL = 0xFF1E3A55;
+    private static final int CELL = 0xFF3A2816, SHIP_CELL = 0xFF24343C,
+        SHIP_SELECTED = 0xFF35556A;
 
     private final GameSession session;
     private final IsometricRenderer renderer;
@@ -66,7 +64,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
     private final float dp;
 
     private final TextView title, stats, hint;
-    private final Button buildButton, equipButton;
+    private final TextView buildButton, equipButton;
     private final ColonyLandView land;
     private final LinearLayout buildings, side, goods;
 
@@ -85,7 +83,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         this.onClose = onClose;
         this.dp = context.getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
-        setBackgroundColor(BG);
+        setBackground(Theme.wood());
         setClickable(true); // Do not let taps through to the map
 
         // Header: name and figures, what it builds, close.
@@ -94,28 +92,24 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         header.setGravity(Gravity.CENTER_VERTICAL);
         LinearLayout titles = new LinearLayout(context);
         titles.setOrientation(VERTICAL);
-        title = text(18, Color.WHITE, true);
-        stats = text(12, 0xFFDDCCAA, false);
+        title = Theme.serif(context, "", 19, Theme.GOLD, true);
+        stats = text(12, Theme.DIM, false);
         titles.addView(title);
         titles.addView(stats);
         header.addView(titles, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        buildButton = new Button(context);
-        buildButton.setAllCaps(false);
+        buildButton = Theme.button(context, "", Theme.Icon.BUILD, Theme.Kind.PLANK, false);
         buildButton.setOnClickListener(v -> chooseBuild());
-        header.addView(buildButton);
-        equipButton = new Button(context);
-        equipButton.setAllCaps(false);
-        equipButton.setText("Equip");
+        header.addView(buildButton, headerButton());
+        equipButton = Theme.button(context, "Equip", Theme.Icon.EQUIP, Theme.Kind.PLANK, false);
         equipButton.setOnClickListener(v -> chooseEquip());
-        header.addView(equipButton);
-        Button close = new Button(context);
-        close.setText("Close");
-        close.setAllCaps(false);
+        header.addView(equipButton, headerButton());
+        TextView close = Theme.button(context, "Close", Theme.Icon.CLOSE, Theme.Kind.PLANK, false);
         close.setOnClickListener(v -> onClose.run());
-        header.addView(close);
+        header.addView(close, headerButton());
         addView(header);
 
-        hint = text(12, 0xFFFFE08A, false);
+        hint = text(12, Theme.GOLD, false);
+        hint.setPadding(0, px(3), 0, px(3));
         addView(hint);
 
         // Body: land | buildings | outside and ships.
@@ -142,8 +136,17 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         goods = new LinearLayout(context);
         goods.setOrientation(HORIZONTAL);
         HorizontalScrollView gScroll = new HorizontalScrollView(context);
+        gScroll.setBackground(Theme.plank(context));
         gScroll.addView(goods);
-        addView(gScroll);
+        LayoutParams glp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        glp.setMargins(0, px(4), 0, 0);
+        addView(gScroll, glp);
+    }
+
+    private LayoutParams headerButton() {
+        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp.setMargins(px(5), 0, 0, 0);
+        return lp;
     }
 
     /** Show a colony. */
@@ -196,14 +199,14 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         title.setText(info.title);
         stats.setText(info.stats);
         buildButton.setText(info.building);
-        buildButton.setEnabled(session.isMyTurn());
+        Theme.enable(buildButton, session.isMyTurn());
         boolean canEquip = false;
         if (selectedUnit != null) {
             synchronized (session.lock()) {
                 canEquip = !session.equipChoices(selectedUnit).isEmpty();
             }
         }
-        equipButton.setEnabled(session.isMyTurn() && canEquip);
+        equipButton.setVisibility((session.isMyTurn() && canEquip) ? VISIBLE : GONE);
         if (!session.isMyTurn()) {
             hint.setText("Wait for your turn to give orders.");
         } else if (selectedUnit != null) {
@@ -233,7 +236,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             col++;
             LinearLayout cell = new LinearLayout(getContext());
             cell.setOrientation(VERTICAL);
-            cell.setBackgroundColor(CELL);
+            cell.setBackground(Theme.cell(getContext(), CELL));
             int pad = px(4);
             cell.setPadding(pad, pad, pad, pad);
 
@@ -245,7 +248,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             LinearLayout names = new LinearLayout(getContext());
             names.setOrientation(VERTICAL);
             names.setPadding(px(4), 0, 0, 0);
-            names.addView(text(12, Color.WHITE, true, b.name));
+            names.addView(text(12, Theme.INK, true, b.name));
             names.addView(amounts(b.production));
             top.addView(names);
             cell.addView(top);
@@ -257,7 +260,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             }
             for (int i = b.workers.size(); i < b.capacity; i++) {
                 View slot = new View(getContext());
-                slot.setBackgroundColor(0x33FFFFFF);
+                slot.setBackground(Theme.cell(getContext(), 0x22F3E6C8));
                 LayoutParams lp = new LayoutParams(px(24), px(34));
                 lp.setMargins(0, 0, px(3), 0);
                 workers.addView(slot, lp);
@@ -275,11 +278,11 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
 
     private void buildSide() {
         side.removeAllViews();
-        TextView outsideTitle = text(13, Color.WHITE, true, "Outside the colony");
+        TextView outsideTitle = Theme.heading(getContext(), "Outside the colony", Theme.GOLD);
         outsideTitle.setPadding(px(4), px(6), px(4), px(2));
         side.addView(outsideTitle);
         LinearLayout outside = flow();
-        outside.setBackgroundColor(CELL);
+        outside.setBackground(Theme.cell(getContext(), CELL));
         outside.setMinimumHeight(px(44));
         for (ColonyInfo.UnitItem u : info.outside) outside.addView(unitIcon(u, px(38)));
         outside.setOnClickListener(v -> tapOutside());
@@ -289,14 +292,17 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         for (ColonyInfo.CarrierItem c : info.carriers) {
             LinearLayout box = new LinearLayout(getContext());
             box.setOrientation(VERTICAL);
-            box.setBackgroundColor((c.carrier.unit == selectedCarrier)
-                                   ? 0xFF3C6E99 : SHIP_CELL);
+            boolean on = c.carrier.unit == selectedCarrier;
+            android.graphics.drawable.GradientDrawable bg
+                = Theme.cell(getContext(), on ? SHIP_SELECTED : SHIP_CELL);
+            if (on) bg.setStroke(px(2), Theme.GOLD);
+            box.setBackground(bg);
             box.setPadding(px(4), px(4), px(4), px(4));
             LinearLayout head = new LinearLayout(getContext());
             head.setOrientation(HORIZONTAL);
             head.setGravity(Gravity.CENTER_VERTICAL);
             head.addView(image(c.carrier.imageKey, px(40), px(40)));
-            head.addView(text(12, Color.WHITE, true, c.carrier.name));
+            head.addView(text(12, Theme.INK, true, c.carrier.name));
             head.setOnClickListener(v -> tapCarrier(c.carrier.unit));
             box.addView(head);
             LinearLayout load = flow();
@@ -312,10 +318,10 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             for (ColonyInfo.UnitItem p : c.passengers) load.addView(unitIcon(p, px(34)));
             box.addView(load);
             if (c.spaceLeft > 0) {
-                box.addView(text(11, 0xFFBBCCDD, false, c.spaceLeft + " space left"));
+                box.addView(text(11, Theme.DIM, false, c.spaceLeft + " space left"));
             }
             if (!c.inPort) {
-                box.addView(text(11, 0xFFFFE08A, false,
+                box.addView(text(11, Theme.GOLD, false,
                     "Next to the colony: comes into port when you load it"));
             }
             box.setOnClickListener(v -> tapCarrier(c.carrier.unit));
@@ -568,11 +574,11 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         cell.setOrientation(VERTICAL);
         cell.setGravity(Gravity.CENTER_HORIZONTAL);
         boolean sel = (u.unit == selectedUnit) || (u.unit == selectedCarrier);
-        cell.setBackgroundColor(sel ? CELL_SELECTED : 0x00000000);
+        if (sel) cell.setBackground(Theme.gold(getContext()));
         cell.setPadding(px(2), px(1), px(2), px(1));
         cell.addView(image(u.imageKey, (int)(height * 0.7f), height));
         if (!u.caption.isEmpty()) {
-            TextView t = text(9, sel ? Color.BLACK : 0xFFDDCCAA, false, u.caption);
+            TextView t = text(9, sel ? Theme.PAPER_INK : Theme.DIM, false, u.caption);
             t.setMaxLines(1);
             cell.addView(t);
         }
@@ -591,7 +597,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         cell.setGravity(Gravity.CENTER_HORIZONTAL);
         cell.setPadding(px(4), px(2), px(4), px(2));
         cell.addView(image(iconKey, px(26), px(26)));
-        cell.addView(text(12, warn ? 0xFFFF6B5B : Color.WHITE, true, count));
+        cell.addView(text(12, warn ? 0xFFFF6B5B : Theme.INK, true, count));
         if (net != null) {
             int colour = net.startsWith("-") ? 0xFFFF8A7A : 0xFF9BE08A;
             cell.addView(text(10, colour, false, net));
@@ -605,7 +611,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         row.setGravity(Gravity.CENTER_VERTICAL);
         for (ColonyInfo.Amount a : list) {
             row.addView(image(a.iconKey, px(16), px(16)));
-            TextView t = text(11, 0xFFDDCCAA, false, a.amount + "  ");
+            TextView t = text(11, Theme.DIM, false, a.amount + "  ");
             row.addView(t);
         }
         return row;
