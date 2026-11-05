@@ -337,14 +337,31 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 if (done.compareAndSet(false, true)) answer.accept(null);
             };
             openQuestions.add(keep);
+            // The question and the name field share the dialog's inner
+            // margin and its serif, dark ink on parchment.
+            int side = (int)(24 * dp), pad = (int)(8 * dp);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(side, pad / 2, side, 0);
+            TextView msg = Theme.serif(this, text, 15, Theme.PAPER_INK, false);
+            msg.setPadding(0, 0, 0, pad * 3 / 2);
+            box.addView(msg);
             final android.widget.EditText edit = new android.widget.EditText(this);
             edit.setSingleLine(true);
             edit.setText(suggestion);
             edit.setSelectAllOnFocus(true);
+            edit.setTypeface(Theme.SERIF_BOLD);
+            edit.setTextSize(17);
+            edit.setTextColor(Theme.PAPER_INK);
+            edit.setHighlightColor(0x66B8913F);
+            edit.setBackground(Theme.cell(this, 0xFFF6EED8));
+            edit.setPadding(pad * 3 / 2, pad, pad * 3 / 2, pad);
+            box.addView(edit, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
             new android.app.AlertDialog.Builder(this)
                 .setTitle(title)
-                .setMessage(text)
-                .setView(edit)
+                .setView(box)
                 .setPositiveButton("OK", (d, w) -> {
                         openQuestions.remove(keep);
                         if (done.compareAndSet(false, true)) {
