@@ -1421,7 +1421,11 @@ public final class GameSession implements MessageHandler {
                 + unit.getWorkTurnsLeft() + " turns left";
         }
         if (unit.getDestination() instanceof Europe) return "sailing to Europe";
-        if (unit.getDestination() instanceof Tile) return "on its way";
+        if (destinationTile(unit) != null) {
+            Tile t = destinationTile(unit);
+            return (t.getSettlement() != null)
+                ? "on its way to " + t.getSettlement().getName() : "on its way";
+        }
         switch (unit.getState()) {
         case FORTIFIED: case FORTIFYING: return "fortified";
         case SENTRY: return "on sentry";
@@ -1796,8 +1800,8 @@ public final class GameSession implements MessageHandler {
             boolean last;
             synchronized (lock) {
                 if (unit.isDisposed() || unit.getMovesLeft() <= 0) return;
-                if (!(unit.getDestination() instanceof Tile)) return;
-                Tile dest = (Tile)unit.getDestination();
+                Tile dest = destinationTile(unit);
+                if (dest == null) return;
                 if (unit.getTile() == dest) {
                     unit.setDestination(null);
                     break;
@@ -1814,6 +1818,13 @@ public final class GameSession implements MessageHandler {
                 last = next.next == null;
             }
             if (d == null || !step(unit, d, last)) return;
+            synchronized (lock) {
+                Tile dest = destinationTile(unit);
+                if (dest != null && unit.getTile() == dest) {
+                    unit.setDestination(null);
+                    break; // Arrived
+                }
+            }
         }
         // Arrived (or gave up): tell the server too.
         api.setDestination(unit, null);
@@ -1854,6 +1865,22 @@ public final class GameSession implements MessageHandler {
             }
             if (!step(unit, best, false)) return;
         }
+    }
+
+    /**
+     * Where on the map a unit is heading: a tile, or a settlement's
+     * tile (ships sent from Europe to a colony).  Call while holding
+     * {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return The {@code Tile}, or null if it is not heading anywhere
+     *     on the map.
+     */
+    private static Tile destinationTile(Unit unit) {
+        net.sf.freecol.common.model.Location dest = unit.getDestination();
+        if (dest instanceof Tile) return (Tile)dest;
+        if (dest instanceof Settlement) return ((Settlement)dest).getTile();
+        return null;
     }
 
     /** After a unit's orders: keep it selected while it can move. */
@@ -1912,12 +1939,20 @@ public final class GameSession implements MessageHandler {
     /** Our turn has started: housekeeping, then hand over. */
     private void beginTurn() {
         List<Unit> going = new ArrayList<>();
+        List<Unit> cleared = new ArrayList<>();
         synchronized (lock) {
             me.invalidateCanSeeTiles();
             me.resetIterators();
             for (Unit u : me.getUnitSet()) {
-                if (u.hasTile() && (u.getDestination() instanceof Tile
-                        || u.getDestination() instanceof Europe)) going.add(u);
+                if (!u.hasTile()) continue;
+                if (destinationTile(u) != null
+                    || u.getDestination() instanceof Europe) {
+                    going.add(u);
+                } else if (u.getDestination() instanceof net.sf.freecol.common.model.Map) {
+                    // "The New World": arrived, so nothing left to do.
+                    u.setDestination(null);
+                    cleared.add(u);
+                }
             }
         }
         // New colonists at the docks in Europe.
@@ -1930,6 +1965,7 @@ public final class GameSession implements MessageHandler {
                 : Europe.MigrationType.getUnspecificSlot();
             if (!api.emigrate(slot)) break;
         }
+        for (Unit u : cleared) api.setDestination(u, null);
         for (Unit u : going) {
             boolean toEurope;
             synchronized (lock) {

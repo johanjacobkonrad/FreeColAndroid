@@ -628,7 +628,27 @@ public final class SessionCheck {
             left = !ship.isInEurope();
             System.out.println("  sailed back: " + left + " (" + ship.getLocation() + ")");
         }
-        return left && info.docks.isEmpty();
+        // Follow the ship home: it should arrive and sail on into the
+        // colony's port by itself.
+        boolean home = false;
+        for (int turn = 0; turn < 12 && left; turn++) {
+            s.endTurn();
+            s.sync();
+            waitForOthers(s, 120_000);
+            waitForTurn(s, 120_000);
+            s.sync();
+            synchronized (s.lock()) {
+                System.out.println("  homeward: " + ship.getLocation()
+                    + ", destination " + ship.getDestination()
+                    + ", moves " + ship.getMovesLeft());
+                if (ship.getTile() == colonyTile) {
+                    home = true;
+                    break;
+                }
+            }
+        }
+        System.out.println("  ship back in the colony: " + home);
+        return left && info.docks.isEmpty() && home;
     }
 
     private static net.sf.freecol.android.map.Art noArt() {
