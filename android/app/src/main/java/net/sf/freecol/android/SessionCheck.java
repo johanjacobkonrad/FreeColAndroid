@@ -63,6 +63,7 @@ public final class SessionCheck {
         save.deleteOnExit();
         new File(save.getPath() + ".txt").deleteOnExit();
         s.setSaveFile(save);
+        s.setMovePause(0); // No need to watch
         s.start(Engine.loadSpecification());
         Unit ship = null, colonist = null;
         Tile shipStart = null, colonyTile = null;

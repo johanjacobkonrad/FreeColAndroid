@@ -146,6 +146,19 @@ public final class IsometricRenderer implements MapRenderer {
             }
         }
         // The selected unit's destination.
+        // Pass 3: settlement names on top of everything, so forests
+        // and hills in front of a colony do not hide them.
+        if (units) {
+            for (int y = row0; y <= row1; y++) {
+                for (int x = col0; x <= col1; x++) {
+                    Tile t = map.getTile(x, y);
+                    if (t != null && t.isExplored() && t.getSettlement() != null
+                        && (only == null || only.test(t))) {
+                        drawLabel(s, t.getSettlement(), t, v);
+                    }
+                }
+            }
+        }
         if (units && selected != null
             && selected.getDestination() instanceof Tile) {
             Tile d = (Tile)selected.getDestination();
@@ -276,17 +289,25 @@ public final class IsometricRenderer implements MapRenderer {
         if (y > 0) y /= 2;
         image(s, img, t, (TILE_W - img.width) / 2f, y, v, fog);
 
-        if (!label) return;
-        float cx = v.toScreenX(centreX(t));
-        float by = v.toScreenY(top(t.getY()) + TILE_H + 12);
-        float size = 13 * v.scale;
-        if (size < 7) return; // Too small to read
+    }
+
+    /** A settlement's name (and colony size) on a dark band. */
+    private void drawLabel(Surface s, Settlement settlement, Tile t, Viewport v) {
+        float size = Math.max(11f, 14 * v.scale);
+        if (14 * v.scale < 6) return; // Zoomed too far out to read
         String name = settlement.getName();
         if (settlement instanceof Colony) {
-            Colony colony = (Colony)settlement;
-            name = colony.getApparentUnitCount() + "  " + name;
+            name = ((Colony)settlement).getApparentUnitCount() + "  " + name;
         }
-        s.drawText(name, cx + 1, by + 1, size, 0xFF000000);
+        float cx = v.toScreenX(centreX(t));
+        float by = v.toScreenY(top(t.getY()) + TILE_H) + size * 0.2f;
+        // Rough text width; the band only needs to be about right.
+        float w = name.length() * size * 0.56f + size;
+        Integer col = settlement.getOwner().getNationColor();
+        int edge = (col == null) ? 0xFF808080 : (0xFF000000 | col);
+        s.fillRect(cx - w / 2, by - size * 1.05f, w, size * 1.35f, 0xB0000000);
+        s.fillRect(cx - w / 2, by + size * 0.3f - Math.max(1.5f, size * 0.12f),
+                   w, Math.max(1.5f, size * 0.12f), edge);
         s.drawText(name, cx, by, size, 0xFFFFFFFF);
     }
 
