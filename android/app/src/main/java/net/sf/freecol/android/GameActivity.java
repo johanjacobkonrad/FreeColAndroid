@@ -275,12 +275,100 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     @Override
     protected void onDestroy() {
+        // Unblock the game if a question is still open.
+        for (Runnable r : new ArrayList<>(openQuestions)) r.run();
         session.stop();
         super.onDestroy();
     }
 
 
     // Implement GameSession.Listener
+
+    /** Ways to cancel questions still showing (see onDestroy). */
+    private final List<Runnable> openQuestions
+        = java.util.Collections.synchronizedList(new ArrayList<>());
+
+    @Override
+    public void onChoose(String title, String text, List<String> options,
+                         java.util.function.IntConsumer answer) {
+        runOnUiThread(() -> {
+            final java.util.concurrent.atomic.AtomicBoolean done
+                = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
+            final Runnable cancel = () -> {
+                if (done.compareAndSet(false, true)) answer.accept(-1);
+            };
+            openQuestions.add(cancel);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            int pad = (int)(16 * dp);
+            box.setPadding(pad, pad / 2, pad, 0);
+            TextView msg = new TextView(this);
+            msg.setText(text);
+            msg.setTextSize(15);
+            msg.setPadding(0, 0, 0, pad / 2);
+            box.addView(msg);
+            for (int i = 0; i < options.size(); i++) {
+                final int which = i;
+                Button b = new Button(this);
+                b.setAllCaps(false);
+                b.setText(options.get(i));
+                b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+                b.setOnClickListener(v -> {
+                        if (done.compareAndSet(false, true)) {
+                            openQuestions.remove(cancel);
+                            if (dialog[0] != null) dialog[0].dismiss();
+                            answer.accept(which);
+                        }
+                    });
+                box.addView(b, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            }
+            android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+            scroll.addView(box);
+            dialog[0] = new android.app.AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(scroll)
+                .setOnCancelListener(d -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
+                .show();
+        });
+    }
+
+    @Override
+    public void onAskName(String title, String text, String suggestion,
+                          java.util.function.Consumer<String> answer) {
+        runOnUiThread(() -> {
+            final java.util.concurrent.atomic.AtomicBoolean done
+                = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final Runnable keep = () -> {
+                if (done.compareAndSet(false, true)) answer.accept(null);
+            };
+            openQuestions.add(keep);
+            final android.widget.EditText edit = new android.widget.EditText(this);
+            edit.setSingleLine(true);
+            edit.setText(suggestion);
+            edit.setSelectAllOnFocus(true);
+            new android.app.AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(text)
+                .setView(edit)
+                .setPositiveButton("OK", (d, w) -> {
+                        openQuestions.remove(keep);
+                        if (done.compareAndSet(false, true)) {
+                            answer.accept(edit.getText().toString());
+                        }
+                    })
+                .setOnCancelListener(d -> {
+                        openQuestions.remove(keep);
+                        keep.run();
+                    })
+                .show();
+        });
+    }
 
     @Override
     public void onChanged() {

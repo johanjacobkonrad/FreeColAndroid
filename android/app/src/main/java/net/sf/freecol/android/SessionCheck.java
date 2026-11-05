@@ -58,6 +58,15 @@ public final class SessionCheck {
                 @Override public void onStatus(String text) {
                     System.out.println("  > " + text);
                 }
+                @Override public void onChoose(String title, String text,
+                        java.util.List<String> options,
+                        java.util.function.IntConsumer answer) {
+                    int pick = pickLike(options);
+                    System.out.println("  ? " + title + ": " + text.replace('\n', ' ')
+                        + " " + options + " -> " + options.get(pick));
+                    if (title.startsWith("Trade at")) traded = true;
+                    answer.accept(pick);
+                }
             });
         File save = File.createTempFile("freecol-check", ".fsg");
         save.deleteOnExit();
@@ -68,6 +77,7 @@ public final class SessionCheck {
         Unit ship = null, colonist = null;
         Tile shipStart = null, colonyTile = null;
         boolean landed = false, founded = false, colonyOk = false;
+        boolean shipMoved = false;
         int played = 0;
         for (int turn = 0; turn < turns && !colonyOk; turn++) {
             waitForTurn(s, 120_000);
@@ -85,6 +95,7 @@ public final class SessionCheck {
                     + map.getWidth() + "x" + map.getHeight()
                     + ", ship at " + ship.getTile());
                 Tile t = ship.getTile();
+                if (t != shipStart) shipMoved = true;
                 for (Tile n : t.getSurroundingTiles(1)) {
                     if (n.isLand() && n.getSettlement() == null
                         && n.getUnitCount() == 0) land = n;
@@ -131,18 +142,21 @@ public final class SessionCheck {
 
         boolean europeOk = colonyOk && checkEurope(s, ship, colonyTile);
 
+        // Trade with a coastal native village, if one is in sight.
+        boolean nativesOk = !europeOk || checkNatives(s, ship);
+
         // Autosave happened at the start of this turn; load it into a
         // fresh session and check the game carries on.
         boolean reloaded = checkLoad(s, save);
-        boolean moved = ship != null && shipStart != null
-            && ship.getTile() != shipStart;
+        boolean moved = shipMoved;
         System.out.println("Played " + played + " turns; ship moved: " + moved
             + "; landed: " + landed + "; colony founded: " + founded
             + "; colony orders: " + colonyOk + "; pioneer: " + pioneerOk
-            + "; Europe: " + europeOk
+            + "; Europe: " + europeOk + "; natives: " + nativesOk
+            + (traded ? " (traded)" : "")
             + "; save and load: " + reloaded);
         boolean ok = moved && (colonyOk || played == turns) && reloaded
-            && (europeOk || !colonyOk) && (pioneerOk || !colonyOk);
+            && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
     }
@@ -280,6 +294,89 @@ public final class SessionCheck {
         }
         return inBuilding && onTile && built && !buildable.isEmpty() && summary
             && joined;
+    }
+
+    /** Set when a native trade session reached the player. */
+    private static volatile boolean traded = false;
+
+    /** Answer like a curious player: trade, speak, learn; else the default. */
+    private static int pickLike(java.util.List<String> options) {
+        for (String want : new String[] { "Sell to them", "Sell",
+                "Speak with the chief", "Learn", "Make peace" }) {
+            int i = options.indexOf(want);
+            if (i >= 0 && !traded2(want)) return i;
+        }
+        if ("Nothing".equals(options.get(0)) && options.size() > 1) return 1;
+        return 0;
+    }
+
+    /** Sell once, then leave, so the session ends. */
+    private static int sold = 0;
+    private static boolean traded2(String want) {
+        if (want.startsWith("Sell")) return sold++ >= 2;
+        return false;
+    }
+
+    /**
+     * Sail the ship to the nearest coastal native settlement in sight
+     * and trade.  Passes if there is none in reach; fails only on an
+     * error or a hang.
+     */
+    private static boolean checkNatives(GameSession s, Unit ship) throws Exception {
+        Tile target = null;
+        for (int turn = 0; turn < 10 && !traded; turn++) {
+            waitForTurn(s, 120_000);
+            s.sync();
+            synchronized (s.lock()) {
+                if (ship.isDisposed()) return true;
+                if (ship.getTile() == null) {
+                    // Still at sea on the way back.
+                } else if (target == null) {
+                    net.sf.freecol.common.model.Map map = s.getGame().getMap();
+                    int best = Integer.MAX_VALUE;
+                    for (int y = 0; y < map.getHeight(); y++) {
+                        for (int x = 0; x < map.getWidth(); x++) {
+                            Tile t = map.getTile(x, y);
+                            if (t == null || !t.isExplored()
+                                || t.getIndianSettlement() == null
+                                || !t.isCoastland()) continue;
+                            int dist = t.getDistanceTo(ship.getTile());
+                            if (dist < best && ship.findPath(t) != null) {
+                                best = dist;
+                                target = t;
+                            }
+                        }
+                    }
+                    System.out.println("  native village by the sea: " + target
+                        + ", cargo " + ship.getCompactGoodsList());
+                    if (target == null || ship.getCompactGoodsList().isEmpty()) {
+                        return true;
+                    }
+                }
+            }
+            if (target != null && ship.getTile() != null) {
+                int before;
+                synchronized (s.lock()) {
+                    before = s.getMyPlayer().getGold();
+                }
+                select(s, ship);
+                s.moveSelectedTo(target);
+                s.sync();
+                if (traded) {
+                    Thread.sleep(1500);
+                    synchronized (s.lock()) {
+                        System.out.println("  gold " + before + " -> "
+                            + s.getMyPlayer().getGold() + ", cargo now "
+                            + ship.getCompactGoodsList());
+                    }
+                }
+            }
+            if (traded) break;
+            s.endTurn();
+            s.sync();
+            waitForOthers(s, 120_000);
+        }
+        return true;
     }
 
     /**

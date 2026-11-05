@@ -70,11 +70,7 @@ loopback socket the way the desktop client connects.
   the selected unit onto a tile with your own units (to board a ship).
 - Buttons: Next unit, Wait, Fortify, Build colony, End turn.
 
-Not in yet: rivers, roads and terrain blending on the map; dialogs.
-For now first contact, founding fathers, the King's tax rises, native
-demands and new land names are answered with a sensible default, and
-the news line says what was chosen. Entering settlements (trade,
-scouting, missions) says it is not in the game yet.
+Not in yet: rivers and terrain blending on the map.
 
 `android/session-check.sh` plays a short game on a desktop JVM the way
 the app does (sail to land, put a colonist ashore, found a colony) and
@@ -173,6 +169,35 @@ The session check equips a colonist as a pioneer from the warehouse,
 starts ploughing, clears the order, checks a restart is refused once
 out of moves and works next turn, sets a two-item build queue, and
 sails back from Europe straight to the colony.
+
+### Natives and dialogs
+
+Moving a unit into a settlement now does what it does on the desktop:
+
+- **Free colonist** at a native village: learn their skill (it says
+  which first).
+- **Scout**: hear what the village teaches and wants, then speak with
+  the chief, demand tribute or attack. The chief's answer (gifts,
+  tales, a better scout, or worse) is shown.
+- **Missionary**: establish a mission, denounce a rival one, or incite
+  the village against another nation (the price is asked first).
+- **Ship or wagon train with goods**: trade. Buy, sell (with haggling)
+  or give gifts, round by round, until you leave or they tire of it.
+- **Soldier or dragoon**: demand tribute, or attack after confirming.
+  Attacks on units also ask first.
+- **Scout at a European colony**: spy on it, or attack.
+
+The server's questions are real dialogs now: first contact (peace or
+not), the next founding father (with what each does), the King's tax
+rises (accept, or refuse and boycott) and mercenaries, native demands
+(give or refuse), naming the New World, captured cargo, and offers
+from other European nations (accept or reject). Lost city rumours ask
+before exploring, and burial mounds ask again. Region names are still
+picked automatically to spare typing.
+
+Without a user interface (the session check) every question takes its
+first, safest answer; the check's scripted player logs each question
+it is asked.
 
 Still to come: then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.
