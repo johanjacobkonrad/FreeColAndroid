@@ -199,6 +199,29 @@ Without a user interface (the session check) every question takes its
 first, safest answer; the check's scripted player logs each question
 it is asked.
 
+### Start screen and new-game options
+
+The start screen shows FreeCol's landing engraving with the title. On
+the right: **Continue** (with the saved nation's coat of arms, year
+and nation) and **New game**. The Phase 1 engine test is a small link
+at the bottom. The whole app is landscape now.
+
+**New game** opens the setup:
+
+- **Nation:** the four nations the rules make available (Dutch,
+  French, English, Spanish), each with its coat of arms and national
+  advantage (trade, cooperation, immigration, conquest).
+- **Difficulty:** Very easy to Very hard.
+- **Map size:** Small 40x100 (the old default), Medium 50x125, Large
+  60x150. Bigger maps make the computer players' turns slower.
+- **Land:** Islands (18% land), Normal (25%) or Continents (35%).
+
+`NewGameOptions` holds the choices and puts the map ones into the
+rules before the server starts; the nation is set after logging in,
+as the desktop's start panel does. The session check starts as the
+second nation on hard with a medium continents map and checks all of
+it took.
+
 Still to come: then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.
 

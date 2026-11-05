@@ -73,11 +73,26 @@ public final class SessionCheck {
         new File(save.getPath() + ".txt").deleteOnExit();
         s.setSaveFile(save);
         s.setMovePause(0); // No need to watch
-        s.start(Engine.loadSpecification());
+        // Not the default nation, difficulty or map, to check the
+        // new-game options take.
+        NewGameOptions opts = new NewGameOptions();
+        opts.difficulty = "model.difficulty.hard";
+        opts.mapSize = "medium";
+        opts.land = "continents";
+        net.sf.freecol.common.model.Specification spec
+            = Engine.loadSpecification(opts.difficulty);
+        java.util.List<NewGameOptions.Choice> nations = NewGameOptions.nations(spec);
+        for (NewGameOptions.Choice c : nations) {
+            System.out.println("  nation choice: " + c.label + " - " + c.detail);
+        }
+        opts.nationId = nations.get(1).id;
+        opts.applyTo(spec);
+        s.start(spec, opts.nationId);
         Unit ship = null, colonist = null;
         Tile shipStart = null, colonyTile = null;
         boolean landed = false, founded = false, colonyOk = false;
         boolean shipMoved = false;
+        boolean optionsOk = false;
         int played = 0;
         for (int turn = 0; turn < turns && !colonyOk; turn++) {
             waitForTurn(s, 120_000);
@@ -89,6 +104,15 @@ public final class SessionCheck {
                     ship = s.getSelectedUnit();
                     if (ship == null || !ship.isNaval()) break;
                     shipStart = ship.getTile();
+                }
+                if (turn == 0) {
+                    String diff = s.getGame().getSpecification().getDifficultyLevel();
+                    optionsOk = opts.nationId.equals(s.getMyPlayer().getNationId())
+                        && map.getWidth() == 50 && map.getHeight() == 125
+                        && "model.difficulty.hard".equals(diff);
+                    System.out.println("Options: nation " + s.getMyPlayer().getNationId()
+                        + " (wanted " + opts.nationId + "), map " + map.getWidth() + "x"
+                        + map.getHeight() + ", " + diff + ": " + optionsOk);
                 }
                 System.out.println("Turn " + s.getGame().getTurn()
                     + ": " + s.getMyPlayer().getUnitCount() + " units, map "
@@ -154,8 +178,8 @@ public final class SessionCheck {
             + "; colony orders: " + colonyOk + "; pioneer: " + pioneerOk
             + "; Europe: " + europeOk + "; natives: " + nativesOk
             + (traded ? " (traded)" : "")
-            + "; save and load: " + reloaded);
-        boolean ok = moved && (colonyOk || played == turns) && reloaded
+            + "; save and load: " + reloaded + "; new-game options: " + optionsOk);
+        boolean ok = optionsOk && moved && (colonyOk || played == turns) && reloaded
             && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);

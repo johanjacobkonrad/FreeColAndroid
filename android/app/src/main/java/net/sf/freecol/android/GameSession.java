@@ -307,8 +307,10 @@ public final class GameSession implements MessageHandler {
             }
             String about;
             synchronized (lock) {
+                // Line 1 for people, line 2 the nation (for its flag).
                 about = Messages.message(game.getTurn().getLabel()) + ", "
-                    + Messages.message(me.getNationLabel());
+                    + Messages.message(me.getNationLabel())
+                    + "\n" + me.getNationId();
             }
             try (Writer w = new OutputStreamWriter(new FileOutputStream(
                      new File(file.getPath() + ".txt")), StandardCharsets.UTF_8)) {
@@ -329,12 +331,28 @@ public final class GameSession implements MessageHandler {
      */
     public static String describeSave(File file) {
         if (!file.isFile()) return null;
+        String[] lines = readSaveInfo(file);
+        return (lines.length > 0 && !lines[0].isEmpty()) ? lines[0] : "Saved game";
+    }
+
+    /**
+     * The nation of a saved game.
+     *
+     * @param file The save file.
+     * @return Its nation id, or null if not known.
+     */
+    public static String saveNation(File file) {
+        String[] lines = readSaveInfo(file);
+        return (lines.length > 1 && !lines[1].trim().isEmpty()) ? lines[1].trim() : null;
+    }
+
+    private static String[] readSaveInfo(File file) {
         File txt = new File(file.getPath() + ".txt");
         try {
             return new String(java.nio.file.Files.readAllBytes(txt.toPath()),
-                              StandardCharsets.UTF_8);
+                              StandardCharsets.UTF_8).split("\n");
         } catch (Exception e) {
-            return "Saved game";
+            return new String[0];
         }
     }
 
@@ -345,14 +363,31 @@ public final class GameSession implements MessageHandler {
      * @param spec The {@code Specification} to play with.
      */
     public void start(Specification spec) {
+        start(spec, null);
+    }
+
+    /**
+     * Start a new game as a particular nation.
+     *
+     * @param spec The {@code Specification} to play with.
+     * @param nationId The nation to play, or null for the default.
+     */
+    public void start(Specification spec, String nationId) {
         worker.execute(() -> {
             try {
                 status("Starting the game...");
                 server = new FreeColServer(false, true, spec,
                     InetAddress.getLoopbackAddress(), -1, "android");
                 if (!connectAndLogin()) return;
-                status("Playing as " + Messages.message(me.getNationLabel())
-                    + ". Creating the New World...");
+                String playing = Messages.message(me.getNationLabel());
+                if (nationId != null && !nationId.equals(me.getNationId())) {
+                    net.sf.freecol.common.model.Nation nation = spec.getNation(nationId);
+                    if (nation != null) {
+                        api.setNation(nation);
+                        playing = Messages.getName(nation);
+                    }
+                }
+                status("Playing as " + playing + ". Creating the New World...");
                 api.setReady(true);
                 api.requestLaunch();
             } catch (Throwable t) {

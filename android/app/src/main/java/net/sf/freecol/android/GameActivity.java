@@ -58,6 +58,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     /** Intent extra: carry on with the saved game. */
     static final String EXTRA_CONTINUE = "continue";
+    /** Intent extras for a new game (see NewGameOptions). */
+    static final String EXTRA_NATION = "nation", EXTRA_DIFFICULTY = "difficulty",
+        EXTRA_MAP_SIZE = "mapSize", EXTRA_LAND = "land";
 
     private GameSession session;
     private AndroidArt art;
@@ -213,7 +216,22 @@ public final class GameActivity extends Activity implements GameSession.Listener
                     && save.isFile()) {
                     session.load(save);
                 } else {
-                    session.start(Engine.loadSpecification());
+                    NewGameOptions opts = new NewGameOptions();
+                    android.content.Intent in = getIntent();
+                    opts.nationId = in.getStringExtra(EXTRA_NATION);
+                    if (in.getStringExtra(EXTRA_DIFFICULTY) != null) {
+                        opts.difficulty = in.getStringExtra(EXTRA_DIFFICULTY);
+                    }
+                    if (in.getStringExtra(EXTRA_MAP_SIZE) != null) {
+                        opts.mapSize = in.getStringExtra(EXTRA_MAP_SIZE);
+                    }
+                    if (in.getStringExtra(EXTRA_LAND) != null) {
+                        opts.land = in.getStringExtra(EXTRA_LAND);
+                    }
+                    net.sf.freecol.common.model.Specification spec
+                        = Engine.loadSpecification(opts.difficulty);
+                    opts.applyTo(spec);
+                    session.start(spec, opts.nationId);
                 }
             } catch (Throwable t) {
                 onStatus("Could not start: " + t);
