@@ -99,6 +99,20 @@ import net.sf.freecol.common.networking.SetStanceMessage;
 import net.sf.freecol.common.networking.StartGameMessage;
 import net.sf.freecol.common.networking.UpdateMessage;
 import net.sf.freecol.common.networking.WrapperMessage;
+import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
+import net.sf.freecol.common.model.Goods;
+import net.sf.freecol.common.model.IndianSettlement;
+import net.sf.freecol.common.model.NativeTrade;
+import net.sf.freecol.common.model.NativeTrade.NativeTradeAction;
+import net.sf.freecol.common.model.NativeTradeItem;
+import net.sf.freecol.common.model.TradeItem;
+import net.sf.freecol.common.networking.DiplomacyMessage;
+import net.sf.freecol.common.networking.InciteMessage;
+import net.sf.freecol.common.networking.LootCargoMessage;
+import net.sf.freecol.common.networking.NativeTradeMessage;
+import net.sf.freecol.common.networking.ScoutSpeakToChiefMessage;
+import net.sf.freecol.common.networking.SpySettlementMessage;
 import net.sf.freecol.common.util.Introspector;
 import net.sf.freecol.server.FreeColServer;
 import net.sf.freecol.server.FreeColServer.ServerState;
@@ -135,6 +149,36 @@ public final class GameSession implements MessageHandler {
 
         /** A line of news for the player. */
         void onStatus(String text);
+
+        /**
+         * Ask the player to pick one of some options.  Call the
+         * answer exactly once, from any thread, with the index
+         * chosen, or -1 if the player backed out.  Without a user
+         * interface the first option is taken.
+         *
+         * @param title A short title.
+         * @param text The question.
+         * @param options The choices, the safest first.
+         * @param answer Receives the choice.
+         */
+        default void onChoose(String title, String text, List<String> options,
+                              java.util.function.IntConsumer answer) {
+            answer.accept(0);
+        }
+
+        /**
+         * Ask the player for a name.  Call the answer exactly once
+         * with the name, or null to keep the suggestion.
+         *
+         * @param title A short title.
+         * @param text The question.
+         * @param suggestion The suggested name.
+         * @param answer Receives the name.
+         */
+        default void onAskName(String title, String text, String suggestion,
+                               java.util.function.Consumer<String> answer) {
+            answer.accept(suggestion);
+        }
     }
 
     /** The human player's user name. */
@@ -1427,31 +1471,317 @@ public final class GameSession implements MessageHandler {
             }
         }
         switch (mt) {
-        case MOVE: case MOVE_HIGH_SEAS: case EXPLORE_LOST_CITY_RUMOUR:
+        case MOVE: case MOVE_HIGH_SEAS:
             api.move(unit, d);
+            break;
+        case EXPLORE_LOST_CITY_RUMOUR:
+            if (!exploreRumour(unit, d, to)) return false;
             break;
         case EMBARK:
             if (!last || carrier == null) return false;
             api.embark(unit, carrier, d);
             break;
-        case ATTACK_UNIT: case ATTACK_SETTLEMENT:
+        case ATTACK_UNIT:
             if (!last) return false;
-            api.attack(unit, d);
-            break;
+            attackUnit(unit, d, to);
+            return false;
+        case ATTACK_SETTLEMENT:
+            if (!last) return false;
+            armedAtSettlement(unit, d, to);
+            return false;
+        case ENTER_INDIAN_SETTLEMENT_WITH_FREE_COLONIST:
+            if (last) learnSkill(unit, d, to);
+            return false;
+        case ENTER_INDIAN_SETTLEMENT_WITH_SCOUT:
+            if (last) scoutSettlement(unit, d, to);
+            return false;
+        case ENTER_INDIAN_SETTLEMENT_WITH_MISSIONARY:
+            if (last) missionary(unit, d, to);
+            return false;
+        case ENTER_FOREIGN_COLONY_WITH_SCOUT:
+            if (last) scoutColony(unit, d, to);
+            return false;
+        case ENTER_SETTLEMENT_WITH_CARRIER_AND_GOODS:
+            if (last) tradeAt(unit, to);
+            return false;
         case MOVE_NO_MOVES:
             status("No moves left this turn.");
             return false;
+        case MOVE_NO_ACCESS_CONTACT:
+            status("Make contact with these natives first (move next to them).");
+            return false;
+        case MOVE_NO_ACCESS_WAR:
+            status("They will not trade while you are at war.");
+            return false;
+        case MOVE_NO_ACCESS_MISSION_BAN:
+            status("They have banned your missionaries.");
+            return false;
+        case MOVE_NO_ACCESS_SKILL:
+            status("This unit can not learn their skill.");
+            return false;
+        case MOVE_NO_ACCESS_GOODS:
+            status("Bring goods to trade.");
+            return false;
+        case MOVE_NO_ATTACK_CIVILIAN:
+            status("Only soldiers and dragoons can attack.");
+            return false;
+        case MOVE_NO_ACCESS_SETTLEMENT:
+            status("That settlement will not let this unit in.");
+            return false;
         default:
-            if (mt.isLegal()) {
-                status("Visiting settlements is not in the game yet.");
-            } else {
-                status("Can not move there.");
-            }
+            status("Can not move there.");
             return false;
         }
         synchronized (lock) {
             return !unit.isDisposed() && unit.getTile() != from;
         }
+    }
+
+    // Moves that ask the player first (worker only).
+
+    /** Ask before exploring a rumour; burial mounds ask twice. */
+    private boolean exploreRumour(Unit unit, Direction d, Tile to) {
+        int c = choose("Lost City Rumour", "There are rumours of something"
+            + " here. It could be treasure, or trouble. Explore it?",
+            "Explore", "Leave it");
+        if (c != 0) {
+            api.setDestination(unit, null);
+            return false;
+        }
+        boolean mounds;
+        synchronized (lock) {
+            mounds = to != null && to.getLostCityRumour() != null
+                && to.getLostCityRumour().getType()
+                    == net.sf.freecol.common.model.LostCityRumour.RumourType.MOUNDS;
+        }
+        if (mounds && choose("Burial mounds", "These are burial mounds. "
+                + "Digging might anger the natives. Dig anyway?",
+                "Dig", "Leave them") != 0) {
+            api.declineMounds(unit, d);
+            return false;
+        }
+        api.move(unit, d);
+        reportMessages();
+        return true;
+    }
+
+    private void attackUnit(Unit unit, Direction d, Tile to) {
+        String who;
+        synchronized (lock) {
+            Unit def = (to == null) ? null : to.getDefendingUnit(unit);
+            who = (def == null) ? "them" : "the "
+                + Messages.message(def.getOwner().getNationLabel()) + " "
+                + def.getDescription();
+        }
+        if (choose("Attack", "Attack " + who + "?", "Attack", "Cancel") != 0) return;
+        api.attack(unit, d);
+        reportMessages();
+    }
+
+    /** A soldier or dragoon at someone else's settlement. */
+    private void armedAtSettlement(Unit unit, Direction d, Tile to) {
+        Settlement st;
+        boolean natives;
+        synchronized (lock) {
+            st = (to == null) ? null : to.getSettlement();
+            if (st == null) return;
+            natives = st instanceof IndianSettlement;
+        }
+        int c = natives
+            ? choose(st.getName(), "Your soldiers stand before " + st.getName() + ".",
+                     "Demand tribute", "Attack", "Leave")
+            : choose(st.getName(), "Your soldiers stand before " + st.getName() + ".",
+                     "Attack", "Leave");
+        if (natives && c == 0) {
+            api.demandTribute(unit, d);
+            reportMessages();
+        } else if ((natives && c == 1) || (!natives && c == 0)) {
+            if (choose("Attack", "Really attack " + st.getName() + "?",
+                       "Attack", "Cancel") != 0) return;
+            api.attack(unit, d);
+            reportMessages();
+        }
+    }
+
+    /** A colonist asks to learn the settlement's skill. */
+    private void learnSkill(Unit unit, Direction d, Tile to) {
+        api.askSkill(unit, d); // Refresh what they teach
+        IndianSettlement is;
+        net.sf.freecol.common.model.UnitType skill;
+        boolean canLearn;
+        synchronized (lock) {
+            is = (to == null) ? null : to.getIndianSettlement();
+            if (is == null) return;
+            skill = is.getLearnableSkill();
+            canLearn = unit.getUnitChange(
+                net.sf.freecol.common.model.UnitChangeType.NATIVES) != null;
+        }
+        if (skill == null) {
+            status(is.getName() + " has nothing more to teach.");
+            return;
+        }
+        final String skillName = Messages.getName(skill);
+        if (!canLearn) {
+            status("This colonist can not learn to be a " + skillName + ".");
+            return;
+        }
+        if (choose(is.getName(), "The people of " + is.getName()
+                + " will teach your colonist to be a " + skillName + ".",
+                "Learn", "Leave") != 0) return;
+        api.learnSkill(unit, d);
+        synchronized (lock) {
+            if (unit.isDisposed()) {
+                status("Your colonist was killed!");
+            } else if (unit.getType() == skill) {
+                status("Your colonist is now a " + skillName + ".");
+            } else {
+                status("They would not teach your colonist.");
+            }
+        }
+        reportMessages();
+    }
+
+    /** A scout at a native settlement. */
+    private void scoutSettlement(Unit unit, Direction d, Tile to) {
+        api.scoutSettlement(unit, d); // Learn about it
+        IndianSettlement is;
+        String about;
+        synchronized (lock) {
+            is = (to == null) ? null : to.getIndianSettlement();
+            if (is == null) return;
+            StringBuilder sb = new StringBuilder("Your scout reaches " + is.getName()
+                + ", a settlement of the "
+                + Messages.message(is.getOwner().getNationLabel()) + ".");
+            if (is.getLearnableSkill() != null) {
+                sb.append(" They teach: ").append(Messages.getName(is.getLearnableSkill()))
+                  .append('.');
+            }
+            List<GoodsType> wanted = is.getWantedGoods();
+            if (wanted != null && !wanted.isEmpty() && wanted.get(0) != null) {
+                sb.append(" They want: ");
+                for (int k = 0; k < wanted.size(); k++) {
+                    if (wanted.get(k) == null) continue;
+                    if (k > 0) sb.append(", ");
+                    sb.append(Messages.getName(wanted.get(k)));
+                }
+                sb.append('.');
+            }
+            about = sb.toString();
+        }
+        int c = choose(is.getName(), about, "Speak with the chief",
+                       "Demand tribute", "Attack", "Leave");
+        switch (c) {
+        case 0:
+            api.scoutSpeakToChief(unit, is);
+            break;
+        case 1:
+            api.demandTribute(unit, d);
+            break;
+        case 2:
+            if (choose("Attack", "Really attack " + is.getName() + "?",
+                       "Attack", "Cancel") == 0) api.attack(unit, d);
+            break;
+        default:
+            return;
+        }
+        reportMessages();
+    }
+
+    /** A missionary at a native settlement. */
+    private void missionary(Unit unit, Direction d, Tile to) {
+        IndianSettlement is;
+        boolean establish, denounce;
+        synchronized (lock) {
+            is = (to == null) ? null : to.getIndianSettlement();
+            if (is == null) return;
+            establish = !is.hasMissionary();
+            denounce = !establish && !is.hasMissionary(me);
+        }
+        List<String> opts = new ArrayList<>();
+        if (establish) opts.add("Establish a mission");
+        if (denounce) opts.add("Denounce the other mission as heresy");
+        opts.add("Incite them against another nation");
+        opts.add("Leave");
+        int c = choose(is.getName(), "Your missionary reaches " + is.getName() + ".",
+                       opts.toArray(new String[0]));
+        if (c < 0) return;
+        String pick = opts.get(c);
+        if (pick.startsWith("Establish") || pick.startsWith("Denounce")) {
+            api.missionary(unit, d, pick.startsWith("Denounce"));
+            synchronized (lock) {
+                if (is.hasMissionary(me)) {
+                    status("Your mission at " + is.getName() + " is established.");
+                    me.invalidateCanSeeTiles();
+                }
+            }
+            reportMessages();
+        } else if (pick.startsWith("Incite")) {
+            List<Player> enemies = new ArrayList<>();
+            List<String> names = new ArrayList<>();
+            names.add("Never mind");
+            synchronized (lock) {
+                game.getLiveEuropeanPlayers(me).forEach(p -> {
+                        enemies.add(p);
+                        names.add(Messages.message(p.getNationLabel()));
+                    });
+            }
+            int e = choose("Incite", "Against whom?", names.toArray(new String[0]));
+            // The reply says what it costs; see InciteMessage in answer().
+            if (e > 0) api.incite(unit, is, enemies.get(e - 1), -1);
+        }
+    }
+
+    /** A scout at another European colony. */
+    private void scoutColony(Unit unit, Direction d, Tile to) {
+        Settlement st;
+        synchronized (lock) {
+            st = (to == null) ? null : to.getSettlement();
+            if (st == null) return;
+        }
+        int c = choose(st.getName(), "Your scout reaches " + st.getName() + ".",
+                       "Spy on the colony", "Attack", "Leave");
+        if (c == 0) {
+            api.spy(unit, st);
+        } else if (c == 1) {
+            if (choose("Attack", "Really attack " + st.getName() + "?",
+                       "Attack", "Cancel") == 0) {
+                api.attack(unit, d);
+                reportMessages();
+            }
+        }
+    }
+
+    /** A ship or wagon train with goods at a settlement. */
+    private void tradeAt(Unit unit, Tile to) {
+        IndianSettlement is;
+        synchronized (lock) {
+            is = (to == null) ? null : to.getIndianSettlement();
+        }
+        if (is == null) {
+            status("Trading with other Europeans is not in the game yet.");
+            return;
+        }
+        // Trade round by round, waiting here for each reply, so that
+        // nothing else (such as ending the turn, which the server
+        // will not do mid-trade) gets in between.
+        tradeReplies.clear();
+        tradeOpen = true;
+        try {
+            api.newNativeTradeSession(unit, is);
+            while (true) {
+                Object[] reply = tradeReplies.poll(20, java.util.concurrent.TimeUnit.SECONDS);
+                if (reply == null) {
+                    status("The natives did not answer.");
+                    break;
+                }
+                if (!nativeTrade((NativeTradeAction)reply[0], (NativeTrade)reply[1])) break;
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+        } finally {
+            tradeOpen = false;
+        }
+        reportMessages();
     }
 
     /**
@@ -1807,38 +2137,69 @@ public final class GameSession implements MessageHandler {
     }
 
     /**
-     * Questions from the server, answered with a default until the
-     * dialogs exist.  Replies go from the worker, never from here.
+     * Questions from the server.  They arrive on the connection's
+     * thread with the lock held, so the asking (which waits for the
+     * player) and the replies happen on the worker.
      */
     private void answer(Message m) {
         if (m instanceof FirstContactMessage) {
             FirstContactMessage fm = (FirstContactMessage)m;
             final Player p = fm.getPlayer(game), o = fm.getOtherPlayer(game);
             final Tile t = fm.getTile(game);
-            if (p == me && o != null) {
-                status("You meet the " + Messages.message(o.getNationLabel())
-                    + " and agree to peace.");
-                worker.execute(() -> api.firstContact(p, o, t, true));
-            }
+            final int n = fm.getSettlementCount();
+            if (p != me || o == null) return;
+            final String nation = Messages.message(o.getNationLabel());
+            worker.execute(() -> {
+                int c = choose("First contact", "You meet the " + nation
+                    + ". They have " + ((n > 0) ? n + " settlements" : "many settlements")
+                    + " and welcome you in peace. Their land is yours to use only "
+                    + "if you buy it, or take it.",
+                    "Make peace", "Refuse their friendship");
+                boolean peace = c != 1;
+                api.firstContact(p, o, t, peace);
+                status(peace ? "You make peace with the " + nation + "."
+                       : "You refuse the " + nation + "'s friendship.");
+            });
         } else if (m instanceof ChooseFoundingFatherMessage) {
             final List<FoundingFather> ffs
                 = ((ChooseFoundingFatherMessage)m).getFathers(game);
-            if (ffs != null && !ffs.isEmpty()) {
-                final FoundingFather ff = ffs.get(0);
-                status("Congress will seek " + Messages.getName(ff) + ".");
-                worker.execute(() -> api.chooseFoundingFather(ffs, ff));
+            if (ffs == null || ffs.isEmpty()) return;
+            final String[] labels = new String[ffs.size()];
+            for (int k = 0; k < labels.length; k++) {
+                FoundingFather ff = ffs.get(k);
+                labels[k] = Messages.getName(ff) + " ("
+                    + Messages.message(ff.getTypeKey()) + "): "
+                    + Messages.getDescription(ff);
             }
+            worker.execute(() -> {
+                int c = choose("Continental Congress",
+                    "Which founding father should Congress seek next?", labels);
+                FoundingFather ff = ffs.get(Math.max(0, c));
+                api.chooseFoundingFather(ffs, ff);
+                status("Congress will seek " + Messages.getName(ff) + ".");
+            });
         } else if (m instanceof MonarchActionMessage) {
             MonarchActionMessage mm = (MonarchActionMessage)m;
             final MonarchAction action = mm.getAction();
-            if (mm.getTemplate() != null) status(Messages.message(mm.getTemplate()));
+            final String text = (mm.getTemplate() == null) ? ""
+                : Messages.message(mm.getTemplate());
             if (action == MonarchAction.RAISE_TAX_ACT
                 || action == MonarchAction.RAISE_TAX_WAR) {
-                status("You accept the new tax.");
-                worker.execute(() -> api.answerMonarch(action, true));
+                worker.execute(() -> {
+                    int c = choose("The King", text, "Accept the tax",
+                        "Refuse (the goods will be boycotted)");
+                    api.answerMonarch(action, c != 1);
+                    status((c != 1) ? "You accept the new tax."
+                           : "You refuse the tax. Those goods are now boycotted.");
+                });
             } else if (action == MonarchAction.MONARCH_MERCENARIES
                 || action == MonarchAction.HESSIAN_MERCENARIES) {
-                worker.execute(() -> api.answerMonarch(action, false));
+                worker.execute(() -> {
+                    int c = choose("Mercenaries", text, "No thanks", "Hire them");
+                    api.answerMonarch(action, c == 1);
+                });
+            } else if (!text.isEmpty()) {
+                status(text);
             }
         } else if (m instanceof IndianDemandMessage) {
             IndianDemandMessage im = (IndianDemandMessage)m;
@@ -1846,27 +2207,42 @@ public final class GameSession implements MessageHandler {
             final Colony c = im.getColony(game);
             final GoodsType gt = im.getType(game);
             final int amount = im.getAmount();
-            if (u != null && c != null) {
-                status("Natives make demands of " + c.getName() + "; you agree.");
-                worker.execute(() -> api.indianDemand(u, c, gt, amount,
-                    IndianDemandAction.INDIAN_DEMAND_ACCEPT));
-            }
+            if (u == null || c == null) return;
+            final String what = (gt == null) ? amount + " gold"
+                : amount + " " + Messages.getName(gt);
+            final String who = Messages.message(u.getOwner().getNationLabel());
+            worker.execute(() -> {
+                int ch = choose("A demand", "The " + who + " demand " + what
+                    + " from " + c.getName() + ".", "Give it to them", "Refuse");
+                api.indianDemand(u, c, gt, amount, (ch != 1)
+                    ? IndianDemandAction.INDIAN_DEMAND_ACCEPT
+                    : IndianDemandAction.INDIAN_DEMAND_REJECT);
+                status((ch != 1) ? "You give the " + who + " " + what + "."
+                       : "You refuse the " + who + ". They will not be pleased.");
+            });
         } else if (m instanceof NewLandNameMessage) {
             NewLandNameMessage nm = (NewLandNameMessage)m;
             final Unit u = nm.getUnit(me);
-            final String name = nm.getNewLandName();
-            if (u != null && name != null) {
+            final String suggestion = nm.getNewLandName();
+            if (u == null || suggestion == null) return;
+            worker.execute(() -> {
+                String name = askName("The New World",
+                    "You have landed in the New World. What will you call it?",
+                    suggestion);
+                api.newLandName(u, name);
                 status("You name the new land " + name + ".");
-                worker.execute(() -> api.newLandName(u, name));
-            }
+            });
         } else if (m instanceof NewRegionNameMessage) {
+            // Regions are named automatically: asking for every one
+            // would be a lot of typing on a phone.
             NewRegionNameMessage nm = (NewRegionNameMessage)m;
             final Region r = nm.getRegion(game);
             final Tile t = nm.getTile(game);
             final Unit u = nm.getUnit(me);
             final String name = nm.getNewRegionName();
             if (r != null && name != null) {
-                status("You discover " + name + ".");
+                status((r.isPacific()) ? "You have reached the Pacific Ocean!"
+                       : "You discover " + name + ".");
                 worker.execute(() -> api.newRegionName(r, t, u, name));
             }
         } else if (m instanceof FountainOfYouthMessage) {
@@ -1874,13 +2250,317 @@ public final class GameSession implements MessageHandler {
             status("The Fountain of Youth! " + n + " colonists will join you.");
             worker.execute(() -> {
                 // The server wants a specific dock slot for these.
-                for (int i = 0; i < n; i++) {
+                for (int k = 0; k < n; k++) {
                     api.emigrate(Europe.MigrationType.getDefaultSlot());
                 }
             });
+        } else if (m instanceof LootCargoMessage) {
+            LootCargoMessage lm = (LootCargoMessage)m;
+            final Unit winner = lm.getWinner(game);
+            final String loser = lm.getLoserId();
+            final List<Goods> goods = lm.getGoods();
+            if (winner == null || goods == null || goods.isEmpty()) return;
+            StringBuilder sb = new StringBuilder();
+            for (Goods g : goods) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(g.getAmount()).append(' ').append(Messages.getName(g.getType()));
+            }
+            final String list = sb.toString();
+            worker.execute(() -> {
+                int c = choose("Captured cargo", "The enemy ship carried " + list
+                    + ". Take what fits?", "Take it", "Leave it");
+                api.loot(winner, loser, (c != 1) ? goods : new ArrayList<Goods>());
+            });
+        } else if (m instanceof InciteMessage) {
+            InciteMessage im = (InciteMessage)m;
+            final Unit u = im.getUnit(me);
+            final IndianSettlement is = (u == null) ? null : im.getSettlement(u);
+            final Player enemy = im.getEnemy(game);
+            final int gold = im.getGold();
+            if (u == null || is == null || enemy == null || gold < 0) return;
+            final String foe = Messages.message(enemy.getNationLabel());
+            if (!me.checkGold(gold)) {
+                status("The natives want " + gold + " gold to attack the "
+                    + foe + ", which you do not have.");
+                return;
+            }
+            worker.execute(() -> {
+                int c = choose("Incite the natives", "They will attack the "
+                    + foe + " for " + gold + " gold.", "Never mind", "Pay them");
+                if (c == 1) api.incite(u, is, enemy, gold);
+            });
+        } else if (m instanceof ScoutSpeakToChiefMessage) {
+            ScoutSpeakToChiefMessage sm = (ScoutSpeakToChiefMessage)m;
+            final Unit u = sm.getUnit(game);
+            final String result = sm.getResult();
+            if (result == null) return;
+            switch (result) {
+            case "": break;
+            case "die":
+                status("The chief has your scout put to death!");
+                break;
+            case "expert":
+                status("The chief shares the tribe's knowledge. Your scout "
+                    + "is now a seasoned scout.");
+                break;
+            case "tales":
+                status("The chief tells tales of nearby lands, which now "
+                    + "appear on your map.");
+                break;
+            case "nothing":
+                status("The chief has nothing to say to you.");
+                break;
+            default:
+                status("The chief gives you " + result + " gold as a gift.");
+                break;
+            }
+        } else if (m instanceof SpySettlementMessage) {
+            Tile t = ((SpySettlementMessage)m).getSpyTile();
+            Colony c = (t == null) ? null : t.getColony();
+            if (c != null) {
+                status("Your scout reports: " + c.getName() + " has "
+                    + c.getUnitCount() + " colonists and "
+                    + t.getUnitCount() + " units outside.");
+            }
+        } else if (m instanceof NativeTradeMessage) {
+            NativeTradeMessage nm = (NativeTradeMessage)m;
+            final NativeTrade nt = nm.getNativeTrade();
+            final NativeTradeAction action = nm.getAction();
+            if (nt != null && nt.getUnit() != null && me.owns(nt.getUnit())) {
+                if (tradeOpen) {
+                    tradeReplies.offer(new Object[] { action, nt });
+                } else {
+                    worker.execute(() -> nativeTrade(action, nt));
+                }
+            }
+        } else if (m instanceof DiplomacyMessage) {
+            diplomacy((DiplomacyMessage)m);
         } else {
             // Animations, sounds, chat and the rest: nothing to do yet.
             logger.fine("Ignored message: " + m.getType());
+        }
+    }
+
+    /** A proposal from another European nation. */
+    private void diplomacy(DiplomacyMessage dm) {
+        final DiplomaticTrade agreement = dm.getAgreement();
+        final FreeColGameObject our = dm.getOurFCGO(game);
+        final FreeColGameObject other = dm.getOtherFCGO(game);
+        if (agreement == null || our == null || other == null) return;
+        final Player them = agreement.getOtherPlayer(me);
+        final String nation = (them == null) ? "Another nation"
+            : "The " + Messages.message(them.getNationLabel());
+        switch (agreement.getStatus()) {
+        case PROPOSE_TRADE: {
+            StringBuilder sb = new StringBuilder(nation + " propose:");
+            for (TradeItem ti : agreement.getItems()) {
+                sb.append("\n- ").append(Messages.message(ti.getLabel()));
+                if (ti.getSource() != null
+                    && !(ti instanceof net.sf.freecol.common.model.StanceTradeItem)) {
+                    sb.append(" (from ").append(
+                        (ti.getSource() == me) ? "you"
+                        : Messages.message(ti.getSource().getNationLabel())).append(')');
+                }
+            }
+            final String text = sb.toString();
+            worker.execute(() -> {
+                int c = choose("Diplomacy", text, "Reject", "Accept");
+                agreement.setStatus((c == 1) ? TradeStatus.ACCEPT_TRADE
+                                    : TradeStatus.REJECT_TRADE);
+                api.diplomacy(our, other, agreement);
+                status((c == 1) ? "You accept the proposal." : "You reject the proposal.");
+            });
+            break;
+        }
+        case ACCEPT_TRADE:
+            status(nation + " accept.");
+            me.invalidateCanSeeTiles();
+            break;
+        case REJECT_TRADE:
+            status(nation + " reject the proposal.");
+            break;
+        default:
+            break;
+        }
+    }
+
+    /** True while tradeAt() waits for the natives' replies. */
+    private volatile boolean tradeOpen = false;
+    private final java.util.concurrent.BlockingQueue<Object[]> tradeReplies
+        = new java.util.concurrent.LinkedBlockingQueue<>();
+
+    /**
+     * One round of trading with a native settlement, after the
+     * server's reply to the last offer.  Runs on the worker; asks the
+     * player and sends the next offer, or closes the session.
+     *
+     * @return True if an offer was sent and a reply should follow.
+     */
+    private boolean nativeTrade(NativeTradeAction action, NativeTrade nt) {
+        final IndianSettlement is = nt.getIndianSettlement();
+        final Unit unit = nt.getUnit();
+        String prompt;
+        NativeTradeAction act = null; // BUY or SELL when haggling
+        NativeTradeItem nti = null;
+        synchronized (lock) {
+            String goods = (nt.getItem() == null || nt.getItem().getGoods() == null) ? ""
+                : Messages.getName(nt.getItem().getGoods().getType());
+            switch (action) {
+            case ACK_OPEN: prompt = null; break;
+            case ACK_BUY: prompt = "You bought the " + goods + "."; break;
+            case ACK_SELL: prompt = "You sold the " + goods + "."; break;
+            case ACK_GIFT: prompt = "They accept your gift of " + goods + "."; break;
+            case ACK_BUY_HAGGLE: act = NativeTradeAction.BUY; nti = nt.getItem(); prompt = null; break;
+            case ACK_SELL_HAGGLE: act = NativeTradeAction.SELL; nti = nt.getItem(); prompt = null; break;
+            case NAK_GOODS: prompt = "They have no room for " + goods + "."; break;
+            case NAK_HAGGLE:
+                status("They tire of your haggling and will not trade any more.");
+                return false;
+            case NAK_HOSTILE:
+                status("They are too angry with you to trade.");
+                return false;
+            case NAK_NOSALE:
+                status("They have nothing to trade with you.");
+                return false;
+            default:
+                return false;
+            }
+            nt.limitSettlementToUnit(3);
+        }
+        final String place = is.getName();
+        while (true) {
+            final boolean canBuy, canSell, canGift;
+            synchronized (lock) {
+                if (nt.getDone()) {
+                    if (prompt != null) status(prompt); // e.g. "You sold..."
+                    break;
+                }
+                canBuy = nt.canBuy();
+                canSell = nt.canSell();
+                canGift = nt.canGift();
+            }
+            if (act == null) {
+                List<String> opts = new ArrayList<>();
+                List<NativeTradeAction> acts = new ArrayList<>();
+                opts.add("Leave");
+                acts.add(null);
+                if (canBuy) { opts.add("Buy from them"); acts.add(NativeTradeAction.BUY); }
+                if (canSell) { opts.add("Sell to them"); acts.add(NativeTradeAction.SELL); }
+                if (canGift) { opts.add("Give a gift"); acts.add(NativeTradeAction.GIFT); }
+                int c = choose("Trade at " + place, (prompt == null)
+                    ? "The people of " + place + " welcome you. What would you like to do?"
+                    : prompt, opts.toArray(new String[0]));
+                prompt = null;
+                if (c <= 0) break;
+                act = acts.get(c);
+            }
+            if (act == NativeTradeAction.BUY || act == NativeTradeAction.SELL) {
+                final boolean buy = act == NativeTradeAction.BUY;
+                if (nti == null) {
+                    List<NativeTradeItem> items = new ArrayList<>();
+                    List<String> labels = new ArrayList<>();
+                    labels.add("Nothing");
+                    synchronized (lock) {
+                        for (NativeTradeItem i : buy ? nt.getSettlementToUnit()
+                                 : nt.getUnitToSettlement()) {
+                            if (!i.priceIsValid()) continue;
+                            items.add(i);
+                            labels.add(Messages.message(i.getGoods().getLabel(true)));
+                        }
+                    }
+                    int c = choose(buy ? "Buy" : "Sell", buy ? "What will you buy?"
+                        : "What will you sell?", labels.toArray(new String[0]));
+                    if (c <= 0) { act = null; continue; }
+                    nti = items.get(c - 1);
+                    synchronized (lock) {
+                        nt.setItem(nti);
+                    }
+                }
+                final String what, price;
+                synchronized (lock) {
+                    what = Messages.message(nti.getGoods().getLabel(true));
+                    price = nti.getPrice() + " gold";
+                }
+                int c = choose(buy ? "Buy" : "Sell", (buy ? "They will sell " : "They offer ")
+                    + price + (buy ? " for " : " for your ") + what + ".",
+                    "Never mind", buy ? "Buy" : "Sell", "Haggle");
+                if (c == 1 || c == 2) {
+                    synchronized (lock) {
+                        if (buy && !me.checkGold(nti.getPrice()) && c == 1) {
+                            status("You can not afford that.");
+                            act = null;
+                            nti = null;
+                            continue;
+                        }
+                        if (c == 2) nti.setPrice(NativeTradeItem.PRICE_UNSET);
+                    }
+                    api.nativeTrade(act, nt);
+                    return true; // The reply starts the next round.
+                }
+            } else if (act == NativeTradeAction.GIFT) {
+                List<NativeTradeItem> items = new ArrayList<>();
+                List<String> labels = new ArrayList<>();
+                labels.add("Nothing");
+                synchronized (lock) {
+                    for (NativeTradeItem i : nt.getUnitToSettlement()) {
+                        items.add(i);
+                        labels.add(Messages.message(i.getGoods().getLabel(true)));
+                    }
+                }
+                int c = choose("Gift", "What will you give them?",
+                               labels.toArray(new String[0]));
+                if (c > 0) {
+                    synchronized (lock) {
+                        nt.setItem(items.get(c - 1));
+                    }
+                    api.nativeTrade(NativeTradeAction.GIFT, nt);
+                    return true;
+                }
+            }
+            act = null;
+            nti = null;
+        }
+        api.nativeTrade(NativeTradeAction.CLOSE, nt);
+        changed();
+        return false;
+    }
+
+
+    // Asking the player (on the worker only: these wait)
+
+    /**
+     * Ask the player to choose, and wait for the answer.
+     *
+     * @return The index chosen, or -1 if they backed out.
+     */
+    private int choose(String title, String text, String... options) {
+        final java.util.concurrent.CompletableFuture<Integer> f
+            = new java.util.concurrent.CompletableFuture<>();
+        try {
+            listener.onChoose(title, text, java.util.Arrays.asList(options),
+                              f::complete);
+            return f.get();
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Question failed", e);
+            return -1;
+        }
+    }
+
+    /**
+     * Ask the player for a name, and wait for it.
+     *
+     * @return The name, or the suggestion if none was given.
+     */
+    private String askName(String title, String text, String suggestion) {
+        final java.util.concurrent.CompletableFuture<String> f
+            = new java.util.concurrent.CompletableFuture<>();
+        try {
+            listener.onAskName(title, text, suggestion, f::complete);
+            String name = f.get();
+            return (name == null || name.trim().isEmpty()) ? suggestion : name.trim();
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Question failed", e);
+            return suggestion;
         }
     }
 
