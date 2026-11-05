@@ -21,11 +21,9 @@ package net.sf.freecol.android;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
-import android.widget.Button;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -49,8 +47,8 @@ import net.sf.freecol.common.model.Unit;
  */
 final class EuropePanel extends LinearLayout implements GameSession.Listener {
 
-    private static final int BG = 0xFF1D2733, CELL = 0xFF2C3A4B,
-        SHIP = 0xFF1E3A55, SHIP_SELECTED = 0xFF3C6E99, SELECTED = 0xFFE8D9B0;
+    private static final int CELL = 0xFF3A2816,
+        SHIP = 0xFF24343C, SHIP_SELECTED = 0xFF35556A;
 
     private final GameSession session;
     private final IsometricRenderer renderer;
@@ -59,7 +57,7 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
     private final float dp;
 
     private final TextView title, hint;
-    private final Button sailButton, equipButton;
+    private final TextView sailButton, equipButton;
     private final LinearLayout port, people, training, market;
 
     private EuropeInfo info = null;
@@ -76,32 +74,29 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         this.onClose = onClose;
         this.dp = context.getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
-        setBackgroundColor(BG);
+        setBackground(Theme.wood());
         setClickable(true);
 
         LinearLayout header = new LinearLayout(context);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        title = text(18, Color.WHITE, true, "");
+        title = Theme.serif(context, "", 19, Theme.GOLD, true);
         header.addView(title, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        sailButton = new Button(context);
-        sailButton.setAllCaps(false);
-        sailButton.setText("Sail to the New World");
+        sailButton = Theme.button(context, "Sail to the New World", Theme.Icon.SAIL,
+                                  Theme.Kind.GOLD, false);
+        sailButton.setTextSize(13);
         sailButton.setOnClickListener(v -> chooseDestination());
-        equipButton = new Button(context);
-        equipButton.setAllCaps(false);
-        equipButton.setText("Equip");
+        equipButton = Theme.button(context, "Equip", Theme.Icon.EQUIP, Theme.Kind.PLANK, false);
         equipButton.setOnClickListener(v -> chooseEquip());
-        header.addView(equipButton);
-        header.addView(sailButton);
-        Button close = new Button(context);
-        close.setAllCaps(false);
-        close.setText("Close");
+        header.addView(equipButton, headerButton());
+        header.addView(sailButton, headerButton());
+        TextView close = Theme.button(context, "Close", Theme.Icon.CLOSE, Theme.Kind.PLANK, false);
         close.setOnClickListener(v -> onClose.run());
-        header.addView(close);
+        header.addView(close, headerButton());
         addView(header);
 
-        hint = text(12, 0xFFFFE08A, false, "");
+        hint = text(12, Theme.GOLD, false, "");
+        hint.setPadding(0, px(3), 0, px(3));
         addView(hint);
 
         LinearLayout body = new LinearLayout(context);
@@ -117,8 +112,17 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         market = new LinearLayout(context);
         market.setOrientation(HORIZONTAL);
         HorizontalScrollView ms = new HorizontalScrollView(context);
+        ms.setBackground(Theme.plank(context));
         ms.addView(market);
-        addView(ms);
+        LayoutParams mlp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
+        mlp.setMargins(0, px(4), 0, 0);
+        addView(ms, mlp);
+    }
+
+    private LayoutParams headerButton() {
+        LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lp.setMargins(px(5), 0, 0, 0);
+        return lp;
     }
 
     /** Show Europe afresh. */
@@ -174,14 +178,14 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
 
         title.setText(info.title + "    Gold " + info.gold + "    Tax " + info.tax + "%");
         boolean myTurn = session.isMyTurn();
-        sailButton.setEnabled(myTurn && selectedShip != null);
+        sailButton.setVisibility((myTurn && selectedShip != null) ? VISIBLE : GONE);
         boolean canEquip = false;
         if (selectedUnit != null) {
             synchronized (session.lock()) {
                 canEquip = !session.equipChoices(selectedUnit).isEmpty();
             }
         }
-        equipButton.setEnabled(myTurn && canEquip);
+        equipButton.setVisibility((myTurn && canEquip) ? VISIBLE : GONE);
         if (!myTurn) {
             hint.setText("Wait for your turn to trade.");
         } else if (selectedUnit != null) {
@@ -206,13 +210,17 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         for (EuropeInfo.Ship s : info.inPort) {
             LinearLayout box = new LinearLayout(getContext());
             box.setOrientation(VERTICAL);
-            box.setBackgroundColor((s.ship.unit == selectedShip) ? SHIP_SELECTED : SHIP);
+            boolean on = s.ship.unit == selectedShip;
+            android.graphics.drawable.GradientDrawable bg
+                = Theme.cell(getContext(), on ? SHIP_SELECTED : SHIP);
+            if (on) bg.setStroke(px(2), Theme.GOLD);
+            box.setBackground(bg);
             box.setPadding(px(4), px(4), px(4), px(4));
             LinearLayout head = new LinearLayout(getContext());
             head.setOrientation(HORIZONTAL);
             head.setGravity(Gravity.CENTER_VERTICAL);
             head.addView(image(s.ship.imageKey, px(44), px(44)));
-            head.addView(text(12, Color.WHITE, true, s.ship.name
+            head.addView(text(12, Theme.INK, true, s.ship.name
                               + "\n" + s.spaceLeft + " space left"));
             box.addView(head);
             LinearLayout load = row();
@@ -236,7 +244,7 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
                 LinearLayout line = row();
                 line.setGravity(Gravity.CENTER_VERTICAL);
                 line.addView(image(u.imageKey, px(32), px(32)));
-                line.addView(text(11, 0xFFBBCCDD, false, u.name + ", " + u.caption));
+                line.addView(text(11, Theme.DIM, false, u.name + ", " + u.caption));
                 port.addView(line);
             }
         }
@@ -246,7 +254,7 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         people.removeAllViews();
         people.addView(heading("On the docks"));
         LinearLayout docks = row();
-        docks.setBackgroundColor(CELL);
+        docks.setBackground(Theme.cell(getContext(), CELL));
         docks.setMinimumHeight(px(44));
         for (ColonyInfo.UnitItem u : info.docks) docks.addView(unitIcon(u, px(40)));
         people.addView(docks);
@@ -377,10 +385,10 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
     private View offer(EuropeInfo.Offer o, Runnable onTap) {
         LinearLayout line = row();
         line.setGravity(Gravity.CENTER_VERTICAL);
-        line.setBackgroundColor(CELL);
+        line.setBackground(Theme.cell(getContext(), CELL));
         line.addView(image(o.imageKey, px(30), px(40)));
         boolean afford = info.gold >= o.price;
-        line.addView(text(12, afford ? Color.WHITE : 0xFF8899AA, false,
+        line.addView(text(12, afford ? Theme.INK : 0xFF8C7A60, false,
                           o.name + "\n" + o.price + " gold"));
         line.setOnClickListener(v -> onTap.run());
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT,
@@ -394,7 +402,7 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         LinearLayout cell = new LinearLayout(getContext());
         cell.setOrientation(VERTICAL);
         cell.setGravity(Gravity.CENTER_HORIZONTAL);
-        cell.setBackgroundColor((u.unit == selectedUnit) ? SELECTED : 0);
+        if (u.unit == selectedUnit) cell.setBackground(Theme.gold(getContext()));
         cell.setPadding(px(2), px(1), px(2), px(1));
         cell.addView(image(u.imageKey, (int)(height * 0.7f), height));
         cell.setOnClickListener(v -> tapUnit(u.unit));
@@ -411,14 +419,14 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         cell.setGravity(Gravity.CENTER_HORIZONTAL);
         cell.setPadding(px(4), px(2), px(4), px(2));
         cell.addView(image(iconKey, px(26), px(26)));
-        cell.addView(text(12, warn ? 0xFFFF6B5B : Color.WHITE, true, top));
+        cell.addView(text(12, warn ? 0xFFFF6B5B : Theme.INK, true, top));
         if (bottom != null) cell.addView(text(10, 0xFFFF8A7A, false, bottom));
         return cell;
     }
 
     private TextView heading(String s) {
-        TextView t = text(13, Color.WHITE, true, s);
-        t.setPadding(px(4), px(6), px(4), px(2));
+        TextView t = Theme.heading(getContext(), s, Theme.GOLD);
+        t.setPadding(px(4), px(6), px(4), px(3));
         return t;
     }
 

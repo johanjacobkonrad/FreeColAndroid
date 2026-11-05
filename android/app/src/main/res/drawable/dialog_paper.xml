@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Parchment with a brass edge, inset like a standard dialog. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:inset="16dp">
+    <shape android:shape="rectangle">
+        <solid android:color="#FFE9DCBC" />
+        <stroke android:width="2dp" android:color="#FF8A6A3C" />
+        <corners android:radius="8dp" />
+    </shape>
+</inset>

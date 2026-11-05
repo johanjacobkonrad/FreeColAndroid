@@ -7,6 +7,7 @@
 
     <application
         android:label="FreeCol"
+        android:theme="@style/FreeCol"
         android:allowBackup="false">
         <activity
             android:name=".MainActivity"

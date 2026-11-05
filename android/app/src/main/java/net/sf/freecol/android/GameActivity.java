@@ -19,42 +19,31 @@
 package net.sf.freecol.android;
 
 import java.io.File;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 
 import android.app.Activity;
-import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import net.sf.freecol.android.map.Art;
 import net.sf.freecol.android.map.IsometricRenderer;
-import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
 
 
 /**
- * A single-player game against the AI: the map, a line of news, a row
- * of the units on the selected unit's tile (tap one to pick it), and
- * buttons for the commonest orders.
+ * A single-player game against the AI: the map on the left, and the
+ * {@link Sidebar} with the minimap, the selected unit, the orders and
+ * the news on the right.
  */
 public final class GameActivity extends Activity implements GameSession.Listener {
-
-    private static final int NEWS_LINES = 4;
 
     /** Intent extra: carry on with the saved game. */
     static final String EXTRA_CONTINUE = "continue";
@@ -67,20 +56,10 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private IsometricRenderer renderer;
     private MapView mapView;
     private MinimapView minimap;
+    private Sidebar sidebar;
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
-    private Button europeButton;
-    private LinearLayout unitRow;
-    private List<Unit> unitRowUnits = new ArrayList<>();
-    private Unit unitRowSelected = null;
     private float dp;
-    private TextView info, news;
-    private Button nextButton, waitButton, fortifyButton, colonyButton, endButton;
-    /** The colony button joins a colony next to the unit, not founds one. */
-    private boolean joinMode = false;
-    /** The colony button sends a ship to Europe. */
-    private boolean sailMode = false;
-    private final Deque<String> newsLines = new ArrayDeque<>();
 
 
     @Override
@@ -97,10 +76,6 @@ public final class GameActivity extends Activity implements GameSession.Listener
         }
         renderer = new IsometricRenderer(art);
         mapView = new MapView(this, session, renderer);
-
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.BLACK);
-        root.addView(mapView);
         minimap = new MinimapView(this, session, art);
         minimap.setViewport(mapView.getViewport());
         minimap.setJumper(mapView::jumpTo);
@@ -109,86 +84,51 @@ public final class GameActivity extends Activity implements GameSession.Listener
         dp = getResources().getDisplayMetrics().density;
         final int pad = (int)(8 * dp);
 
-        LinearLayout hud = new LinearLayout(this);
-        hud.setOrientation(LinearLayout.VERTICAL);
-
-        info = label(15, dp);
-        news = label(13, dp);
-        news.setMaxLines(NEWS_LINES);
-        LinearLayout top = new LinearLayout(this);
-        top.setOrientation(LinearLayout.VERTICAL);
-        top.addView(info);
-        top.addView(news);
-        top.setPadding(0, 0, (int)(175 * dp), 0); // Clear of the minimap
-        hud.addView(top, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        // Space between the news and the buttons lets taps reach the map.
-        hud.addView(new android.view.View(this) {
-                @Override
-                public boolean onTouchEvent(android.view.MotionEvent e) {
-                    return false;
+        // The map on the left, the sidebar on the right.
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.BLACK);
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.HORIZONTAL);
+        content.addView(mapView, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+        sidebar = new Sidebar(this, session, art, renderer, minimap,
+                              new Sidebar.Controls() {
+                @Override public void next() { session.nextUnit(); }
+                @Override public void waitUnit() { session.waitUnit(); }
+                @Override public void orders() { showOrders(); }
+                @Override public void context(String mode) {
+                    if (Sidebar.SAIL.equals(mode)) {
+                        session.sailToEurope(session.getSelectedUnit());
+                    } else if (Sidebar.JOIN.equals(mode)) {
+                        session.joinColony();
+                    } else {
+                        session.buildColony();
+                    }
                 }
-            }, new LinearLayout.LayoutParams(1, 0, 1f));
-
-        // The units on the selected tile, ship passengers included.
-        unitRow = new LinearLayout(this);
-        unitRow.setOrientation(LinearLayout.HORIZONTAL);
-        HorizontalScrollView rowScroll = new HorizontalScrollView(this);
-        rowScroll.setHorizontalScrollBarEnabled(false);
-        rowScroll.addView(unitRow);
-        hud.addView(rowScroll, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.END);
-        nextButton = button(bar, "Next unit", v -> session.nextUnit());
-        waitButton = button(bar, "Wait", v -> session.waitUnit());
-        fortifyButton = button(bar, "Orders", v -> showOrders());
-        colonyButton = button(bar, "Build colony", v -> {
-                if (sailMode) {
-                    session.sailToEurope(session.getSelectedUnit());
-                } else if (joinMode) {
-                    session.joinColony();
-                } else {
-                    session.buildColony();
-                }
+                @Override public void europe() { openEurope(); }
+                @Override public void endTurn() { session.endTurn(); }
             });
-        europeButton = button(bar, "Europe", v -> openEurope());
-        endButton = button(bar, "End turn", v -> session.endTurn());
-        hud.addView(bar, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        // The map goes edge to edge; keep the controls clear of the
-        // status bar, navigation bar and camera cutout.
-        hud.setPadding(pad, pad, pad, pad);
-        hud.setOnApplyWindowInsetsListener((v, insets) -> {
-            android.graphics.Insets bars = insets.getInsets(
-                WindowInsets.Type.systemBars()
-                | WindowInsets.Type.displayCutout());
-            v.setPadding(pad + bars.left, pad + bars.top,
-                         pad + bars.right, pad + bars.bottom);
-            return WindowInsets.CONSUMED;
-        });
-        root.addView(hud, new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT));
-        // The minimap, top right, clear of the system bars.
-        final FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(
-            (int)(160 * dp), (int)(100 * dp), Gravity.TOP | Gravity.END);
-        mlp.setMargins(0, pad, pad, 0);
-        root.addView(minimap, mlp);
-        minimap.setOnApplyWindowInsetsListener((v, insets) -> {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int wide = Math.max(dm.widthPixels, dm.heightPixels);
+        int sideWidth = Math.min((int)(300 * dp), Math.max((int)(240 * dp), (int)(0.22f * wide)));
+        // A brass edge between the map and the sidebar.
+        android.view.View edge = new android.view.View(this);
+        edge.setBackgroundColor(Theme.EDGE);
+        content.addView(edge, new LinearLayout.LayoutParams(
+            Math.max(1, (int)(2 * dp)), LinearLayout.LayoutParams.MATCH_PARENT));
+        content.addView(sidebar, new LinearLayout.LayoutParams(
+            sideWidth, LinearLayout.LayoutParams.MATCH_PARENT));
+        // The map runs under the system bars; the sidebar keeps clear.
+        final int gap = (int)(5 * dp);
+        sidebar.setOnApplyWindowInsetsListener((v, insets) -> {
             android.graphics.Insets bars = insets.getInsets(
                 WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
-            mlp.setMargins(0, pad + bars.top, pad + bars.right, 0);
-            v.setLayoutParams(mlp);
+            v.setPadding(gap, gap + bars.top, gap + bars.right, gap + bars.bottom);
             return insets;
         });
+        root.addView(content, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
         colonyPanel = new ColonyPanel(this, session, renderer, art,
                                       this::closeColony);
         colonyPanel.setVisibility(android.view.View.GONE);
@@ -349,18 +289,18 @@ public final class GameActivity extends Activity implements GameSession.Listener
             LinearLayout box = new LinearLayout(this);
             box.setOrientation(LinearLayout.VERTICAL);
             int pad = (int)(16 * dp);
-            box.setPadding(pad, pad / 2, pad, 0);
-            TextView msg = new TextView(this);
-            msg.setText(text);
-            msg.setTextSize(15);
+            box.setPadding(pad, pad / 2, pad, pad / 2);
+            TextView msg = Theme.serif(this, text, 15, Theme.PAPER_INK, false);
             msg.setPadding(0, 0, 0, pad / 2);
             box.addView(msg);
             for (int i = 0; i < options.size(); i++) {
                 final int which = i;
-                Button b = new Button(this);
-                b.setAllCaps(false);
-                b.setText(options.get(i));
+                // The first answer is the usual one: give it the gold.
+                TextView b = Theme.text(this, options.get(i), 14, Theme.PAPER_INK, i == 0);
                 b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+                b.setBackground(i == 0 ? Theme.gold(this) : Theme.cell(this, 0xFFF4EACF));
+                b.setPadding(pad * 3 / 4, pad / 2, pad * 3 / 4, pad / 2);
+                b.setMinHeight((int)(44 * dp));
                 b.setOnClickListener(v -> {
                         if (done.compareAndSet(false, true)) {
                             openQuestions.remove(cancel);
@@ -368,9 +308,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
                             answer.accept(which);
                         }
                     });
-                box.addView(b, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+                lp.setMargins(0, 0, 0, pad / 2);
+                box.addView(b, lp);
             }
             android.widget.ScrollView scroll = new android.widget.ScrollView(this);
             scroll.addView(box);
@@ -428,9 +370,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     @Override
     public void onStatus(String text) {
         runOnUiThread(() -> {
-            newsLines.addLast(text);
-            while (newsLines.size() > NEWS_LINES) newsLines.removeFirst();
-            news.setText(String.join("\n", newsLines));
+            sidebar.addNews(text);
             if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
                 colonyPanel.onStatus(text);
             }
@@ -442,101 +382,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
 
     private void refresh() {
-        boolean myTurn = session.isMyTurn();
-        Unit unit = session.getSelectedUnit();
-        String text = "";
-        boolean canColony = false, canFortify = false, naval = false;
-        boolean canJoin = false, canSail = false;
-        List<Unit> here = new ArrayList<>();
-        synchronized (session.lock()) {
-            Player me = session.getMyPlayer();
-            if (session.isInGame() && me != null) {
-                text = net.sf.freecol.common.i18n.Messages.message(
-                    session.getGame().getTurn().getLabel())
-                    + "   Gold: " + me.getGold();
-                if (unit != null) {
-                    String doing = session.describeOrders(unit);
-                    text += "   " + unit.getDescription()
-                        + " (moves " + unit.getMovesAsString()
-                        + (doing.isEmpty() ? "" : ", " + doing) + ")";
-                    canColony = session.canBuildColonyHere(unit);
-                    canJoin = session.joinableColony(unit) != null;
-                    canSail = session.canSailToEurope(unit);
-                    canFortify = unit.hasTile() && !unit.isOnCarrier();
-                    naval = unit.isNaval();
-                    Tile t = unit.getTile();
-                    if (t != null) here = session.getMyUnitsAt(t);
-                }
-            }
-        }
-        info.setText(text);
-        nextButton.setEnabled(myTurn);
-        waitButton.setEnabled(myTurn && unit != null);
-        fortifyButton.setEnabled(myTurn && unit != null);
-        updateUnitRow(here, unit);
-        joinMode = canJoin;
-        sailMode = canSail;
-        colonyButton.setText(canSail ? "Sail to Europe"
-                             : canJoin ? "Join colony" : "Build colony");
-        colonyButton.setEnabled(myTurn && (canColony || canJoin || canSail));
-        europeButton.setEnabled(session.isInGame());
-        endButton.setEnabled(myTurn);
+        sidebar.refresh();
         mapView.showSelected();
         mapView.invalidate();
-    }
-
-    /** Show the units on the selected tile, if there is more than one. */
-    private void updateUnitRow(List<Unit> units, Unit sel) {
-        if (units.size() < 2) units = new ArrayList<>();
-        if (units.equals(unitRowUnits) && sel == unitRowSelected) {
-            // Same units: just refresh the moves left.
-            for (int i = 0; i < unitRow.getChildCount(); i++) {
-                TextView moves = (TextView)((LinearLayout)unitRow.getChildAt(i))
-                    .getChildAt(1);
-                synchronized (session.lock()) {
-                    moves.setText(units.get(i).getMovesAsString());
-                }
-            }
-            return;
-        }
-        unitRowUnits = units;
-        unitRowSelected = sel;
-        unitRow.removeAllViews();
-        final int size = (int)(52 * dp), pad = (int)(3 * dp);
-        for (final Unit u : units) {
-            Bitmap bm = null;
-            String moves;
-            boolean aboard;
-            synchronized (session.lock()) {
-                Art.Img img = art.get(renderer.unitKey(u));
-                if (img != null) bm = (Bitmap)img.handle;
-                moves = u.getMovesAsString();
-                aboard = u.isOnCarrier();
-            }
-            LinearLayout cell = new LinearLayout(this);
-            cell.setOrientation(LinearLayout.VERTICAL);
-            cell.setGravity(Gravity.CENTER_HORIZONTAL);
-            cell.setPadding(pad, pad, pad, pad);
-            // Selected: light; passengers: blue-ish; others: dark.
-            cell.setBackgroundColor((u == sel) ? 0xCCFFFFFF
-                : aboard ? 0xAA1E4A7A : 0xAA000000);
-            ImageView iv = new ImageView(this);
-            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            if (bm != null) iv.setImageBitmap(bm);
-            cell.addView(iv, new LinearLayout.LayoutParams(size, size));
-            TextView t = new TextView(this);
-            t.setTextSize(11);
-            t.setTextColor((u == sel) ? Color.BLACK : Color.WHITE);
-            t.setText(moves);
-            t.setGravity(Gravity.CENTER);
-            cell.addView(t);
-            cell.setOnClickListener(v -> session.select(u));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.setMargins(0, 0, pad * 2, 0);
-            unitRow.addView(cell, lp);
-        }
     }
 
     /** The selected unit's orders, as a menu. */
@@ -579,25 +427,5 @@ public final class GameActivity extends Activity implements GameSession.Listener
                       (d, which) -> actions.get(which).run())
             .setNegativeButton("Cancel", null)
             .show();
-    }
-
-    private TextView label(int sp, float dp) {
-        TextView t = new TextView(this);
-        t.setTextSize(sp);
-        t.setTextColor(Color.WHITE);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setShadowLayer(3 * dp, 0, 0, Color.BLACK);
-        return t;
-    }
-
-    private Button button(LinearLayout bar, String text,
-                          android.view.View.OnClickListener l) {
-        Button b = new Button(this);
-        b.setText(text);
-        b.setAllCaps(false);
-        b.setOnClickListener(l);
-        b.setAlpha(0.9f);
-        bar.addView(b);
-        return b;
     }
 }
