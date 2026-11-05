@@ -92,8 +92,14 @@ selected unit into it). Close, or the back gesture, returns to the map.
 - Header: colonists, rebel percentage, hammers, bells and crosses,
   and what is being built (tap it to choose what to build next).
 
+Ships and wagon trains next to the colony are listed with those in
+port ("Next to the colony"); loading or unloading them, or putting a
+colonist aboard, brings them into port first (using a move). On the
+map, tapping your colony with an adjacent ship selected sails it in
+as the colony opens.
+
 Moving people works like the map: tap a colonist, then tap a tile, a
-building or "Outside the colony". Native land is bought automatically
+building, "Outside the colony", or a ship to board. Native land is bought automatically
 if you can afford it. Tap a worked tile with nobody selected to change
 its crop (or select its worker). Tap a ship, then warehouse goods to
 load up to 100, or its cargo to unload.

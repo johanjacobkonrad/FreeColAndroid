@@ -207,7 +207,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         if (!session.isMyTurn()) {
             hint.setText("Wait for your turn to give orders.");
         } else if (selectedUnit != null) {
-            hint.setText("Now tap a tile, a building or Outside.");
+            hint.setText("Now tap a tile, a building, Outside, or a ship to board.");
         } else if (selectedCarrier != null) {
             hint.setText("Tap warehouse goods to load, cargo to unload, a passenger to select.");
         } else {
@@ -302,8 +302,11 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             LinearLayout load = flow();
             for (ColonyInfo.Amount a : c.cargo) {
                 View g = goodsCell(a.iconKey, Integer.toString(a.amount), null, false);
-                g.setOnClickListener(v -> session.unloadGoods(c.carrier.unit,
-                                                             a.type, a.amount));
+                g.setOnClickListener(v -> {
+                        if (!session.isMyTurn()) return;
+                        intoPort(c);
+                        session.unloadGoods(c.carrier.unit, a.type, a.amount);
+                    });
                 load.addView(g);
             }
             for (ColonyInfo.UnitItem p : c.passengers) load.addView(unitIcon(p, px(34)));
@@ -311,6 +314,11 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             if (c.spaceLeft > 0) {
                 box.addView(text(11, 0xFFBBCCDD, false, c.spaceLeft + " space left"));
             }
+            if (!c.inPort) {
+                box.addView(text(11, 0xFFFFE08A, false,
+                    "Next to the colony: comes into port when you load it"));
+            }
+            box.setOnClickListener(v -> tapCarrier(c.carrier.unit));
             LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT,
                                                LayoutParams.WRAP_CONTENT);
             lp.setMargins(0, px(6), 0, 0);
@@ -363,9 +371,33 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
     }
 
     private void tapCarrier(Unit u) {
+        // A colonist selected, then a ship: put them aboard.
+        if (selectedUnit != null && session.isMyTurn()) {
+            final Unit passenger = selectedUnit;
+            selectedUnit = null;
+            ColonyInfo.CarrierItem c = carrierItem(u);
+            if (c != null) intoPort(c);
+            session.board(passenger, u);
+            selectedCarrier = u;
+            return;
+        }
         selectedCarrier = (selectedCarrier == u) ? null : u;
         selectedUnit = null;
         rebuild();
+    }
+
+    /** The summary of a ship or wagon on this screen. */
+    private ColonyInfo.CarrierItem carrierItem(Unit u) {
+        if (info == null) return null;
+        for (ColonyInfo.CarrierItem c : info.carriers) {
+            if (c.carrier.unit == u) return c;
+        }
+        return null;
+    }
+
+    /** Bring a carrier next to the colony into port, if it is not. */
+    private void intoPort(ColonyInfo.CarrierItem c) {
+        if (c != null && !c.inPort) session.bringIntoPort(c.carrier.unit, colony);
     }
 
     private void tapLand(ColonyInfo.LandItem li) {
@@ -418,7 +450,10 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             return;
         }
         int amount = Math.min(100, st.count);
-        if (amount > 0) session.loadGoods(selectedCarrier, st.type, amount);
+        if (amount > 0) {
+            intoPort(carrierItem(selectedCarrier));
+            session.loadGoods(selectedCarrier, st.type, amount);
+        }
     }
 
     private void chooseCrop(ColonyInfo.LandItem li) {

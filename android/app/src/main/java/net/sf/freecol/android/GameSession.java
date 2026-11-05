@@ -868,6 +868,46 @@ public final class GameSession implements MessageHandler {
     }
 
     /**
+     * Bring a ship or wagon next to a colony into it, so it can load
+     * and unload.  Does nothing if it is there already.  Uses up a
+     * move; with none left it says so and stays put.
+     *
+     * @param carrier The carrier {@code Unit}.
+     * @param colony The {@code Colony}.
+     */
+    public void bringIntoPort(Unit carrier, Colony colony) {
+        if (carrier == null || colony == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Direction d;
+            synchronized (lock) {
+                Tile t = carrier.getTile();
+                if (t == null || t == colony.getTile()) return;
+                d = t.getDirection(colony.getTile());
+                if (d == null) {
+                    status(carrier.getDescription() + " is not next to "
+                        + colony.getName() + ".");
+                    return;
+                }
+                if (carrier.getMovesLeft() <= 0) {
+                    status(carrier.getDescription() + " has no moves left;"
+                        + " it can come into port next turn.");
+                    return;
+                }
+                if (carrier.getDestination() != null) carrier.setDestination(null);
+            }
+            if (!step(carrier, d, true)) {
+                status(carrier.getDescription() + " could not enter "
+                    + colony.getName() + ".");
+            }
+            synchronized (lock) {
+                selected = carrier;
+            }
+            changed();
+        });
+    }
+
+    /**
      * Unload goods from a carrier into the colony it is in.
      *
      * @param carrier The carrier {@code Unit}.
@@ -878,6 +918,13 @@ public final class GameSession implements MessageHandler {
         if (carrier == null || type == null || amount <= 0) return;
         worker.execute(() -> {
             if (!isMyTurn()) return;
+            synchronized (lock) {
+                // Outside a colony (or Europe) unloading would dump the
+                // cargo overboard.
+                boolean inPort = carrier.isInEurope()
+                    || (carrier.getTile() != null && carrier.getTile().getColony() != null);
+                if (!inPort) return;
+            }
             api.unloadGoods(type, amount, carrier);
             changed();
         });
@@ -1191,6 +1238,9 @@ public final class GameSession implements MessageHandler {
         worker.execute(() -> {
             if (!isMyTurn()) return;
             synchronized (lock) {
+                boolean together = (unit.isInEurope() && carrier.isInEurope())
+                    || (unit.getTile() != null && unit.getTile() == carrier.getTile());
+                if (!together) return; // e.g. the ship could not come in
                 if (!carrier.canAdd(unit)) {
                     status("There is no room aboard.");
                     return;
