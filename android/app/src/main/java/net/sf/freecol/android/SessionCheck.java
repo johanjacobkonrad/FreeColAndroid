@@ -547,11 +547,28 @@ public final class SessionCheck {
             = new net.sf.freecol.android.map.IsometricRenderer(noArt());
         waitForTurn(s, 120_000);
         s.sync();
-        // Into the colony's port, then take its biggest stock along to
-        // sell.
-        select(s, ship);
-        s.moveSelectedTo(colonyTile);
+        // The ship should be listed on the colony screen while next to
+        // the colony, and come into port when loaded.  If it has
+        // wandered off, sail it in.
+        boolean listedOutside = false;
+        synchronized (s.lock()) {
+            ColonyInfo ci = new ColonyInfo(colonyTile.getColony(), s.getMyPlayer(),
+                new net.sf.freecol.android.map.IsometricRenderer(noArt()));
+            for (ColonyInfo.CarrierItem c : ci.carriers) {
+                if (c.carrier.unit == ship && !c.inPort) listedOutside = true;
+            }
+            System.out.println("  ship next to the colony and listed: " + listedOutside);
+        }
+        if (listedOutside) {
+            s.bringIntoPort(ship, colonyTile.getColony());
+        } else {
+            select(s, ship);
+            s.moveSelectedTo(colonyTile);
+        }
         s.sync();
+        synchronized (s.lock()) {
+            System.out.println("  ship in port: " + (ship.getTile() == colonyTile));
+        }
         synchronized (s.lock()) {
             net.sf.freecol.common.model.Colony c = (ship.getTile() == null) ? null
                 : ship.getTile().getColony();

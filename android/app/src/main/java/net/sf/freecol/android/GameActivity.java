@@ -240,6 +240,17 @@ public final class GameActivity extends Activity implements GameSession.Listener
     }
 
     private void openColony(net.sf.freecol.common.model.Colony colony) {
+        // A ship (or wagon) next to the colony sails in as it opens.
+        Unit u = session.getSelectedUnit();
+        if (u != null && session.isMyTurn()) {
+            boolean adjacent;
+            synchronized (session.lock()) {
+                Tile t = u.getTile();
+                adjacent = u.isCarrier() && t != null && t != colony.getTile()
+                    && t.getDirection(colony.getTile()) != null;
+            }
+            if (adjacent) session.bringIntoPort(u, colony);
+        }
         colonyPanel.setVisibility(android.view.View.VISIBLE);
         colonyPanel.show(colony);
         colonyPanel.requestApplyInsets();

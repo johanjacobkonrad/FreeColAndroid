@@ -111,10 +111,13 @@ public final class ColonyInfo {
         public final List<Amount> cargo = new ArrayList<>();
         public final List<UnitItem> passengers = new ArrayList<>();
         public final int spaceLeft;
+        /** False for a ship or wagon next to the colony, not in it. */
+        public final boolean inPort;
 
-        CarrierItem(UnitItem carrier, int spaceLeft) {
+        CarrierItem(UnitItem carrier, int spaceLeft, boolean inPort) {
             this.carrier = carrier;
             this.spaceLeft = spaceLeft;
+            this.inPort = inPort;
         }
     }
 
@@ -216,15 +219,18 @@ public final class ColonyInfo {
         for (Unit u : tile.getUnitList()) {
             if (u.getOwner() != me) continue;
             if (u.isCarrier()) {
-                CarrierItem ci = new CarrierItem(unitItem(u, me, renderer),
-                                                 u.getSpaceLeft());
-                for (Goods g : u.getCompactGoodsList()) {
-                    ci.cargo.add(new Amount(g.getType(), g.getAmount()));
-                }
-                for (Unit p : u.getUnitList()) ci.passengers.add(unitItem(p, me, renderer));
-                carriers.add(ci);
+                carriers.add(carrierItem(u, me, renderer, true));
             } else {
                 outside.add(unitItem(u, me, renderer));
+            }
+        }
+        // Ships and wagons next to the colony count too: loading them
+        // brings them into port first.
+        for (Tile n : tile.getSurroundingTiles(1)) {
+            for (Unit u : n.getUnitList()) {
+                if (u.getOwner() == me && u.isCarrier()) {
+                    carriers.add(carrierItem(u, me, renderer, false));
+                }
             }
         }
 
@@ -274,6 +280,18 @@ public final class ColonyInfo {
             result.add(new Choice<>(bt, Messages.getName(bt) + turns(colony, bt)));
         }
         return result;
+    }
+
+    private static CarrierItem carrierItem(Unit u, Player me,
+                                           IsometricRenderer renderer,
+                                           boolean inPort) {
+        CarrierItem ci = new CarrierItem(unitItem(u, me, renderer),
+                                         u.getSpaceLeft(), inPort);
+        for (Goods g : u.getCompactGoodsList()) {
+            ci.cargo.add(new Amount(g.getType(), g.getAmount()));
+        }
+        for (Unit p : u.getUnitList()) ci.passengers.add(unitItem(p, me, renderer));
+        return ci;
     }
 
     private static UnitItem unitItem(Unit u, Player me,
