@@ -45,6 +45,10 @@ public interface Surface {
     /** Draw a line with round ends. */
     void drawLine(float x1, float y1, float x2, float y2, float width, int argb);
 
+    /** Draw a quadratic curve from (x1, y1) to (x2, y2), bending towards (cx, cy). */
+    void drawCurve(float x1, float y1, float cx, float cy, float x2, float y2,
+                   float width, int argb);
+
     /**
      * Draw a line of text.
      *

@@ -39,9 +39,11 @@ import net.sf.freecol.common.model.Unit;
  * half a tile to the right and each row is half a tile lower than
  * the last, as in the desktop game.
  *
- * Roads are drawn as straight lines between tile centres (the desktop
- * curves them).  Not drawn yet: rivers and the soft blending between
- * neighbouring terrain types.
+ * Different neighbouring land terrains fade into each other through
+ * the desktop's masks; rivers use its per-tile river pictures (and
+ * forests with a gap for them); roads curve through a tile they pass
+ * straight through.  Water is not animated, and river mouths into the
+ * sea are not drawn.
  */
 public final class IsometricRenderer implements MapRenderer {
 
@@ -180,6 +182,7 @@ public final class IsometricRenderer implements MapRenderer {
         // so use the first one everywhere.
         image(s, art.get("image.tile." + type.getId() + ".center",
                          type.isWater() ? 0 : seed), t, 0, 0, v, fog);
+        if (t.isLand()) drawTransitions(s, t, v, fog);
         int style = t.getStyle();
         if (!t.isLand() && style > 0) {
             int edge = style >> 4, corner = style & 15;
@@ -201,6 +204,33 @@ public final class IsometricRenderer implements MapRenderer {
         }
     }
 
+    /** The four sides a tile blends towards its neighbours on. */
+    private static final Direction[] BLEND = {
+        Direction.NE, Direction.SW, Direction.NW, Direction.SE };
+
+    /**
+     * Soft edges: fade a different neighbouring land terrain into
+     * this tile through the desktop's masks.  Water edges keep their
+     * beaches.
+     */
+    private void drawTransitions(Surface s, Tile t, Viewport v, boolean fog) {
+        for (Direction d : BLEND) {
+            Tile n = t.getNeighbourOrNull(d);
+            if (n == null || !n.isExplored() || !n.isLand()
+                || n.getType() == null || n.getType() == t.getType()) continue;
+            String terrain = "image.tile." + n.getType().getId() + ".center";
+            String mask = "image.mask." + d.toString().toLowerCase(java.util.Locale.ROOT);
+            // The same mask on both sides of an edge; never the last,
+            // almost straight one (as the desktop does).
+            Tile seedTile = (d == Direction.NW || d == Direction.NE) ? t : n;
+            int count = art.variationCount(mask);
+            int pick = (count > 1)
+                ? Math.floorMod(seed(seedTile.getX(), seedTile.getY()), count - 1) : 0;
+            Art.Img img = art.masked(terrain, mask, pick);
+            if (img != null) image(s, img, t, 0, 0, v, fog);
+        }
+    }
+
     private void drawItems(Surface s, Tile t, Player me, Unit selected,
                            Viewport v, boolean units) {
         final boolean fog = !me.canSee(t);
@@ -214,6 +244,13 @@ public final class IsometricRenderer implements MapRenderer {
             if (ti.isRoad() || ti.isRiver()) continue;
             Art.Img img = art.get("image.tile." + ti.getType().getId());
             if (img != null) image(s, img, t, 0, 0, v, fog);
+        }
+        // Rivers: one picture per combination of sides it flows
+        // through (minor and major).
+        net.sf.freecol.common.model.TileImprovementStyle rs = t.getRiverStyle();
+        if (t.isLand() && t.hasRiver() && rs != null) {
+            Art.Img river = art.get("image.tile.model.improvement.river.s" + rs.getString(), 0);
+            if (river != null) image(s, river, t, 0, 0, v, fog);
         }
         if (t.hasRoad() && t.getRoad().isComplete()) drawRoad(s, t, v);
 
@@ -229,7 +266,14 @@ public final class IsometricRenderer implements MapRenderer {
             image(s, overlay, t, 0, TILE_H - overlay.height, v, fog);
         }
         if (t.isForested()) {
-            Art.Img forest = art.get("image.tileforest." + type.getId(), seed);
+            Art.Img forest = null;
+            if (t.hasRiver() && rs != null) {
+                // A forest with a gap for the river.
+                String mask = rs.getMask();
+                forest = art.get("image.tileforest." + type.getId() + ".s"
+                    + ("0000".equals(mask) ? "0100" : mask), 0);
+            }
+            if (forest == null) forest = art.get("image.tileforest." + type.getId(), seed);
             if (forest != null) {
                 image(s, forest, t, (TILE_W - forest.width) / 2f,
                       TILE_H - forest.height, v, fog);
@@ -266,13 +310,22 @@ public final class IsometricRenderer implements MapRenderer {
         final int colour = 0xFF804000;
         final float w = Math.max(1.5f, 3.5f * v.scale);
         float cx = v.toScreenX(centreX(t)), cy = v.toScreenY(centreY(t));
-        boolean any = false;
+        // Where the road leaves this tile: halfway to each neighbour
+        // with a road.
+        java.util.List<float[]> ends = new java.util.ArrayList<>();
         for (Direction d : Direction.values()) {
             Tile n = t.getNeighbourOrNull(d);
             if (n == null || !n.hasRoad() || !n.getRoad().isComplete()) continue;
-            any = true;
             float nx = v.toScreenX(centreX(n)), ny = v.toScreenY(centreY(n));
-            s.drawLine(cx, cy, (cx + nx) / 2, (cy + ny) / 2, w, colour);
+            ends.add(new float[] { (cx + nx) / 2, (cy + ny) / 2 });
+        }
+        boolean any = !ends.isEmpty();
+        if (ends.size() == 2) {
+            // Passing through: curve gently through the middle.
+            s.drawCurve(ends.get(0)[0], ends.get(0)[1], cx, cy,
+                        ends.get(1)[0], ends.get(1)[1], w, colour);
+        } else {
+            for (float[] e : ends) s.drawLine(cx, cy, e[0], e[1], w, colour);
         }
         if (!any && t.getSettlement() == null) {
             float r = 10 * v.scale;
