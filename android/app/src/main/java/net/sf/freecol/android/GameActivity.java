@@ -138,7 +138,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         bar.setGravity(Gravity.END);
         nextButton = button(bar, "Next unit", v -> session.nextUnit());
         waitButton = button(bar, "Wait", v -> session.waitUnit());
-        fortifyButton = button(bar, "Fortify", v -> session.fortifyUnit());
+        fortifyButton = button(bar, "Orders", v -> showOrders());
         colonyButton = button(bar, "Build colony", v -> {
                 if (sailMode) {
                     session.sailToEurope(session.getSelectedUnit());
@@ -319,8 +319,10 @@ public final class GameActivity extends Activity implements GameSession.Listener
                     session.getGame().getTurn().getLabel())
                     + "   Gold: " + me.getGold();
                 if (unit != null) {
+                    String doing = session.describeOrders(unit);
                     text += "   " + unit.getDescription()
-                        + " (moves " + unit.getMovesAsString() + ")";
+                        + " (moves " + unit.getMovesAsString()
+                        + (doing.isEmpty() ? "" : ", " + doing) + ")";
                     canColony = session.canBuildColonyHere(unit);
                     canJoin = session.joinableColony(unit) != null;
                     canSail = session.canSailToEurope(unit);
@@ -334,8 +336,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         info.setText(text);
         nextButton.setEnabled(myTurn);
         waitButton.setEnabled(myTurn && unit != null);
-        fortifyButton.setEnabled(myTurn && canFortify);
-        fortifyButton.setText(naval ? "Sentry" : "Fortify");
+        fortifyButton.setEnabled(myTurn && unit != null);
         updateUnitRow(here, unit);
         joinMode = canJoin;
         sailMode = canSail;
@@ -400,6 +401,48 @@ public final class GameActivity extends Activity implements GameSession.Listener
             lp.setMargins(0, 0, pad * 2, 0);
             unitRow.addView(cell, lp);
         }
+    }
+
+    /** The selected unit's orders, as a menu. */
+    private void showOrders() {
+        final Unit unit = session.getSelectedUnit();
+        if (unit == null || !session.isMyTurn()) return;
+        final List<String> labels = new ArrayList<>();
+        final List<Runnable> actions = new ArrayList<>();
+        synchronized (session.lock()) {
+            if (unit.hasTile() && !unit.isOnCarrier()) {
+                boolean naval = unit.isNaval();
+                labels.add(naval ? "Sentry" : "Fortify");
+                actions.add(() -> session.fortifyUnit());
+            }
+            for (ColonyInfo.Choice<net.sf.freecol.common.model.TileImprovementType> c
+                     : session.improvementChoices(unit)) {
+                labels.add(c.label);
+                actions.add(() -> session.improve(unit, c.value));
+            }
+            for (GameSession.EquipChoice c : session.equipChoices(unit)) {
+                labels.add("Equip: " + c.label);
+                actions.add(() -> session.equip(unit, c));
+            }
+            if (unit.getDestination() != null
+                || unit.getState() != Unit.UnitState.ACTIVE) {
+                labels.add("Clear orders");
+                actions.add(() -> session.clearOrders(unit));
+            }
+            labels.add("Disband unit");
+            final String name = unit.getDescription();
+            actions.add(() -> new android.app.AlertDialog.Builder(this)
+                .setMessage("Disband " + name + " for good?")
+                .setPositiveButton("Disband", (d, w) -> session.disband(unit))
+                .setNegativeButton("Cancel", null)
+                .show());
+        }
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(unit.getDescription())
+            .setItems(labels.toArray(new String[0]),
+                      (d, which) -> actions.get(which).run())
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     private TextView label(int sp, float dp) {

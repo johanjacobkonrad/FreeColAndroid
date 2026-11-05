@@ -106,8 +106,19 @@ load up to 100, or its cargo to unload.
 Android code, so the session check tests it along with the colony
 orders (move into a building, onto a tile, change the build).
 
-Not yet: equipping soldiers and pioneers, the full build queue,
-teaching in the schoolhouse, and buying the current build.
+Also on the colony screen:
+
+- **Build queue:** tap the build button to see the queue; tap an item
+  to take it off, **Add...** to put something at the end, and
+  **Pay N gold** to finish the first item next turn (when the game
+  option allows it).
+- **Equip:** select a colonist and tap **Equip** to make them a
+  soldier, dragoon, scout, pioneer or missionary from the warehouse
+  (each offered at the most the warehouse can supply), or to take
+  their equipment off again.
+- **Teaching:** teachers in the schoolhouse show their progress
+  ("teaching 2/4") or "no student". The server picks a student by
+  itself; to choose one, select the colonist and tap the teacher.
 
 ### Saving
 
@@ -143,8 +154,25 @@ sails into the colony, loads its biggest stock, sails to Europe,
 sells, buys with the proceeds, boards whoever is on the docks and
 sails back.
 
-Not yet: equipping units (muskets, tools, horses) in Europe, and
-picking which way the ship sails (it arrives where it left from).
+Select a colonist on the docks and tap **Equip** to buy them muskets,
+horses or tools at market prices. **Sail to the New World** asks
+where to: one of your coastal colonies, or back where the ship came
+from.
+
+### Unit orders
+
+The map's **Orders** button (in place of Fortify) lists what the
+selected unit can do: fortify or sentry; pioneer work on its tile
+(road, plough, clear forest, with about how many turns); equip, when
+it is in a colony; clear orders (destination, fortify, sentry or
+pioneer work); and disband (asks first). The info line says what the
+unit is busy with ("Plow, 5 turns left"). Roads and ploughed land are
+drawn on the map; roads are straight lines between tile centres.
+
+The session check equips a colonist as a pioneer from the warehouse,
+starts ploughing, clears the order, checks a restart is refused once
+out of moves and works next turn, sets a two-item build queue, and
+sails back from Europe straight to the colony.
 
 Still to come: then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.

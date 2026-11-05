@@ -42,6 +42,9 @@ public interface Surface {
     /** Fill a rectangle with an ARGB colour. */
     void fillRect(float x, float y, float w, float h, int argb);
 
+    /** Draw a line with round ends. */
+    void drawLine(float x1, float y1, float x2, float y2, float width, int argb);
+
     /**
      * Draw a line of text.
      *

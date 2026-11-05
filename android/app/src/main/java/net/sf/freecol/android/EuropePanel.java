@@ -43,7 +43,9 @@ import net.sf.freecol.common.model.Unit;
  * Tap a ship in port to select it; then tap market goods to buy 100
  * (or what you can afford), its cargo to sell, or a colonist on the
  * docks to put them aboard.  Recruit emigrants and train units from
- * the lists.  "Sail to the New World" sends the selected ship off.
+ * the lists.  Select a colonist on the docks and tap Equip to buy them
+ * muskets, horses or tools.  "Sail to the New World" sends the
+ * selected ship off, to one of your ports or back where it came from.
  */
 final class EuropePanel extends LinearLayout implements GameSession.Listener {
 
@@ -57,7 +59,7 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
     private final float dp;
 
     private final TextView title, hint;
-    private final Button sailButton;
+    private final Button sailButton, equipButton;
     private final LinearLayout port, people, training, market;
 
     private EuropeInfo info = null;
@@ -85,10 +87,12 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         sailButton = new Button(context);
         sailButton.setAllCaps(false);
         sailButton.setText("Sail to the New World");
-        sailButton.setOnClickListener(v -> {
-                if (selectedShip != null) session.sailToAmerica(selectedShip);
-                selectedShip = null;
-            });
+        sailButton.setOnClickListener(v -> chooseDestination());
+        equipButton = new Button(context);
+        equipButton.setAllCaps(false);
+        equipButton.setText("Equip");
+        equipButton.setOnClickListener(v -> chooseEquip());
+        header.addView(equipButton);
         header.addView(sailButton);
         Button close = new Button(context);
         close.setAllCaps(false);
@@ -171,10 +175,17 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         title.setText(info.title + "    Gold " + info.gold + "    Tax " + info.tax + "%");
         boolean myTurn = session.isMyTurn();
         sailButton.setEnabled(myTurn && selectedShip != null);
+        boolean canEquip = false;
+        if (selectedUnit != null) {
+            synchronized (session.lock()) {
+                canEquip = !session.equipChoices(selectedUnit).isEmpty();
+            }
+        }
+        equipButton.setEnabled(myTurn && canEquip);
         if (!myTurn) {
             hint.setText("Wait for your turn to trade.");
         } else if (selectedUnit != null) {
-            hint.setText("Tap a ship to put them aboard.");
+            hint.setText("Tap a ship to put them aboard, or Equip them.");
         } else if (selectedShip != null) {
             hint.setText("Tap goods to buy, cargo to sell, a colonist on the "
                 + "docks to board. Or sail.");
@@ -301,6 +312,54 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
             return;
         }
         session.buy(selectedShip, p.type, 100);
+    }
+
+    /** Sail the selected ship: to one of our coastal colonies, or back. */
+    private void chooseDestination() {
+        final Unit ship = selectedShip;
+        if (ship == null || !session.isMyTurn()) return;
+        final java.util.List<net.sf.freecol.common.model.Colony> ports
+            = new java.util.ArrayList<>();
+        synchronized (session.lock()) {
+            for (net.sf.freecol.common.model.Colony c
+                     : session.getMyPlayer().getColonyList()) {
+                if (c.isConnectedPort()) ports.add(c);
+            }
+        }
+        if (ports.isEmpty()) {
+            session.sailToAmerica(ship);
+            selectedShip = null;
+            return;
+        }
+        String[] labels = new String[ports.size() + 1];
+        labels[0] = "Where it came from";
+        for (int i = 0; i < ports.size(); i++) labels[i + 1] = ports.get(i).getName();
+        new AlertDialog.Builder(getContext())
+            .setTitle("Sail to")
+            .setItems(labels, (d, which) -> {
+                    session.sailToAmerica(ship, (which == 0) ? null : ports.get(which - 1));
+                    selectedShip = null;
+                })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    /** Equip the selected colonist on the docks, at market prices. */
+    private void chooseEquip() {
+        final Unit unit = selectedUnit;
+        if (unit == null || !session.isMyTurn()) return;
+        final java.util.List<GameSession.EquipChoice> choices;
+        synchronized (session.lock()) {
+            choices = session.equipChoices(unit);
+        }
+        if (choices.isEmpty()) return;
+        String[] labels = new String[choices.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = choices.get(i).label;
+        new AlertDialog.Builder(getContext())
+            .setTitle("Equip " + unit.getDescription())
+            .setItems(labels, (d, which) -> session.equip(unit, choices.get(which)))
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     private void confirm(String question, Runnable yes) {

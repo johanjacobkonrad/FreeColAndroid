@@ -38,6 +38,7 @@ final class CanvasSurface implements Surface {
     private final Paint faded = new Paint(Paint.FILTER_BITMAP_FLAG);
     private final Paint fill = new Paint();
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     CanvasSurface() {
         ColorMatrix m = new ColorMatrix();
@@ -45,6 +46,15 @@ final class CanvasSurface implements Surface {
         faded.setColorFilter(new ColorMatrixColorFilter(m));
         text.setTypeface(Typeface.DEFAULT_BOLD);
         text.setTextAlign(Paint.Align.CENTER);
+        line.setStrokeCap(Paint.Cap.ROUND);
+    }
+
+    @Override
+    public void drawLine(float x1, float y1, float x2, float y2, float width,
+                         int argb) {
+        line.setColor(argb);
+        line.setStrokeWidth(width);
+        canvas.drawLine(x1, y1, x2, y2, line);
     }
 
     @Override
