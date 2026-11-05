@@ -40,6 +40,7 @@ import net.sf.freecol.FreeCol;
 import net.sf.freecol.common.FreeColException;
 import net.sf.freecol.common.io.FreeColSavegameFile;
 import net.sf.freecol.common.i18n.Messages;
+import net.sf.freecol.common.model.AbstractGoods;
 import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.BuildingType;
@@ -58,10 +59,13 @@ import net.sf.freecol.common.model.Ownable;
 import net.sf.freecol.common.model.PathNode;
 import net.sf.freecol.common.model.Player;
 import net.sf.freecol.common.model.Region;
+import net.sf.freecol.common.model.Role;
 import net.sf.freecol.common.model.Settlement;
 import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
+import net.sf.freecol.common.model.TileImprovement;
+import net.sf.freecol.common.model.TileImprovementType;
 import net.sf.freecol.common.model.Turn;
 import net.sf.freecol.common.model.Unit;
 import net.sf.freecol.common.model.Unit.MoveType;
@@ -656,6 +660,87 @@ public final class GameSession implements MessageHandler {
     }
 
     /**
+     * Replace what a colony builds, in order.
+     *
+     * @param colony The {@code Colony}.
+     * @param queue The new build queue (may be empty).
+     */
+    public void setBuildQueue(Colony colony, List<BuildableType> queue) {
+        if (colony == null || queue == null) return;
+        final List<BuildableType> copy = new ArrayList<>(queue);
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            api.setBuildQueue(colony, copy);
+            changed();
+        });
+    }
+
+    /**
+     * What it would cost to finish the current build now, or -1 if
+     * that is not possible (the game option is off, nothing is being
+     * built, or it is too dear).  Call while holding {@link #lock()}.
+     *
+     * @param colony The {@code Colony}.
+     * @return The price in gold, or -1.
+     */
+    public int payToFinishPrice(Colony colony) {
+        if (colony == null || colony.getCurrentlyBuilding() == null
+            || !game.getSpecification().getBoolean(
+                net.sf.freecol.common.option.GameOptions.PAY_FOR_BUILDING)) {
+            return -1;
+        }
+        int price = colony.getPriceForBuilding();
+        return (price > 0) ? price : -1;
+    }
+
+    /**
+     * Pay gold to finish the current build next turn.
+     *
+     * @param colony The {@code Colony}.
+     */
+    public void payForBuilding(Colony colony) {
+        if (colony == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!colony.canPayToFinishBuilding()) {
+                    status("You can not afford to finish it.");
+                    return;
+                }
+            }
+            api.payForBuilding(colony);
+            synchronized (lock) {
+                if (colony.getPriceForBuilding() == 0) {
+                    status("Paid. It will be finished next turn.");
+                }
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Have a teacher in the schoolhouse teach a particular student.
+     *
+     * @param student The student, working in the same colony.
+     * @param teacher The teacher.
+     */
+    public void assignTeacher(Unit student, Unit teacher) {
+        if (student == null || teacher == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            synchronized (lock) {
+                if (!student.canBeStudent(teacher)) {
+                    status(student.getDescription() + " can not learn from "
+                        + teacher.getDescription() + ".");
+                    return;
+                }
+            }
+            api.assignTeacher(student, teacher);
+            changed();
+        });
+    }
+
+    /**
      * What a colony could build now.  Call while holding {@link #lock()}.
      *
      * @param colony The {@code Colony}.
@@ -888,13 +973,28 @@ public final class GameSession implements MessageHandler {
      * @param unit The ship.
      */
     public void sailToAmerica(Unit unit) {
+        sailToAmerica(unit, null);
+    }
+
+    /**
+     * Send a ship in Europe back to the New World, to one of our
+     * coastal colonies, or (with null) to where it last arrived.
+     *
+     * @param unit The ship.
+     * @param colony The {@code Colony} to sail to, or null.
+     */
+    public void sailToAmerica(Unit unit, Colony colony) {
         if (unit == null) return;
         worker.execute(() -> {
             if (!isMyTurn()) return;
             synchronized (lock) {
                 if (!unit.isInEurope() || !unit.isNaval()) return;
             }
-            api.moveTo(unit, game.getMap());
+            if (colony != null) {
+                api.moveTo(unit, colony);
+            } else {
+                api.moveTo(unit, game.getMap());
+            }
             synchronized (lock) {
                 if (!unit.isInEurope()) {
                     status(unit.getDescription() + " sets sail for the New World.");
@@ -1018,6 +1118,269 @@ public final class GameSession implements MessageHandler {
             api.embark(unit, carrier, null);
             changed();
         });
+    }
+
+    // Equipment
+
+    /** A way to equip a unit, and what it costs. */
+    public static final class EquipChoice {
+        public final Role role;
+        public final int count;
+        public final String label;
+
+        EquipChoice(Role role, int count, String label) {
+            this.role = role;
+            this.count = count;
+            this.label = label;
+        }
+    }
+
+    /**
+     * How a unit could be equipped where it is: in a colony (from its
+     * warehouse) or in Europe (bought at market prices).  Each role is
+     * offered at the most the colony has goods for, or you have gold
+     * for.  Call while holding {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return The choices, empty if it can not be equipped here.
+     */
+    public List<EquipChoice> equipChoices(Unit unit) {
+        List<EquipChoice> result = new ArrayList<>();
+        if (unit == null || me == null || !unit.isPerson()) return result;
+        final Colony colony = unit.getColony();
+        final boolean europe = unit.isInEurope() && !unit.isOnCarrier();
+        if (colony == null && !europe) return result;
+        for (Role role : game.getSpecification().getRolesList()) {
+            if (!unit.roleIsAvailable(role)) continue;
+            if (role == unit.getRole() && !role.isDefaultRole()
+                && unit.getRoleCount() >= role.getMaximumCount()) continue;
+            int best = -1;
+            String cost = "";
+            int max = role.isDefaultRole() ? 0 : role.getMaximumCount();
+            for (int n = max; n >= 0 && best < 0; n--) {
+                if (n == 0 && !role.isDefaultRole()) break;
+                List<AbstractGoods> need = unit.getGoodsDifference(role, n);
+                if (europe) {
+                    try {
+                        int price = me.getEurope().priceGoods(need);
+                        if (price >= 0 && me.checkGold(price)) {
+                            best = n;
+                            if (price > 0) cost = " (" + price + " gold)";
+                        }
+                    } catch (FreeColException fce) {} // Boycott etc.
+                } else {
+                    boolean ok = true;
+                    StringBuilder sb = new StringBuilder();
+                    for (AbstractGoods ag : need) {
+                        if (ag.getAmount() <= 0) continue;
+                        if (colony.getGoodsCount(ag.getType()) < ag.getAmount()) ok = false;
+                        sb.append((sb.length() == 0) ? " (" : ", ")
+                          .append(ag.getAmount()).append(' ')
+                          .append(Messages.getName(ag.getType()));
+                    }
+                    if (ok) {
+                        best = n;
+                        if (sb.length() > 0) cost = sb.append(')').toString();
+                    }
+                }
+            }
+            if (best < 0) continue;
+            if (role == unit.getRole() && best == unit.getRoleCount()) continue;
+            String name = role.isDefaultRole() ? "No equipment"
+                : Messages.getName(role)
+                + ((role.getMaximumCount() > 1) ? " x" + best : "");
+            result.add(new EquipChoice(role, best, name + cost));
+        }
+        return result;
+    }
+
+    /**
+     * Equip a unit.
+     *
+     * @param unit The {@code Unit}.
+     * @param choice One of {@link #equipChoices}.
+     */
+    public void equip(Unit unit, EquipChoice choice) {
+        if (unit == null || choice == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            api.equipUnitForRole(unit, choice.role, choice.count);
+            synchronized (lock) {
+                if (unit.getRole() == choice.role) {
+                    status(unit.getDescription() + " is ready.");
+                } else {
+                    status("Could not equip " + unit.getDescription() + ".");
+                }
+            }
+            changed();
+        });
+    }
+
+
+    // Pioneer work
+
+    /**
+     * What a unit could build on its tile: roads, ploughing, clearing
+     * forest.  Call while holding {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return The improvements, with labels.
+     */
+    public List<ColonyInfo.Choice<TileImprovementType>> improvementChoices(Unit unit) {
+        List<ColonyInfo.Choice<TileImprovementType>> result = new ArrayList<>();
+        if (unit == null || !unit.hasTile() || unit.isOnCarrier()
+            || !unit.checkSetState(UnitState.IMPROVING)) return result;
+        Tile t = unit.getTile();
+        for (TileImprovementType ti : game.getSpecification()
+                 .getTileImprovementTypeList()) {
+            if (ti.isNatural() || !t.isImprovementTypeAllowed(ti)
+                || !ti.isWorkerAllowed(unit)) continue;
+            int turns = t.getType().getBasicWorkTurns() + ti.getAddWorkTurns();
+            String label = Messages.getName(ti);
+            if (ti.isChangeType() && ti.getChange(t.getType()) != null) {
+                label += " (to " + Messages.getName(ti.getChange(t.getType())) + ")";
+            }
+            result.add(new ColonyInfo.Choice<>(ti, label + ", about " + turns + " turns"));
+        }
+        return result;
+    }
+
+    /**
+     * Start building an improvement on the unit's tile, buying the
+     * land first if it belongs to natives and we can afford it.
+     *
+     * @param unit The pioneer.
+     * @param type The {@code TileImprovementType}.
+     */
+    public void improve(Unit unit, TileImprovementType type) {
+        if (unit == null || type == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            Tile t;
+            int price = 0;
+            synchronized (lock) {
+                t = unit.getTile();
+                if (t == null) return;
+                // The server throws (and the request then hangs) if
+                // the unit can not start work, e.g. no moves left.
+                if (!unit.checkSetState(UnitState.IMPROVING)
+                    || !t.isImprovementTypeAllowed(type)
+                    || !type.isWorkerAllowed(unit)) {
+                    status("This unit can not start that work now.");
+                    return;
+                }
+                if (!me.owns(t)) {
+                    price = me.getLandPrice(t);
+                    if (price < 0) {
+                        status("That land can not be claimed.");
+                        return;
+                    }
+                    if (price > me.getGold()) {
+                        status("The natives want " + price
+                            + " gold for that land, which you do not have.");
+                        return;
+                    }
+                }
+            }
+            if (price >= 0) {
+                boolean owned;
+                synchronized (lock) {
+                    owned = me.owns(t);
+                }
+                if (!owned) api.claimTile(t, unit, price);
+            }
+            api.changeWorkImprovementType(unit, type);
+            synchronized (lock) {
+                TileImprovement ti = unit.getWorkImprovement();
+                if (ti != null && ti.getType() == type) {
+                    status(unit.getDescription() + " starts work: "
+                        + Messages.getName(type) + ", "
+                        + unit.getWorkTurnsLeft() + " turns.");
+                } else {
+                    status("Could not start that work.");
+                }
+            }
+            afterOrders(null);
+        });
+    }
+
+
+    // Other unit orders
+
+    /**
+     * Clear a unit's orders: its destination, fortifying, sentry or
+     * pioneer work.
+     *
+     * @param unit The {@code Unit}.
+     */
+    public void clearOrders(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            boolean dest;
+            synchronized (lock) {
+                dest = unit.getDestination() != null;
+            }
+            if (dest) api.setDestination(unit, null);
+            synchronized (lock) {
+                if (unit.getState() != UnitState.ACTIVE
+                    && unit.checkSetState(UnitState.ACTIVE)) {
+                    // Fall through to the server below.
+                } else {
+                    changed();
+                    return;
+                }
+            }
+            api.changeState(unit, UnitState.ACTIVE);
+            synchronized (lock) {
+                selected = unit;
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Disband a unit for good.
+     *
+     * @param unit The {@code Unit}.
+     */
+    public void disband(Unit unit) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            if (!isMyTurn()) return;
+            String name;
+            synchronized (lock) {
+                name = unit.getDescription();
+            }
+            api.disbandUnit(unit);
+            synchronized (lock) {
+                if (unit.isDisposed()) status(name + " has been disbanded.");
+            }
+            afterOrders(null);
+        });
+    }
+
+    /**
+     * Describe what a unit is doing, for the map's info line.  Call
+     * while holding {@link #lock()}.
+     *
+     * @param unit The {@code Unit}.
+     * @return A short description, or "" if it is just waiting.
+     */
+    public String describeOrders(Unit unit) {
+        if (unit == null) return "";
+        TileImprovement ti = unit.getWorkImprovement();
+        if (unit.getState() == UnitState.IMPROVING && ti != null) {
+            return Messages.getName(ti.getType()) + ", "
+                + unit.getWorkTurnsLeft() + " turns left";
+        }
+        if (unit.getDestination() instanceof Europe) return "sailing to Europe";
+        if (unit.getDestination() instanceof Tile) return "on its way";
+        switch (unit.getState()) {
+        case FORTIFIED: case FORTIFYING: return "fortified";
+        case SENTRY: return "on sentry";
+        default: return "";
+        }
     }
 
     /** End our turn. */

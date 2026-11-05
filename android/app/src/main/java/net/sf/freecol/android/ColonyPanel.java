@@ -50,6 +50,9 @@ import net.sf.freecol.common.model.Unit;
  * they should go.  Tap a worked tile with nobody selected to change
  * what it produces.  Tap a ship to select it, then tap goods in the
  * warehouse to load them (up to 100), or its cargo to unload.
+ * Select a colonist and tap Equip to arm them or give them tools, or
+ * tap a teacher in the schoolhouse to have them teach that colonist.
+ * The build button opens the build queue.
  */
 final class ColonyPanel extends LinearLayout implements GameSession.Listener {
 
@@ -63,7 +66,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
     private final float dp;
 
     private final TextView title, stats, hint;
-    private final Button buildButton;
+    private final Button buildButton, equipButton;
     private final ColonyLandView land;
     private final LinearLayout buildings, side, goods;
 
@@ -100,6 +103,11 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         buildButton.setAllCaps(false);
         buildButton.setOnClickListener(v -> chooseBuild());
         header.addView(buildButton);
+        equipButton = new Button(context);
+        equipButton.setAllCaps(false);
+        equipButton.setText("Equip");
+        equipButton.setOnClickListener(v -> chooseEquip());
+        header.addView(equipButton);
         Button close = new Button(context);
         close.setText("Close");
         close.setAllCaps(false);
@@ -189,6 +197,13 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         stats.setText(info.stats);
         buildButton.setText(info.building);
         buildButton.setEnabled(session.isMyTurn());
+        boolean canEquip = false;
+        if (selectedUnit != null) {
+            synchronized (session.lock()) {
+                canEquip = !session.equipChoices(selectedUnit).isEmpty();
+            }
+        }
+        equipButton.setEnabled(session.isMyTurn() && canEquip);
         if (!session.isMyTurn()) {
             hint.setText("Wait for your turn to give orders.");
         } else if (selectedUnit != null) {
@@ -327,6 +342,21 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             tapCarrier(u);
             return;
         }
+        // A colonist selected, then a teacher tapped: learn from them.
+        if (selectedUnit != null && selectedUnit != u) {
+            boolean teach;
+            synchronized (session.lock()) {
+                teach = u.isInColony() && u.getLocation() instanceof
+                    net.sf.freecol.common.model.Building
+                    && ((net.sf.freecol.common.model.Building)u.getLocation()).canTeach()
+                    && selectedUnit.canBeStudent(u);
+            }
+            if (teach) {
+                session.assignTeacher(selectedUnit, u);
+                selectedUnit = null;
+                return;
+            }
+        }
         selectedUnit = (selectedUnit == u) ? null : u;
         selectedCarrier = null;
         rebuild();
@@ -412,8 +442,48 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             .show();
     }
 
+    /**
+     * The build queue: tap an item to take it off, Add to put
+     * something at the end, Pay to finish the first item now.
+     */
     private void chooseBuild() {
         if (!session.isMyTurn() || colony == null) return;
+        final List<BuildableType> queue;
+        final int price;
+        final String[] labels;
+        final String first;
+        synchronized (session.lock()) {
+            queue = new java.util.ArrayList<>(colony.getBuildQueue());
+            first = queue.isEmpty() ? ""
+                : net.sf.freecol.common.i18n.Messages.getName(queue.get(0));
+            price = session.payToFinishPrice(colony);
+            labels = new String[queue.size()];
+            for (int i = 0; i < labels.length; i++) {
+                labels[i] = (i + 1) + ". " + ColonyInfo.buildLabel(colony, queue.get(i))
+                    + "   (tap to remove)";
+            }
+        }
+        AlertDialog.Builder b = new AlertDialog.Builder(getContext())
+            .setTitle(queue.isEmpty() ? "Nothing being built" : "Build queue")
+            .setItems(labels, (d, which) -> {
+                    queue.remove(which);
+                    session.setBuildQueue(colony, queue);
+                })
+            .setPositiveButton("Add...", (d, w) -> addToQueue(queue))
+            .setNegativeButton("Close", null);
+        if (price > 0) {
+            b.setNeutralButton("Pay " + price + " gold", (d, w) ->
+                new AlertDialog.Builder(getContext())
+                    .setMessage("Pay " + price + " gold to finish " + first
+                        + " next turn?")
+                    .setPositiveButton("Pay", (d2, w2) -> session.payForBuilding(colony))
+                    .setNegativeButton("Cancel", null)
+                    .show());
+        }
+        b.show();
+    }
+
+    private void addToQueue(List<BuildableType> queue) {
         final List<ColonyInfo.Choice<BuildableType>> choices;
         synchronized (session.lock()) {
             choices = ColonyInfo.buildChoices(session, colony);
@@ -425,9 +495,32 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         String[] labels = new String[choices.size()];
         for (int i = 0; i < labels.length; i++) labels[i] = choices.get(i).label;
         new AlertDialog.Builder(getContext())
-            .setTitle("Build next")
-            .setItems(labels, (d, which) ->
-                session.setBuild(colony, choices.get(which).value))
+            .setTitle("Add to the queue")
+            .setItems(labels, (d, which) -> {
+                    queue.add(choices.get(which).value);
+                    session.setBuildQueue(colony, queue);
+                })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    /** Equip the selected colonist from the warehouse. */
+    private void chooseEquip() {
+        final Unit unit = selectedUnit;
+        if (unit == null || !session.isMyTurn()) return;
+        final List<GameSession.EquipChoice> choices;
+        synchronized (session.lock()) {
+            choices = session.equipChoices(unit);
+        }
+        if (choices.isEmpty()) return;
+        String[] labels = new String[choices.size()];
+        for (int i = 0; i < labels.length; i++) labels[i] = choices.get(i).label;
+        new AlertDialog.Builder(getContext())
+            .setTitle("Equip " + unit.getDescription())
+            .setItems(labels, (d, which) -> {
+                    session.equip(unit, choices.get(which));
+                    selectedUnit = null;
+                })
             .setNegativeButton("Cancel", null)
             .show();
     }

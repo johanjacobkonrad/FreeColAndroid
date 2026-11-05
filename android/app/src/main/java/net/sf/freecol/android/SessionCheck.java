@@ -125,6 +125,9 @@ public final class SessionCheck {
             played++;
         }
         // Sail the ship to Europe, trade if we can, and come back.
+        // Equip a pioneer, start work, clear it, and set a build queue.
+        boolean pioneerOk = colonyOk && checkPioneer(s, colonyTile);
+
         boolean europeOk = colonyOk && checkEurope(s, ship, colonyTile);
 
         // Autosave happened at the start of this turn; load it into a
@@ -134,10 +137,11 @@ public final class SessionCheck {
             && ship.getTile() != shipStart;
         System.out.println("Played " + played + " turns; ship moved: " + moved
             + "; landed: " + landed + "; colony founded: " + founded
-            + "; colony orders: " + colonyOk + "; Europe: " + europeOk
+            + "; colony orders: " + colonyOk + "; pioneer: " + pioneerOk
+            + "; Europe: " + europeOk
             + "; save and load: " + reloaded);
         boolean ok = moved && (colonyOk || played == turns) && reloaded
-            && (europeOk || !colonyOk);
+            && (europeOk || !colonyOk) && (pioneerOk || !colonyOk);
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
     }
@@ -278,6 +282,138 @@ public final class SessionCheck {
     }
 
     /**
+     * Equip a colonist from the colony's warehouse as a pioneer, start
+     * work on the land, clear the order, start again, and give the
+     * colony a two-item build queue.
+     *
+     * @return True if it all worked (or there was nobody to spare).
+     */
+    private static boolean checkPioneer(GameSession s, Tile colonyTile)
+        throws Exception {
+        waitForTurn(s, 120_000);
+        s.sync();
+        net.sf.freecol.common.model.Colony colony;
+        Unit unit = null;
+        GameSession.EquipChoice pioneer = null;
+        synchronized (s.lock()) {
+            colony = colonyTile.getColony();
+            if (colony == null) return false;
+            if (colony.getUnitCount() < 2) {
+                System.out.println("  only one colonist; no pioneer to spare");
+                return true;
+            }
+            for (Unit u : colony.getUnitList()) {
+                for (GameSession.EquipChoice c : s.equipChoices(u)) {
+                    System.out.println("  " + u.getDescription() + ": " + c.label);
+                    if (c.role.getId().contains("pioneer")) {
+                        unit = u;
+                        pioneer = c;
+                    }
+                }
+                if (pioneer != null) break;
+            }
+        }
+        if (pioneer == null) {
+            System.out.println("  no tools for a pioneer");
+            return false;
+        }
+        s.equip(unit, pioneer);
+        s.sync();
+        synchronized (s.lock()) {
+            System.out.println("  now " + unit + " at " + unit.getLocation());
+            if (unit.getRole() != pioneer.role) return false;
+        }
+        select(s, unit);
+        java.util.List<ColonyInfo.Choice<net.sf.freecol.common.model.TileImprovementType>> work;
+        synchronized (s.lock()) {
+            work = s.improvementChoices(unit);
+        }
+        if (work.isEmpty()) {
+            // Nothing to do on the colony tile: try next door, next turn.
+            Tile next = null;
+            synchronized (s.lock()) {
+                for (Tile n : colonyTile.getSurroundingTiles(1)) {
+                    if (n.isLand() && n.getSettlement() == null
+                        && (s.getMyPlayer().owns(n)
+                            || s.getMyPlayer().canClaimForSettlement(n))) {
+                        next = n;
+                        break;
+                    }
+                }
+            }
+            if (next == null) {
+                System.out.println("  nowhere to work");
+                return true;
+            }
+            s.moveSelectedTo(next);
+            s.sync();
+            s.endTurn();
+            s.sync();
+            waitForOthers(s, 120_000);
+            waitForTurn(s, 120_000);
+            s.sync();
+            select(s, unit);
+            synchronized (s.lock()) {
+                work = s.improvementChoices(unit);
+            }
+        }
+        synchronized (s.lock()) {
+            for (ColonyInfo.Choice<?> c : work) System.out.println("  could: " + c.label);
+        }
+        if (work.isEmpty()) return false;
+        s.improve(unit, work.get(0).value);
+        s.sync();
+        boolean started, cleared, restarted;
+        synchronized (s.lock()) {
+            started = unit.getWorkImprovement() != null;
+            System.out.println("  working: " + s.describeOrders(unit));
+        }
+        s.clearOrders(unit);
+        s.sync();
+        synchronized (s.lock()) {
+            cleared = unit.getState() == Unit.UnitState.ACTIVE;
+            System.out.println("  after clearing: " + unit.getState());
+        }
+        // Out of moves now, so it should refuse (quickly) to restart,
+        // and offer nothing; next turn it can start again.
+        long t0 = System.currentTimeMillis();
+        s.improve(unit, work.get(0).value);
+        s.sync();
+        boolean refusedFast = System.currentTimeMillis() - t0 < 5000;
+        s.endTurn();
+        s.sync();
+        waitForOthers(s, 120_000);
+        waitForTurn(s, 120_000);
+        s.sync();
+        select(s, unit);
+        s.improve(unit, work.get(0).value);
+        s.sync();
+        synchronized (s.lock()) {
+            restarted = refusedFast && unit.getWorkImprovement() != null;
+            System.out.println("  refused quickly: " + refusedFast
+                + "; restarted next turn: " + s.describeOrders(unit));
+        }
+
+        // A two-item build queue.
+        java.util.List<net.sf.freecol.common.model.BuildableType> two
+            = new java.util.ArrayList<>();
+        synchronized (s.lock()) {
+            for (net.sf.freecol.common.model.BuildableType bt : s.getBuildable(colony)) {
+                if (two.size() < 2) two.add(bt);
+            }
+            System.out.println("  pay to finish now: " + s.payToFinishPrice(colony));
+        }
+        s.setBuildQueue(colony, two);
+        s.sync();
+        boolean queued;
+        synchronized (s.lock()) {
+            queued = colony.getBuildQueue().equals(two);
+            System.out.println("  build queue " + colony.getBuildQueue() + ": " + queued);
+        }
+        return started && cleared && restarted && queued;
+    }
+
+    /**
      * Sail to Europe, look at it, trade if there is gold, board anyone
      * on the docks, and sail back to the New World.
      *
@@ -371,6 +507,12 @@ public final class SessionCheck {
             s.buy(ship, cheapest.type, 100);
         }
         // Board everyone on the docks.
+        synchronized (s.lock()) {
+            for (ColonyInfo.UnitItem u : info.docks) {
+                System.out.println("  in Europe " + u.name + " could be equipped "
+                    + s.equipChoices(u.unit).size() + " ways");
+            }
+        }
         for (ColonyInfo.UnitItem u : info.docks) s.board(u.unit, ship);
         s.sync();
         synchronized (s.lock()) {
@@ -380,7 +522,8 @@ public final class SessionCheck {
                 + " passengers and " + sh.cargo.size() + " kinds of cargo; "
                 + "gold " + info.gold + ", docks " + info.docks.size());
         }
-        s.sailToAmerica(ship);
+        // Sail straight back to the colony this time.
+        s.sailToAmerica(ship, colonyTile.getColony());
         s.sync();
         boolean left;
         synchronized (s.lock()) {

@@ -39,8 +39,9 @@ import net.sf.freecol.common.model.Unit;
  * half a tile to the right and each row is half a tile lower than
  * the last, as in the desktop game.
  *
- * Not drawn yet: rivers, roads, ploughed land and the soft blending
- * between neighbouring terrain types.
+ * Roads are drawn as straight lines between tile centres (the desktop
+ * curves them).  Not drawn yet: rivers and the soft blending between
+ * neighbouring terrain types.
  */
 public final class IsometricRenderer implements MapRenderer {
 
@@ -194,6 +195,15 @@ public final class IsometricRenderer implements MapRenderer {
         final TileType type = t.getType();
         if (type == null) return;
 
+        // Ploughed land and other completed improvements with a
+        // picture of their own (roads and rivers are drawn elsewhere).
+        for (net.sf.freecol.common.model.TileImprovement ti : t.getCompleteTileImprovements()) {
+            if (ti.isRoad() || ti.isRiver()) continue;
+            Art.Img img = art.get("image.tile." + ti.getType().getId());
+            if (img != null) image(s, img, t, 0, 0, v, fog);
+        }
+        if (t.hasRoad() && t.getRoad().isComplete()) drawRoad(s, t, v);
+
         Resource res = t.getResource();
         if (res != null) {
             centred(s, art.get("image.tileitem." + res.getType().getId()), t, v, fog);
@@ -235,6 +245,26 @@ public final class IsometricRenderer implements MapRenderer {
             float ly = top(t.getY()) + 18 + 2 * i;
             s.fillRect(v.toScreenX(lx), v.toScreenY(ly),
                        12 * v.scale, Math.max(1f, v.scale), 0xFFFFFFFF);
+        }
+    }
+
+    /** Road lines from the tile centre towards neighbouring roads. */
+    private void drawRoad(Surface s, Tile t, Viewport v) {
+        final int colour = 0xFF804000;
+        final float w = Math.max(1.5f, 3.5f * v.scale);
+        float cx = v.toScreenX(centreX(t)), cy = v.toScreenY(centreY(t));
+        boolean any = false;
+        for (Direction d : Direction.values()) {
+            Tile n = t.getNeighbourOrNull(d);
+            if (n == null || !n.hasRoad() || !n.getRoad().isComplete()) continue;
+            any = true;
+            float nx = v.toScreenX(centreX(n)), ny = v.toScreenY(centreY(n));
+            s.drawLine(cx, cy, (cx + nx) / 2, (cy + ny) / 2, w, colour);
+        }
+        if (!any && t.getSettlement() == null) {
+            float r = 10 * v.scale;
+            s.drawLine(cx - r, cy - r / 2, cx + r, cy + r / 2, w, colour);
+            s.drawLine(cx - r, cy + r / 2, cx + r, cy - r / 2, w, colour);
         }
     }
 

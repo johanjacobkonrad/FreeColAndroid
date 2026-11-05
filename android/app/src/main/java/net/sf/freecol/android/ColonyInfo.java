@@ -157,6 +157,8 @@ public final class ColonyInfo {
     public final List<UnitItem> outside = new ArrayList<>();
     public final List<CarrierItem> carriers = new ArrayList<>();
     public final List<Stock> warehouse = new ArrayList<>();
+    /** What the colony will build, in order. */
+    public final List<BuildableType> queue = new ArrayList<>();
 
 
     /**
@@ -183,9 +185,11 @@ public final class ColonyInfo {
         }
         this.stats = sb.toString();
 
+        queue.addAll(colony.getBuildQueue());
         BuildableType current = colony.getCurrentlyBuilding();
         this.building = (current == null) ? "Build: nothing"
-            : "Build: " + Messages.getName(current) + turns(colony, current);
+            : "Build: " + Messages.getName(current) + turns(colony, current)
+            + ((queue.size() > 1) ? " +" + (queue.size() - 1) : "");
 
         for (ColonyTile ct : colony.getColonyTiles()) {
             Unit w = ct.isEmpty() ? null : ct.getUnitList().get(0);
@@ -277,7 +281,20 @@ public final class ColonyInfo {
         String caption = (u.isCarrier() || !u.isInColony())
             ? u.getMovesAsString()
             : (u.getWorkType() == null) ? "" : Messages.getName(u.getWorkType());
+        // Teachers show who they teach and how far along.
+        if (u.isInColony() && u.getStudent() != null) {
+            caption = "teaching " + u.getTurnsOfTraining() + "/"
+                + u.getNeededTurnsOfTraining();
+        } else if (u.isInColony() && u.getLocation() instanceof Building
+                   && ((Building)u.getLocation()).canTeach()) {
+            caption = "no student";
+        }
         return new UnitItem(u, renderer.unitKey(u), u.getDescription(), caption);
+    }
+
+    /** A name with turns to build, for lists. */
+    public static String buildLabel(Colony colony, BuildableType bt) {
+        return Messages.getName(bt) + turns(colony, bt);
     }
 
     private static String turns(Colony colony, BuildableType bt) {

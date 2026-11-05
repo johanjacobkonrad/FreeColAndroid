@@ -116,6 +116,17 @@ public final class MapPreview {
         }
 
         @Override
+        public void drawLine(float x1, float y1, float x2, float y2,
+                             float width, int argb) {
+            g.setColor(new Color(argb, true));
+            g.setStroke(new java.awt.BasicStroke(width,
+                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                               RenderingHints.VALUE_ANTIALIAS_ON);
+            g.drawLine(Math.round(x1), Math.round(y1), Math.round(x2), Math.round(y2));
+        }
+
+        @Override
         public void drawText(String text, float cx, float baseline, float size,
                              int argb) {
             g.setFont(new Font(Font.SANS_SERIF, Font.BOLD, Math.round(size)));
