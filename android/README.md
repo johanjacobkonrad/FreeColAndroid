@@ -70,7 +70,7 @@ loopback socket the way the desktop client connects.
   the selected unit onto a tile with your own units (to board a ship).
 - Buttons: Next unit, Wait, Fortify, Build colony, End turn.
 
-Not in yet: rivers and terrain blending on the map.
+
 
 `android/session-check.sh` plays a short game on a desktop JVM the way
 the app does (sail to land, put a colonist ashore, found a colony) and
@@ -227,6 +227,20 @@ rules before the server starts; the nation is set after logging in,
 as the desktop's start panel does. The session check starts as the
 second nation on hard with a medium continents map and checks all of
 it took.
+
+### Map polish
+
+- **Soft edges:** where two land terrains meet, the neighbour's
+  terrain fades in through the base data's masks, as on the desktop.
+- **Rivers:** FreeCol's per-tile river pictures, with forests that
+  have a gap cut for the river.
+- **Roads** curve through a tile they pass straight through.
+- **Minimap** (top right): the whole map in the desktop's land
+  colours with blue water, settlements in their owner's colour, your
+  units as white dots, fog darker, and a frame for what the main map
+  shows. Tap or drag on it to go there.
+
+Not drawn: animated water and river mouths into the sea.
 
 Still to come: then dialogs (natives, diplomacy,
 founding fathers, trade routes) and save/load.

@@ -72,13 +72,95 @@ public abstract class Art {
      * @exception IOException if the table can not be read.
      */
     protected void loadKeys() throws IOException {
-        Properties p = new Properties();
+        // The base data (terrain masks and such) first; the default
+        // art overrides it, as in the desktop game.
+        String base = baseRoot();
+        if (base != null) {
+            try (InputStream in = open(base + "resources.properties")) {
+                load(in, base);
+            } catch (IOException ioe) {} // No base data bundled
+        }
         try (InputStream in = open("resources.properties")) {
-            p.load(in);
+            load(in, "");
         }
+    }
+
+    private void load(InputStream in, String prefix) throws IOException {
+        Properties p = new Properties();
+        p.load(in);
         for (String key : p.stringPropertyNames()) {
-            if (key.startsWith("image.")) paths.put(key, p.getProperty(key));
+            String v = p.getProperty(key);
+            if (key.startsWith("image.")) {
+                paths.put(key, v.startsWith("resource:") ? v : prefix + v);
+            } else if (key.startsWith("color.") && v.startsWith("urn:color:0x")) {
+                try {
+                    colours.put(key, 0xFF000000
+                        | Integer.parseInt(v.substring("urn:color:0x".length()), 16));
+                } catch (NumberFormatException nfe) {} // Skip it
+            }
         }
+    }
+
+    /**
+     * Where the base data lives, relative to the art root, or null.
+     *
+     * @return A directory prefix such as "base/", or null.
+     */
+    protected String baseRoot() {
+        return "base/";
+    }
+
+    /**
+     * A colour from the resources, such as the minimap's
+     * "color.economic.MiniMap.model.tile.plains".
+     *
+     * @param key The resource key.
+     * @param fallback The colour to use if there is none.
+     * @return An ARGB colour.
+     */
+    public int colour(String key, int fallback) {
+        Integer c = colours.get(key);
+        return (c == null) ? fallback : c;
+    }
+
+    /** Colours by resource key. */
+    private final Map<String, Integer> colours = new HashMap<>();
+
+    /** Masked images, by "imageKey|maskKey|variation". */
+    private final Map<String, Img> maskedCache = new HashMap<>();
+
+    /**
+     * An image with its alpha taken from a mask (the mask's opaque
+     * parts keep the image, its clear parts make it clear), as the
+     * desktop does for soft terrain edges.
+     *
+     * @param imageKey The image's resource key (first variation).
+     * @param maskKey The mask's resource key.
+     * @param maskSeed Picks the mask's variation.
+     * @return The masked image, or null if either is missing.
+     */
+    public synchronized Img masked(String imageKey, String maskKey, int maskSeed) {
+        Img image = get(imageKey, 0);
+        Img mask = get(maskKey, maskSeed);
+        if (image == null || mask == null) return null;
+        String k = imageKey + "|" + maskKey + "|" + System.identityHashCode(mask);
+        Img m = maskedCache.get(k);
+        if (m == null) {
+            m = applyMask(image, mask);
+            maskedCache.put(k, m);
+        }
+        return m;
+    }
+
+    /**
+     * How many variations an image has.
+     *
+     * @param key The resource key.
+     * @return The number of variations (at least 1), or 0 if missing.
+     */
+    public synchronized int variationCount(String key) {
+        String path = resolve(key);
+        return (path == null) ? 0 : getVariations(path).size();
     }
 
 
@@ -92,6 +174,12 @@ public abstract class Art {
 
     /** Decode an image, or return null on failure. */
     protected abstract Img decode(InputStream in) throws IOException;
+
+    /**
+     * Make a copy of an image with the mask's alpha (Porter-Duff
+     * "destination in").
+     */
+    protected abstract Img applyMask(Img image, Img mask);
 
 
     // Lookups
@@ -160,7 +248,7 @@ public abstract class Art {
         int dot = file.lastIndexOf('.');
         String stem = file.substring(0, dot), ext = file.substring(dot);
         String prefix = stem.replaceAll("[0-9]*$", "");
-        if (!prefix.equals(stem)) {
+        {
             Pattern p = Pattern.compile(Pattern.quote(prefix) + "[0-9][0-9]?"
                                         + Pattern.quote(ext));
             try {

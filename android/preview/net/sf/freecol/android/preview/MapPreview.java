@@ -73,6 +73,23 @@ public final class MapPreview {
         }
 
         @Override
+        protected String baseRoot() {
+            return "../base/"; // data/base, next to data/default
+        }
+
+        @Override
+        protected Img applyMask(Img image, Img mask) {
+            BufferedImage out = new BufferedImage(image.width, image.height,
+                                                  BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = out.createGraphics();
+            g.drawImage((BufferedImage)image.handle, 0, 0, null);
+            g.setComposite(AlphaComposite.DstIn);
+            g.drawImage((BufferedImage)mask.handle, 0, 0, image.width, image.height, null);
+            g.dispose();
+            return new Img(out, image.width, image.height);
+        }
+
+        @Override
         protected Img decode(InputStream in) throws IOException {
             BufferedImage bi = ImageIO.read(in);
             return (bi == null) ? null : new Img(bi, bi.getWidth(), bi.getHeight());
@@ -113,6 +130,17 @@ public final class MapPreview {
         public void fillRect(float x, float y, float w, float h, int argb) {
             g.setColor(new Color(argb, true));
             g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+        }
+
+        @Override
+        public void drawCurve(float x1, float y1, float cx, float cy,
+                              float x2, float y2, float width, int argb) {
+            g.setColor(new Color(argb, true));
+            g.setStroke(new java.awt.BasicStroke(width,
+                java.awt.BasicStroke.CAP_ROUND, java.awt.BasicStroke.JOIN_ROUND));
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                               RenderingHints.VALUE_ANTIALIAS_ON);
+            g.draw(new java.awt.geom.QuadCurve2D.Float(x1, y1, cx, cy, x2, y2));
         }
 
         @Override

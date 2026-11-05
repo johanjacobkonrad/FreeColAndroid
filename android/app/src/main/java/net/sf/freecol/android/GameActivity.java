@@ -66,6 +66,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private AndroidArt art;
     private IsometricRenderer renderer;
     private MapView mapView;
+    private MinimapView minimap;
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
     private Button europeButton;
@@ -100,6 +101,10 @@ public final class GameActivity extends Activity implements GameSession.Listener
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         root.addView(mapView);
+        minimap = new MinimapView(this, session, art);
+        minimap.setViewport(mapView.getViewport());
+        minimap.setJumper(mapView::jumpTo);
+        mapView.setOnRedraw(minimap::viewChanged);
 
         dp = getResources().getDisplayMetrics().density;
         final int pad = (int)(8 * dp);
@@ -114,6 +119,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         top.setOrientation(LinearLayout.VERTICAL);
         top.addView(info);
         top.addView(news);
+        top.setPadding(0, 0, (int)(175 * dp), 0); // Clear of the minimap
         hud.addView(top, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -171,6 +177,18 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.addView(hud, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+        // The minimap, top right, clear of the system bars.
+        final FrameLayout.LayoutParams mlp = new FrameLayout.LayoutParams(
+            (int)(160 * dp), (int)(100 * dp), Gravity.TOP | Gravity.END);
+        mlp.setMargins(0, pad, pad, 0);
+        root.addView(minimap, mlp);
+        minimap.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            mlp.setMargins(0, pad + bars.top, pad + bars.right, 0);
+            v.setLayoutParams(mlp);
+            return insets;
+        });
         colonyPanel = new ColonyPanel(this, session, renderer, art,
                                       this::closeColony);
         colonyPanel.setVisibility(android.view.View.GONE);
@@ -402,6 +420,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     @Override
     public void onChanged() {
         runOnUiThread(this::refresh);
+        runOnUiThread(minimap::gameChanged);
         colonyPanel.onChanged();
         europePanel.onChanged();
     }

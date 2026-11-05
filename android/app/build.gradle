@@ -49,12 +49,19 @@ def syncArtAssets = tasks.register('syncArtAssets', Sync) {
         include 'resources/images/goods/*.png'
         include 'resources/images/coat-of-arms/*.png'
         include 'resources/images/ui/landing.png'
+        include 'resources/images/river/*.png'
+        // Only the standard size: the ".size9" images are most of it.
         exclude '**/*.size*.png'
-        // Forests: only the plain image, not the river and corner
-        // pieces (forest/mixed/mixed.png, but not mixed0110.png or
-        // mixed-n.png), which are most of the 34 MB.
-        (0..9).each { d -> exclude "resources/images/forest/*/*${d}*.png" }
+        // Forests: the plain image and the ones with a gap for a river
+        // (mixed0110.png), but not the corner pieces (mixed-n.png).
         exclude 'resources/images/forest/*/*-?.png'
+    }
+    // The base data's terrain masks, for soft edges between terrain types.
+    from('../../data/base') {
+        include 'resources.properties'
+        include 'resources/images/masks/*.png'
+        exclude '**/*.size*.png'
+        into 'base'
     }
     into artAssets.map { it.dir('art') }
 }

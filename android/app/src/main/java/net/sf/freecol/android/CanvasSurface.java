@@ -49,6 +49,21 @@ final class CanvasSurface implements Surface {
         line.setStrokeCap(Paint.Cap.ROUND);
     }
 
+    private final android.graphics.Path path = new android.graphics.Path();
+
+    @Override
+    public void drawCurve(float x1, float y1, float cx, float cy, float x2, float y2,
+                          float width, int argb) {
+        line.setColor(argb);
+        line.setStrokeWidth(width);
+        line.setStyle(Paint.Style.STROKE);
+        path.reset();
+        path.moveTo(x1, y1);
+        path.quadTo(cx, cy, x2, y2);
+        canvas.drawPath(path, line);
+        line.setStyle(Paint.Style.FILL);
+    }
+
     @Override
     public void drawLine(float x1, float y1, float x2, float y2, float width,
                          int argb) {

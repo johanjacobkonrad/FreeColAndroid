@@ -106,6 +106,23 @@ public final class MapView extends View {
         this.colonyOpener = opener;
     }
 
+    /** Told after each redraw, so the minimap can follow. */
+    private Runnable onRedraw = null;
+
+    void setOnRedraw(Runnable r) {
+        this.onRedraw = r;
+    }
+
+    Viewport getViewport() {
+        return viewport;
+    }
+
+    /** Centre the map on a world position (from the minimap). */
+    void jumpTo(float wx, float wy) {
+        viewport.centreOn(wx, wy);
+        invalidate();
+    }
+
     /** Show the selected unit, if it is off screen. */
     public void showSelected() {
         Unit u = session.getSelectedUnit();
@@ -186,5 +203,6 @@ public final class MapView extends View {
                           session.getSelectedUnit(), viewport);
             surface.canvas = null;
         }
+        if (onRedraw != null) onRedraw.run();
     }
 }

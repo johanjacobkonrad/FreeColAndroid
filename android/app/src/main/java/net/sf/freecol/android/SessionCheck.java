@@ -272,6 +272,7 @@ public final class SessionCheck {
                     }
                     @Override protected String[] list(String d) { return null; }
                     @Override protected Img decode(java.io.InputStream in) { return null; }
+                    @Override protected Img applyMask(Img i, Img m) { return null; }
                 };
             ColonyInfo info = new ColonyInfo(colony, s.getMyPlayer(),
                 new net.sf.freecol.android.map.IsometricRenderer(noArt));
@@ -700,6 +701,7 @@ public final class SessionCheck {
             }
             @Override protected String[] list(String d) { return null; }
             @Override protected Img decode(java.io.InputStream in) { return null; }
+            @Override protected Img applyMask(Img i, Img m) { return null; }
         };
     }
 

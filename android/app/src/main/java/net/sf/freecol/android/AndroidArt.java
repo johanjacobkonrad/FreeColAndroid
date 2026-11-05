@@ -30,7 +30,8 @@ import net.sf.freecol.android.map.Art;
 
 /**
  * FreeCol's artwork from the app's "art" assets (a subset of
- * data/default, see app/build.gradle), decoded as Android bitmaps.
+ * data/default, with the base data's terrain masks under "art/base";
+ * see app/build.gradle), decoded as Android bitmaps.
  */
 public final class AndroidArt extends Art {
 
@@ -52,6 +53,22 @@ public final class AndroidArt extends Art {
     @Override
     protected String[] list(String dir) throws IOException {
         return assets.list(ROOT + dir);
+    }
+
+    @Override
+    protected Img applyMask(Img image, Img mask) {
+        Bitmap src = (Bitmap)image.handle;
+        Bitmap out = Bitmap.createBitmap(image.width, image.height,
+                                         Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas c = new android.graphics.Canvas(out);
+        c.drawBitmap(src, 0, 0, null);
+        android.graphics.Paint p = new android.graphics.Paint(
+            android.graphics.Paint.FILTER_BITMAP_FLAG);
+        p.setXfermode(new android.graphics.PorterDuffXfermode(
+            android.graphics.PorterDuff.Mode.DST_IN));
+        c.drawBitmap((Bitmap)mask.handle, null,
+            new android.graphics.Rect(0, 0, image.width, image.height), p);
+        return new Img(out, image.width, image.height);
     }
 
     @Override
