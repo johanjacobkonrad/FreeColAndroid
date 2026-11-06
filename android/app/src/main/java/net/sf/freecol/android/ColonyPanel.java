@@ -64,7 +64,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
     private final float dp;
 
     private final TextView title, stats, hint;
-    private final TextView buildButton, equipButton;
+    private final TextView buildButton, equipButton, leaveButton;
     private final ColonyLandView land;
     private final LinearLayout buildings, side, goods;
 
@@ -103,6 +103,13 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         equipButton = Theme.button(context, "Equip", Theme.Icon.EQUIP, Theme.Kind.PLANK, false);
         equipButton.setOnClickListener(v -> chooseEquip());
         header.addView(equipButton, headerButton());
+        // A unit outside the colony (on its tile): leave with it
+        // selected, to tap where it should go on the map.
+        leaveButton = Theme.button(context, "Leave with it", Theme.Icon.NEXT,
+                                   Theme.Kind.GOLD, false);
+        leaveButton.setTextSize(13);
+        leaveButton.setOnClickListener(v -> leaveWith(selectedUnit));
+        header.addView(leaveButton, headerButton());
         TextView close = Theme.button(context, "Close", Theme.Icon.CLOSE, Theme.Kind.PLANK, false);
         close.setOnClickListener(v -> onClose.run());
         header.addView(close, headerButton());
@@ -207,8 +214,12 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             }
         }
         equipButton.setVisibility((session.isMyTurn() && canEquip) ? VISIBLE : GONE);
+        leaveButton.setVisibility((session.isMyTurn() && isOutside(selectedUnit)) ? VISIBLE : GONE);
         if (!session.isMyTurn()) {
             hint.setText("Wait for your turn to give orders.");
+        } else if (isOutside(selectedUnit)) {
+            hint.setText("Outside the colony: tap Leave with it, then tap where it should "
+                + "go on the map. Or tap a tile or building to put it to work.");
         } else if (selectedUnit != null) {
             hint.setText("Now tap a tile, a building, Outside, or a ship to board.");
         } else if (selectedCarrier != null) {
@@ -434,6 +445,11 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
 
     private void tapOutside() {
         if (!session.isMyTurn() || selectedUnit == null) return;
+        if (isOutside(selectedUnit)) {
+            // Already outside: tapping Outside again leaves with it.
+            leaveWith(selectedUnit);
+            return;
+        }
         boolean inside;
         synchronized (session.lock()) {
             inside = selectedUnit.isInColony();
@@ -443,7 +459,24 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
         } else {
             session.disembark(selectedUnit);
         }
-        selectedUnit = null;
+        // Keep it selected: Leave with it takes it onto the map.
+        session.select(selectedUnit);
+    }
+
+    /** A colonist standing on the colony's tile (not working, not aboard). */
+    private boolean isOutside(Unit u) {
+        if (u == null || colony == null) return false;
+        synchronized (session.lock()) {
+            return !u.isDisposed() && !u.isInColony() && !u.isOnCarrier() && !u.isCarrier()
+                && u.getTile() == colony.getTile();
+        }
+    }
+
+    /** Close the colony with a unit selected, to move it on the map. */
+    private void leaveWith(Unit u) {
+        if (u == null) return;
+        session.select(u);
+        onClose.run();
     }
 
     private void tapGoods(ColonyInfo.Stock st) {
