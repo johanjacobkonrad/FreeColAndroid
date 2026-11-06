@@ -76,6 +76,7 @@ import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.networking.AddPlayerMessage;
 import net.sf.freecol.common.networking.ChooseFoundingFatherMessage;
 import net.sf.freecol.common.networking.Connection;
+import net.sf.freecol.common.networking.NationSummaryMessage;
 import net.sf.freecol.common.networking.ErrorMessage;
 import net.sf.freecol.common.networking.FeatureChangeMessage;
 import net.sf.freecol.common.networking.FirstContactMessage;
@@ -291,6 +292,33 @@ public final class GameSession implements MessageHandler {
         if (worker.isShutdown()) return;
         worker.execute(() -> {
             if (isMyTurn()) save();
+        });
+    }
+
+    /**
+     * Ask the server for up-to-date summaries of the nations we have
+     * met (and our own), for the reports.
+     *
+     * @param done Run afterwards, on the game's thread.
+     */
+    public void refreshNationSummaries(Runnable done) {
+        worker.execute(() -> {
+            List<Player> players = new ArrayList<>();
+            synchronized (lock) {
+                if (game != null && me != null) {
+                    for (Player p : game.getLivePlayerList()) {
+                        if (p == me || me.hasContacted(p)) players.add(p);
+                    }
+                }
+            }
+            for (Player p : players) {
+                try {
+                    api.nationSummary(me, p);
+                } catch (Throwable t) {
+                    logger.log(Level.WARNING, "Nation summary failed", t);
+                }
+            }
+            done.run();
         });
     }
 
@@ -2191,6 +2219,12 @@ public final class GameSession implements MessageHandler {
             ErrorMessage em = (ErrorMessage)m;
             StringTemplate t = em.getTemplate();
             status((t != null) ? Messages.message(t) : em.getMessage());
+        } else if (m instanceof NationSummaryMessage) {
+            NationSummaryMessage nm = (NationSummaryMessage)m;
+            Player p = nm.getPlayer(game);
+            if (p != null && me != null && nm.getNationSummary() != null) {
+                me.putNationSummary(p, nm.getNationSummary());
+            }
         } else if (m instanceof GameEndedMessage) {
             Player winner = ((GameEndedMessage)m).getWinner(game);
             status((winner == me) ? "You have won!" : "The game is over.");

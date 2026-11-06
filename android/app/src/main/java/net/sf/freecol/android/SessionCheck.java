@@ -169,6 +169,9 @@ public final class SessionCheck {
         // Trade with a coastal native village, if one is in sight.
         boolean nativesOk = !europeOk || checkNatives(s, ship);
 
+        // The menu's reports and the Colopedia.
+        boolean infoOk = checkInfo(s);
+
         // Autosave happened at the start of this turn; load it into a
         // fresh session and check the game carries on.
         boolean reloaded = checkLoad(s, save);
@@ -178,9 +181,11 @@ public final class SessionCheck {
             + "; colony orders: " + colonyOk + "; pioneer: " + pioneerOk
             + "; Europe: " + europeOk + "; natives: " + nativesOk
             + (traded ? " (traded)" : "")
-            + "; save and load: " + reloaded + "; new-game options: " + optionsOk);
+            + "; save and load: " + reloaded + "; new-game options: " + optionsOk
+            + "; reports and Colopedia: " + infoOk);
         boolean ok = optionsOk && moved && (colonyOk || played == turns) && reloaded
-            && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk;
+            && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk
+            && infoOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
     }
@@ -711,6 +716,54 @@ public final class SessionCheck {
             @Override protected Img decode(java.io.InputStream in) { return null; }
             @Override protected Img applyMask(Img i, Img m) { return null; }
         };
+    }
+
+    /**
+     * Build every report and Colopedia page, as the menu does.
+     *
+     * @return True if they all have content.
+     */
+    private static boolean checkInfo(GameSession s) throws Exception {
+        java.util.concurrent.CountDownLatch got = new java.util.concurrent.CountDownLatch(1);
+        s.refreshNationSummaries(got::countDown);
+        got.await(60, java.util.concurrent.TimeUnit.SECONDS);
+        net.sf.freecol.android.map.IsometricRenderer r
+            = new net.sf.freecol.android.map.IsometricRenderer(noArt());
+        boolean ok = true;
+        synchronized (s.lock()) {
+            net.sf.freecol.common.model.Player me = s.getMyPlayer();
+            for (ReportInfo.Kind k : ReportInfo.Kind.values()) {
+                InfoPage page = ReportInfo.page(k, me, r);
+                System.out.println("  report " + k.label + ": " + page.size()
+                    + " entries; " + page.summary);
+                for (InfoPage.Section sec : page.sections) {
+                    for (InfoPage.Entry e : sec.entries.subList(0, Math.min(2, sec.entries.size()))) {
+                        System.out.println("    " + e.title + " | "
+                            + e.text.replace('\n', ' ') + " | " + e.right);
+                    }
+                }
+                ok &= page.size() > 0;
+            }
+            net.sf.freecol.common.model.Specification spec = s.getGame().getSpecification();
+            for (ColopediaInfo.Kind k : ColopediaInfo.Kind.values()) {
+                InfoPage list = ColopediaInfo.list(spec, k);
+                int pages = 0;
+                InfoPage sample = null;
+                for (InfoPage.Section sec : list.sections) {
+                    for (InfoPage.Entry e : sec.entries) {
+                        InfoPage p = ColopediaInfo.page(spec, e.link);
+                        if (p != null) pages++;
+                        if (sample == null) sample = p;
+                    }
+                }
+                System.out.println("  Colopedia " + k.label + ": " + list.size()
+                    + " items, " + pages + " pages; e.g. " + (sample == null ? "-"
+                    : sample.title + ": " + sample.size() + " facts, "
+                    + sample.body.length() + " chars"));
+                ok &= list.size() > 0 && pages == list.size();
+            }
+        }
+        return ok;
     }
 
     /**

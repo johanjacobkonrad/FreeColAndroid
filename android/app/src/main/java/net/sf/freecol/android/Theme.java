@@ -171,7 +171,7 @@ public final class Theme {
     // Line icons
 
     /** The little gold line icons on buttons. */
-    public enum Icon { NEXT, WAIT, ORDERS, SHIP, HOUSE, COLONY, JOIN, BACK, CLOSE, BUILD, EQUIP, SAIL, MENU, SAVE, LOAD }
+    public enum Icon { NEXT, WAIT, ORDERS, SHIP, HOUSE, COLONY, JOIN, BACK, CLOSE, BUILD, EQUIP, SAIL, MENU, SAVE, LOAD, BOOK }
 
     /** Draws an {@link Icon} as strokes in a 24x24 box. */
     static final class IconDrawable extends Drawable {
@@ -207,6 +207,9 @@ public final class Theme {
                 canvas.drawCircle(12, 12, 8, paint);
                 line(12, 7, 12, 12); line(12, 12, 15, 14); break;
             case ORDERS: line(4, 7, 20, 7); line(4, 12, 20, 12); line(4, 17, 14, 17); break;
+            case BOOK:
+                line(12, 6, 12, 20); line(12, 6, 4, 4); line(4, 4, 4, 18); line(4, 18, 12, 20);
+                line(12, 6, 20, 4); line(20, 4, 20, 18); line(20, 18, 12, 20); break;
             case MENU: line(4, 6, 20, 6); line(4, 12, 20, 12); line(4, 18, 20, 18); break;
             case SAVE:
                 line(12, 3, 12, 14); line(7, 9, 12, 14); line(12, 14, 17, 9);

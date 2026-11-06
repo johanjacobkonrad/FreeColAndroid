@@ -49,6 +49,12 @@ def syncArtAssets = tasks.register('syncArtAssets', Sync) {
         include 'resources/images/goods/*.png'
         include 'resources/images/coat-of-arms/*.png'
         include 'resources/images/ui/landing.png'
+        // Founding fathers' pictures, by kind (reports, Colopedia).
+        include 'resources/images/ui/trade.png'
+        include 'resources/images/ui/exploration.png'
+        include 'resources/images/ui/military.png'
+        include 'resources/images/ui/political.png'
+        include 'resources/images/ui/religious.png'
         include 'resources/images/river/*.png'
         // Only the standard size: the ".size9" images are most of it.
         exclude '**/*.size*.png'
