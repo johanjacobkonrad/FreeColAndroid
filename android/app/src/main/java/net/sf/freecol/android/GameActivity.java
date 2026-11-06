@@ -1052,16 +1052,19 @@ public final class GameActivity extends Activity implements GameSession.Listener
         Audio.get(this).play(key);
     }
 
-    /** Settings, from the game menu. */
+    /** Settings, from the game menu: two columns, no scrolling. */
     private void showSettings() {
-        int pad = (int)(18 * dp);
-        LinearLayout box = Settings.view(this, ms -> session.setMovePause(ms));
-        box.setPadding(pad, pad / 2, pad, pad / 2);
-        android.widget.ScrollView sv = new android.widget.ScrollView(this);
-        sv.addView(box);
-        new android.app.AlertDialog.Builder(this)
-            .setTitle("Settings").setView(sv)
+        int pad = (int)(22 * dp);
+        LinearLayout box = Settings.view(this, ms -> session.setMovePause(ms), true);
+        box.setPadding(pad, pad / 3, pad, 0);
+        android.app.AlertDialog d = new android.app.AlertDialog.Builder(this)
+            .setTitle("Settings").setView(box)
             .setPositiveButton("Done", null).show();
+        if (d.getWindow() != null) {
+            int w = Math.min(getResources().getDisplayMetrics().widthPixels - (int)(32 * dp),
+                             (int)(620 * dp));
+            d.getWindow().setLayout(w, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
     }
 
     @Override

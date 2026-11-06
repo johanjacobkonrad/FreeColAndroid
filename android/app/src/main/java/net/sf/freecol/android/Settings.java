@@ -22,6 +22,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -71,88 +72,116 @@ final class Settings {
         return 900;
     }
 
+    /** Colours for wood (the start screen) or parchment (a dialog). */
+    private static final class Look {
+        final int heading, ink, dim, track, fill, thumb;
+        final boolean paper;
+
+        Look(boolean paper) {
+            this.paper = paper;
+            heading = paper ? 0xFF7A5A2C : Theme.GOLD;
+            ink = paper ? Theme.PAPER_INK : Theme.INK;
+            dim = paper ? Theme.PAPER_DIM : Theme.DIM;
+            track = paper ? 0x557A5A2C : Theme.EDGE;
+            fill = paper ? 0xFF7A5A2C : Theme.GOLD;
+            thumb = paper ? 0xFF5A4020 : Theme.GOLD_LIGHT;
+        }
+    }
+
     /**
-     * The settings, to change in place.  Changes are kept at once, and
-     * the volume changes are heard at once.
+     * The settings, to change in place, in two columns: sound on the
+     * left, the game on the right.  Changes are kept at once, and the
+     * volume changes are heard at once.
      *
      * @param c The context.
      * @param onSpeed Told the new move pause (or null).
+     * @param paper True on parchment (a dialog), false on wood.
      */
-    static LinearLayout view(final Context c, final java.util.function.IntConsumer onSpeed) {
-        LinearLayout box = new LinearLayout(c);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.addView(slider(c, "Music", music(c), v -> {
+    static LinearLayout view(final Context c, final java.util.function.IntConsumer onSpeed,
+                             boolean paper) {
+        final Look look = new Look(paper);
+        LinearLayout cols = new LinearLayout(c);
+        cols.setOrientation(LinearLayout.HORIZONTAL);
+
+        // Sound.
+        LinearLayout left = new LinearLayout(c);
+        left.setOrientation(LinearLayout.VERTICAL);
+        left.addView(slider(c, look, "Music", music(c), v -> {
                 prefs(c).edit().putInt(MUSIC, v).apply();
                 Audio.get(c).musicVolumeChanged();
             }));
-        box.addView(slider(c, "Sound effects", effects(c), v -> {
+        // The music's licence (CC-BY 4.0) asks for its authors' names.
+        left.addView(Theme.text(c, "Music by Alexander Zhelanov and Stian Grenborgen "
+            + "(CC-BY 4.0)", 11, look.dim, false));
+        View gap = new View(c);
+        left.addView(gap, new LinearLayout.LayoutParams(1, Theme.px(c, 10)));
+        left.addView(slider(c, look, "Sound effects", effects(c), v -> {
                 prefs(c).edit().putInt(EFFECTS, v).apply();
             }));
-        TextView h = Theme.heading(c, "Move speed", Theme.GOLD);
-        h.setPadding(0, Theme.px(c, 14), 0, Theme.px(c, 2));
-        box.addView(h);
-        box.addView(Theme.text(c, "How long the map shows a unit after it moves, "
-            + "before the next one is selected.", 12, Theme.DIM, false));
-        LinearLayout row = new LinearLayout(c);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(0, Theme.px(c, 6), 0, 0);
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(0,
+            LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        llp.setMargins(0, 0, Theme.px(c, 20), 0);
+        cols.addView(left, llp);
+
+        // The game.
+        LinearLayout right = new LinearLayout(c);
+        right.setOrientation(LinearLayout.VERTICAL);
+        right.addView(Theme.heading(c, "Move speed", look.heading));
+        TextView why = Theme.text(c, "How long the map shows a unit after it moves.",
+                                  12, look.dim, false);
+        why.setPadding(0, Theme.px(c, 2), 0, Theme.px(c, 6));
+        right.addView(why);
         final List<TextView> all = new ArrayList<>();
         for (Object[] sp : SPEEDS) {
             final String id = (String)sp[0];
-            TextView t = Theme.text(c, (String)sp[1], 14, Theme.INK, true);
+            TextView t = Theme.text(c, (String)sp[1], 14, look.ink, true);
             t.setGravity(Gravity.CENTER);
-            t.setMinHeight(Theme.px(c, 44));
             t.setTag(id);
             t.setOnClickListener(v -> {
                     prefs(c).edit().putString(SPEED, id).apply();
-                    for (TextView o : all) mark(c, o, o.getTag().equals(id));
+                    for (TextView o : all) mark(c, look, o, o.getTag().equals(id));
                     if (onSpeed != null) onSpeed.accept(movePause(c));
                 });
             all.add(t);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
-                LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            lp.setMargins(0, 0, Theme.px(c, 6), 0);
-            row.addView(t, lp);
-            mark(c, t, id.equals(speed(c)));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, Theme.px(c, 42));
+            lp.setMargins(0, 0, 0, Theme.px(c, 6));
+            right.addView(t, lp);
+            mark(c, look, t, id.equals(speed(c)));
         }
-        box.addView(row);
-        // The music's licence (CC-BY 4.0) asks for its authors' names.
-        TextView credits = Theme.text(c, "Music by Alexander Zhelanov and Stian Grenborgen, "
-            + "under CC-BY 4.0.", 11, Theme.DIM, false);
-        credits.setPadding(0, Theme.px(c, 14), 0, 0);
-        box.addView(credits);
-        return box;
+        cols.addView(right, new LinearLayout.LayoutParams(0,
+            LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        return cols;
     }
 
-    private static void mark(Context c, TextView t, boolean on) {
+    private static void mark(Context c, Look look, TextView t, boolean on) {
         if (on) {
             t.setBackground(Theme.gold(c));
             t.setTextColor(Theme.PAPER_INK);
         } else {
-            t.setBackground(Theme.plank(c));
-            t.setTextColor(Theme.INK);
+            t.setBackground(look.paper ? Theme.cell(c, 0xFFF4EACF) : Theme.plank(c));
+            t.setTextColor(look.ink);
         }
     }
 
-    private static LinearLayout slider(Context c, String label, int value,
+    private static LinearLayout slider(Context c, Look look, String label, int value,
                                        java.util.function.IntConsumer onChange) {
         LinearLayout box = new LinearLayout(c);
         box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(0, Theme.px(c, 10), 0, 0);
         LinearLayout top = new LinearLayout(c);
         top.setOrientation(LinearLayout.HORIZONTAL);
-        TextView h = Theme.heading(c, label, Theme.GOLD);
-        top.addView(h, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        final TextView shown = Theme.text(c, describe(value), 13, Theme.INK, true);
+        top.addView(Theme.heading(c, label, look.heading),
+                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        final TextView shown = Theme.text(c, describe(value), 13, look.ink, true);
         top.addView(shown);
         box.addView(top);
         SeekBar bar = new SeekBar(c);
         bar.setMax(100);
         bar.setProgress(value);
-        bar.setProgressTintList(ColorStateList.valueOf(Theme.GOLD));
-        bar.setThumbTintList(ColorStateList.valueOf(Theme.GOLD_LIGHT));
-        bar.setProgressBackgroundTintList(ColorStateList.valueOf(Theme.EDGE));
-        bar.setMinimumHeight(Theme.px(c, 36));
+        bar.setProgressTintList(ColorStateList.valueOf(look.fill));
+        bar.setThumbTintList(ColorStateList.valueOf(look.thumb));
+        bar.setProgressBackgroundTintList(ColorStateList.valueOf(look.track));
+        bar.setPadding(Theme.px(c, 10), 0, Theme.px(c, 10), 0);
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override public void onProgressChanged(SeekBar s, int v, boolean user) {
                     shown.setText(describe(v));

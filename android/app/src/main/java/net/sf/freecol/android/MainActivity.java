@@ -301,10 +301,10 @@ public final class MainActivity extends Activity {
         back.setOnClickListener(v -> showMenu());
         head.addView(back);
         page.addView(head);
-        page.addView(Settings.view(this, null));
-        ScrollView sv = new ScrollView(this);
-        sv.addView(page);
-        setRight(sv);
+        LinearLayout body = Settings.view(this, null, false);
+        body.setPadding(0, px(16), 0, 0);
+        page.addView(body);
+        setRight(page);
     }
 
     // High scores
