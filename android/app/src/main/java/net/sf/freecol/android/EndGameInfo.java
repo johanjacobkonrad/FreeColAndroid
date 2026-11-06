@@ -19,7 +19,6 @@
 package net.sf.freecol.android;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import net.sf.freecol.common.i18n.Messages;
@@ -92,10 +91,20 @@ public final class EndGameInfo {
                                       ((e.getScore() > 0) ? "+" : "") + e.getScore() });
         }
         // The server records the score as the game ends; winning the
-        // war adds points after that, so record the final score too
-        // (the same game's entry is replaced only by a higher score).
+        // war adds points after that, so record the final score too,
+        // but only if it is higher: the engine adds a second entry for
+        // the same game when the score is equal.
         try {
-            HighScore.newHighScore(me);
+            List<HighScore> all = HighScore.loadHighScores();
+            HighScore best = null;
+            if (all != null) {
+                for (HighScore hs : all) {
+                    if (sameGame(hs, me) && (best == null || hs.getScore() > best.getScore())) {
+                        best = hs;
+                    }
+                }
+            }
+            if (best == null || me.getScore() > best.getScore()) HighScore.newHighScore(me);
         } catch (RuntimeException e) {
             // Best effort: the list still shows
         }
@@ -118,17 +127,45 @@ public final class EndGameInfo {
         return out;
     }
 
-    private static int fill(List<Row> out, Player me) {
+    /** The same game and nation (one entry each on the list). */
+    private static boolean sameGame(HighScore hs, Player me) {
+        return hs.getGameUUID() != null && hs.getGameUUID().equals(me.getGame().getUUID())
+            && me.getNationId().equals(hs.getNationId());
+    }
+
+    /**
+     * The high scores, best first, with only the best entry of each
+     * game and nation (earlier versions could record a game twice);
+     * the file is tidied if it had repeats.
+     */
+    private static List<HighScore> load() {
         List<HighScore> all = HighScore.loadHighScores();
-        if (all == null) all = Collections.emptyList();
+        if (all == null) return new ArrayList<>();
+        List<HighScore> out = new ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        all.sort((a, b) -> Integer.compare(b.getScore(), a.getScore()));
+        for (HighScore hs : all) {
+            String key = hs.getGameUUID() + "/" + hs.getNationId();
+            if (hs.getGameUUID() == null || seen.add(key)) out.add(hs);
+        }
+        if (out.size() < all.size()) {
+            try {
+                HighScore.saveHighScores(out);
+            } catch (RuntimeException e) {
+                // Shown tidy anyway
+            }
+        }
+        return out;
+    }
+
+    private static int fill(List<Row> out, Player me) {
+        List<HighScore> all = load();
         int found = -1;
         for (int i = 0; i < all.size() && i < 10; i++) {
             HighScore hs = all.get(i);
             // This game's entry (its score was taken when it ended; a
             // victory adds points after that).
-            boolean mine = me != null && hs.getGameUUID() != null
-                && hs.getGameUUID().equals(me.getGame().getUUID())
-                && me.getNationId().equals(hs.getNationId());
+            boolean mine = me != null && sameGame(hs, me);
             if (mine) found = i + 1;
             // The nation (the player name is always the app's own).
             String who = (hs.getNationName() != null) ? hs.getNationName()
