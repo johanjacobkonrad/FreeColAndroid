@@ -123,6 +123,14 @@ public final class MapView extends View {
         invalidate();
     }
 
+    /** Centre the map on a tile. */
+    void centreOn(Tile t) {
+        synchronized (session.lock()) {
+            viewport.centreOn(renderer.centreX(t), renderer.centreY(t));
+        }
+        invalidate();
+    }
+
     /** Show the selected unit, if it is off screen. */
     public void showSelected() {
         Unit u = session.getSelectedUnit();

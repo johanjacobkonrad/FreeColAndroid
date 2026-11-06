@@ -411,7 +411,7 @@ public final class IsometricRenderer implements MapRenderer {
         return (art.has(extra)) ? extra : key;
     }
 
-    private String settlementKey(Settlement settlement) {
+    public String settlementKey(Settlement settlement) {
         String key = "image.tileitem." + settlement.getType().getId();
         if (settlement instanceof Colony) {
             Colony colony = (Colony)settlement;

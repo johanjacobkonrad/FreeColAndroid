@@ -60,6 +60,8 @@ final class Sidebar extends LinearLayout {
         void context(String mode);
         void europe();
         void endTurn();
+        /** The menu: colonies, saving, quitting. */
+        void menu();
     }
 
     static final String BUILD = "build", JOIN = "join", SAIL = "sail";
@@ -119,6 +121,14 @@ final class Sidebar extends LinearLayout {
         tax = Theme.text(c, "", 11, Theme.DIM, false);
         tax.setPadding(Theme.px(c, 6), 0, 0, 0);
         status.addView(tax);
+        ImageView menu = new ImageView(c);
+        menu.setImageDrawable(new Theme.IconDrawable(Theme.Icon.MENU, Theme.GOLD, Theme.px(c, 20)));
+        menu.setScaleType(ImageView.ScaleType.CENTER);
+        menu.setContentDescription("Menu");
+        menu.setOnClickListener(v -> controls.menu());
+        LayoutParams mlp = new LayoutParams(Theme.px(c, 32), Theme.px(c, 28));
+        mlp.setMargins(Theme.px(c, 4), 0, 0, 0);
+        status.addView(menu, mlp);
         top.addView(status);
         addView(top, full(gap));
 
