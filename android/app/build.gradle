@@ -7,6 +7,8 @@ plugins {
 def engineSrc = layout.buildDirectory.dir('generated/engine-src')
 def engineAssets = layout.buildDirectory.dir('generated/engine-assets')
 def artAssets = layout.buildDirectory.dir('generated/art-assets')
+// The music, made smaller by android/encode-music.sh (none if it was not run).
+def musicAssets = layout.buildDirectory.dir('generated/music-assets')
 
 def syncEngineSources = tasks.register('syncEngineSources', Sync) {
     from('../../src') {
@@ -58,6 +60,8 @@ def syncArtAssets = tasks.register('syncArtAssets', Sync) {
         // The Declaration of Independence, shown when you declare.
         include 'resources/images/ui/doi.png'
         include 'resources/images/ui/victory.png'
+        // Sound effects (the music is packed separately, smaller).
+        include 'resources/sound/**/*.ogg'
         include 'resources/images/river/*.png'
         // Only the standard size: the ".size9" images are most of it.
         exclude '**/*.size*.png'
@@ -95,7 +99,7 @@ android {
     sourceSets {
         main {
             java.srcDir engineSrc
-            assets.srcDirs 'src/main/assets', engineAssets, artAssets
+            assets.srcDirs 'src/main/assets', engineAssets, artAssets, musicAssets
         }
     }
 

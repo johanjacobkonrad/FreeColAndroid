@@ -84,6 +84,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         session = new GameSession(this);
+        session.setMovePause(Settings.movePause(this));
         try {
             art = new AndroidArt(getAssets());
         } catch (Exception e) {
@@ -370,6 +371,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
             items.add(new Object[] { "Independence", Theme.Icon.FLAG,
                                      (Runnable)this::confirmDeclare });
         }
+        items.add(new Object[] { "Settings", Theme.Icon.GEAR, (Runnable)this::showSettings });
         items.add(new Object[] { "Save", Theme.Icon.SAVE, (Runnable)this::showSave });
         items.add(new Object[] { "Load", Theme.Icon.LOAD, (Runnable)this::showLoad });
         items.add(new Object[] { "Retire", Theme.Icon.CLOSE, (Runnable)this::confirmRetire });
@@ -424,7 +426,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
             = new Theme.IconDrawable(icon, 0xFF7A5A2C, (int)(22 * dp));
         d.setBounds(0, 0, (int)(22 * dp), (int)(22 * dp));
         b.setCompoundDrawables(null, d, null, null);
-        b.setCompoundDrawablePadding((int)(4 * dp));
+        b.setCompoundDrawablePadding(0); // Icon close to its name
         b.setOnClickListener(l);
         return b;
     }
@@ -1035,7 +1037,31 @@ public final class GameActivity extends Activity implements GameSession.Listener
         // Android may stop the app at any time once it is in the
         // background, so save now (only does so during our turn).
         session.saveNow();
+        Audio.get(this).stopMusic();
         super.onPause();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Audio.get(this).startMusic();
+    }
+
+    @Override
+    public void onSound(String key) {
+        Audio.get(this).play(key);
+    }
+
+    /** Settings, from the game menu. */
+    private void showSettings() {
+        int pad = (int)(18 * dp);
+        LinearLayout box = Settings.view(this, ms -> session.setMovePause(ms));
+        box.setPadding(pad, pad / 2, pad, pad / 2);
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(box);
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Settings").setView(sv)
+            .setPositiveButton("Done", null).show();
     }
 
     @Override
