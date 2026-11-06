@@ -215,7 +215,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             hint.setText("Tap warehouse goods to load, cargo to unload, a passenger to select.");
         } else {
             hint.setText("Tap a colonist, then where they should work. "
-                + "Tap a worked tile to change its crop.");
+                + "Tap a worked tile to change its crop, goods to set what the colony keeps.");
         }
         land.setInfo(info, selectedUnit);
         buildBuildings();
