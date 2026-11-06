@@ -174,7 +174,15 @@ public final class WarCheck {
                 System.out.println("  #" + r.rank + " " + r.score + " " + r.who + " "
                     + r.when + " (" + r.detail + ")" + (r.mine ? " <- this game" : ""));
             }
-            endOk = endKind == EndGameInfo.Kind.WON && !info.highScores.isEmpty();
+            // Showing the end screen again must not add the game twice.
+            EndGameInfo again;
+            synchronized (s.lock()) {
+                again = new EndGameInfo(endKind, endText, s.getMyPlayer());
+            }
+            int mine = 0;
+            for (EndGameInfo.Row r : again.highScores) if (r.mine) mine++;
+            System.out.println("  this game on the list " + mine + " time(s)");
+            endOk = endKind == EndGameInfo.Kind.WON && !info.highScores.isEmpty() && mine == 1;
         }
         s.stop();
         System.out.println("War: played " + played + " turns, royal units landed "
