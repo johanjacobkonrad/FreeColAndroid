@@ -57,6 +57,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private MapView mapView;
     private MinimapView minimap;
     private Sidebar sidebar;
+    private NewsRibbon news;
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
     private float dp;
@@ -89,7 +90,23 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.setBackgroundColor(Color.BLACK);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.HORIZONTAL);
-        content.addView(mapView, new LinearLayout.LayoutParams(
+        // The news floats over the top left of the map.
+        FrameLayout mapFrame = new FrameLayout(this);
+        mapFrame.addView(mapView);
+        news = new NewsRibbon(this);
+        final FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP | Gravity.START);
+        nlp.setMargins(pad, pad, pad, 0);
+        mapFrame.addView(news, nlp);
+        news.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            nlp.setMargins(pad + bars.left, pad + bars.top, pad, 0);
+            v.setLayoutParams(nlp);
+            return insets;
+        });
+        content.addView(mapFrame, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
         sidebar = new Sidebar(this, session, art, renderer, minimap,
                               new Sidebar.Controls() {
@@ -387,7 +404,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     @Override
     public void onStatus(String text) {
         runOnUiThread(() -> {
-            sidebar.addNews(text);
+            news.add(text);
             if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
                 colonyPanel.onStatus(text);
             }
