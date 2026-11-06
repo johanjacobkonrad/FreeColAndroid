@@ -191,22 +191,29 @@ public final class MainActivity extends Activity {
         }
 
         TextView newGame = Theme.button(this, "New game", null, Theme.Kind.GOLD, false);
-        newGame.setTextSize(17);
+        newGame.setTextSize(22);
         newGame.setOnClickListener(v -> showSetup());
-        menu.addView(newGame, wide(0, 0, 0, px(10)));
-        LinearLayout pair = new LinearLayout(this);
-        pair.setOrientation(LinearLayout.HORIZONTAL);
-        TextView scores = Theme.button(this, "High scores", Theme.Icon.TROPHY,
-                                       Theme.Kind.PLANK, false);
-        scores.setOnClickListener(v -> showHighScores());
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0, px(48), 1f);
-        slp.setMargins(0, 0, px(10), 0);
-        pair.addView(scores, slp);
-        TextView settings = Theme.button(this, "Settings", Theme.Icon.GEAR,
-                                         Theme.Kind.PLANK, false);
-        settings.setOnClickListener(v -> showSettings());
-        pair.addView(settings, new LinearLayout.LayoutParams(0, px(48), 1f));
-        menu.addView(pair, wide(0, 0, 0, px(8)));
+        LinearLayout.LayoutParams nlp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, px(64));
+        nlp.setMargins(0, 0, 0, px(10));
+        menu.addView(newGame, nlp);
+        LinearLayout trio = new LinearLayout(this);
+        trio.setOrientation(LinearLayout.HORIZONTAL);
+        Object[][] small = {
+            { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
+            { "High scores", Theme.Icon.TROPHY, (Runnable)this::showHighScores },
+            { "Settings", Theme.Icon.GEAR, (Runnable)this::showSettings } };
+        for (int i = 0; i < small.length; i++) {
+            final Runnable r = (Runnable)small[i][2];
+            TextView b = Theme.button(this, (String)small[i][0], (Theme.Icon)small[i][1],
+                                      Theme.Kind.PLANK, true);
+            b.setTextSize(12);
+            b.setOnClickListener(v -> r.run());
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, px(62), 1f);
+            lp.setMargins(i == 0 ? 0 : px(5), 0, i == small.length - 1 ? 0 : px(5), 0);
+            trio.addView(b, lp);
+        }
+        menu.addView(trio, wide(0, 0, 0, px(8)));
         if (about != null) {
             menu.addView(text("A new game replaces your saved game once it starts.",
                               12, INK_DIM, false));
@@ -222,6 +229,56 @@ public final class MainActivity extends Activity {
         setRight(box);
     }
 
+
+    // Load game
+
+    /** The saved games: your game's autosave and the save slots. */
+    private void showLoad() {
+        File auto = GameActivity.saveFile(this);
+        List<File> files = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        files.add(auto);
+        names.add("Autosave");
+        for (int n = 1; n <= 3; n++) {
+            files.add(new File(auto.getParentFile(), "slot" + n + ".fsg"));
+            names.add("Slot " + n);
+        }
+        final List<File> found = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (int i = 0; i < files.size(); i++) {
+            File f = files.get(i);
+            String about = GameSession.describeSave(f);
+            if (about == null) continue;
+            found.add(f);
+            labels.add(names.get(i) + ": " + about + "\n"
+                + android.text.format.DateFormat.getMediumDateFormat(this)
+                    .format(new java.util.Date(f.lastModified())) + ", "
+                + android.text.format.DateFormat.getTimeFormat(this)
+                    .format(new java.util.Date(f.lastModified())));
+        }
+        if (found.isEmpty()) {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Load game")
+                .setMessage("There are no saved games yet. Games save themselves "
+                            + "each turn; in a game, Menu \u2192 Save keeps a copy in a slot.")
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Load game")
+            .setItems(labels.toArray(new String[0]), (d, w) -> {
+                    File f = found.get(w);
+                    Intent in = new Intent(this, GameActivity.class);
+                    if (f.equals(auto)) {
+                        in.putExtra(GameActivity.EXTRA_CONTINUE, true);
+                    } else {
+                        in.putExtra(GameActivity.EXTRA_LOAD, f.getPath());
+                    }
+                    startActivity(in);
+                })
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
 
     // Settings
 
