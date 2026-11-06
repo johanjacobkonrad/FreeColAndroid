@@ -309,7 +309,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     // The menu
 
-    /** The sidebar menu: colonies, save, load, quit. */
+    /** The sidebar menu: resume, colonies, save, load, quit. */
     private void showMenu() {
         if (!session.isInGame()) return;
         final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
@@ -318,6 +318,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         int pad = (int)(16 * dp);
         box.setPadding(pad, pad / 4, pad, pad / 2);
         Object[][] items = {
+            { "Resume game", Theme.Icon.NEXT, (Runnable)() -> {} },
             { "Colonies", Theme.Icon.COLONY, (Runnable)this::openColonyList },
             { "Save game", Theme.Icon.SAVE, (Runnable)this::showSave },
             { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
