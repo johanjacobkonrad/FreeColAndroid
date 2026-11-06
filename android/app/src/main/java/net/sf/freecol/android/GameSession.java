@@ -78,6 +78,10 @@ import net.sf.freecol.common.networking.AddPlayerMessage;
 import net.sf.freecol.common.networking.ChooseFoundingFatherMessage;
 import net.sf.freecol.common.networking.Connection;
 import net.sf.freecol.common.networking.NationSummaryMessage;
+import net.sf.freecol.common.networking.NewTradeRouteMessage;
+import net.sf.freecol.common.model.ExportData;
+import net.sf.freecol.common.model.TradeRoute;
+import net.sf.freecol.common.model.TradeRouteStop;
 import net.sf.freecol.common.networking.ErrorMessage;
 import net.sf.freecol.common.networking.FeatureChangeMessage;
 import net.sf.freecol.common.networking.FirstContactMessage;
@@ -1538,10 +1542,12 @@ public final class GameSession implements MessageHandler {
         if (unit == null) return;
         worker.execute(() -> {
             if (!isMyTurn()) return;
-            boolean dest;
+            boolean dest, route;
             synchronized (lock) {
                 dest = unit.getDestination() != null;
+                route = unit.getTradeRoute() != null;
             }
+            if (route) api.assignTradeRoute(unit, null);
             if (dest) api.setDestination(unit, null);
             synchronized (lock) {
                 if (unit.getState() != UnitState.ACTIVE
@@ -1595,6 +1601,11 @@ public final class GameSession implements MessageHandler {
             return Messages.getName(ti.getType()) + ", "
                 + unit.getWorkTurnsLeft() + " turns left";
         }
+        if (unit.getTradeRoute() != null) {
+            TradeRouteStop st = unit.getStop();
+            return "route " + unit.getTradeRoute().getName()
+                + ((st == null) ? "" : ", next " + stopName(st.getLocation()));
+        }
         if (unit.getDestination() instanceof Europe) return "sailing to Europe";
         if (destinationTile(unit) != null) {
             Tile t = destinationTile(unit);
@@ -1605,6 +1616,343 @@ public final class GameSession implements MessageHandler {
         case FORTIFIED: case FORTIFYING: return "fortified";
         case SENTRY: return "on sentry";
         default: return "";
+        }
+    }
+
+    // Trade routes
+
+    /** A stop's place in words. */
+    private String stopName(net.sf.freecol.common.model.Location loc) {
+        if (loc instanceof Europe) return "Europe";
+        if (loc instanceof Settlement) return ((Settlement)loc).getName();
+        return (loc == null) ? "?" : Messages.message(loc.getLocationLabelFor(me));
+    }
+
+    /**
+     * Make a new, empty trade route.
+     *
+     * @param done Told the new route (or null if that failed), on the
+     *     game's thread.
+     */
+    public void newTradeRoute(java.util.function.Consumer<TradeRoute> done) {
+        worker.execute(() -> {
+            int n;
+            synchronized (lock) {
+                n = me.getTradeRouteCount();
+            }
+            api.newTradeRoute();
+            TradeRoute tr = null;
+            synchronized (lock) {
+                if (me.getTradeRouteCount() == n + 1) tr = me.getNewestTradeRoute();
+                if (tr != null && tr.getName() == null) tr.setName(me.getNameForTradeRoute());
+            }
+            done.accept(tr);
+        });
+    }
+
+    /** A stop being edited: a place and what to leave it carrying. */
+    public static final class StopDraft {
+        public final net.sf.freecol.common.model.Location location;
+        public final List<GoodsType> cargo = new ArrayList<>();
+
+        public StopDraft(net.sf.freecol.common.model.Location location) {
+            this.location = location;
+        }
+    }
+
+    /**
+     * Change a trade route: its name and stops.  The rules check it
+     * first (at least two stops, something to carry, a unique name).
+     *
+     * @param tr The {@code TradeRoute}.
+     * @param name Its name.
+     * @param stops Its stops, in order.
+     * @param done Told null when saved, or what is wrong.
+     */
+    public void updateTradeRoute(TradeRoute tr, String name, List<StopDraft> stops,
+                                 java.util.function.Consumer<String> done) {
+        worker.execute(() -> {
+            String err = null;
+            synchronized (lock) {
+                String oldName = tr.getName();
+                List<TradeRouteStop> old = new ArrayList<>();
+                for (TradeRouteStop st : tr.getStopList()) old.add(new TradeRouteStop(st));
+                tr.setName(name);
+                tr.clearStops();
+                for (StopDraft d : stops) {
+                    TradeRouteStop st = new TradeRouteStop(game, d.location);
+                    st.setCargo(d.cargo);
+                    tr.addStop(st);
+                }
+                StringTemplate bad = tr.verify();
+                if (bad == null) bad = tr.verifyUniqueName();
+                if (bad != null) {
+                    err = Messages.message(bad);
+                    tr.setName(oldName);
+                    tr.clearStops();
+                    for (TradeRouteStop st : old) tr.addStop(st);
+                }
+            }
+            if (err == null && !api.updateTradeRoute(tr)) err = "The game refused the route.";
+            done.accept(err);
+            changed();
+        });
+    }
+
+    /** Delete a trade route; its units stop following it. */
+    public void deleteTradeRoute(TradeRoute tr) {
+        worker.execute(() -> {
+            api.deleteTradeRoute(tr);
+            synchronized (lock) {
+                me.removeTradeRoute(tr);
+            }
+            changed();
+        });
+    }
+
+    /**
+     * Put a wagon train or ship on a trade route (or off, with null),
+     * and start it off if it is our turn.
+     */
+    public void assignTradeRoute(Unit unit, TradeRoute tr) {
+        if (unit == null) return;
+        worker.execute(() -> {
+            synchronized (lock) {
+                if (tr != null && unit.getDestination() != null) unit.setDestination(null);
+            }
+            api.assignTradeRoute(unit, tr);
+            synchronized (lock) {
+                if (unit.getTradeRoute() != tr) {
+                    status("Could not put " + unit.getDescription() + " on that route.");
+                    return;
+                }
+            }
+            if (tr != null) {
+                status(unitName(unit) + " now follows the route " + tr.getName() + ".");
+                if (isMyTurn()) runRoute(unit);
+            }
+            afterOrders(null);
+        });
+    }
+
+    private static String unitName(Unit u) {
+        return (u.getName() != null) ? u.getName() : u.getDescription();
+    }
+
+    /**
+     * Set how much of a goods a colony keeps: trade routes only take
+     * what is above this.
+     */
+    public void setReserve(Colony colony, GoodsType type, int amount) {
+        worker.execute(() -> {
+            ExportData ed;
+            synchronized (lock) {
+                ed = colony.getExportData(type);
+                ed.setExportLevel(Math.max(0, amount));
+            }
+            api.setGoodsLevels(colony, ed);
+            changed();
+        });
+    }
+
+    /** The amount a colony keeps of a goods (see setReserve). */
+    public static int getReserve(Colony colony, GoodsType type) {
+        return colony.getExportData(type).getExportLevel();
+    }
+
+    /**
+     * Follow a unit's trade route for this turn: go to the stop,
+     * unload what is not wanted there and load what is, then on to
+     * the next stop with something to do.  The FreeCol client does
+     * this (the server only keeps the routes); this follows its
+     * InGameController.followTradeRoute, more simply.  On the worker.
+     */
+    private void runRoute(Unit unit) {
+        for (int guard = 0; guard < 12; guard++) {
+            TradeRoute tr;
+            TradeRouteStop stop;
+            boolean at;
+            String bad = null;
+            synchronized (lock) {
+                tr = unit.getTradeRoute();
+                if (tr == null || unit.isDisposed()) return;
+                for (TradeRouteStop st : tr.getStopList()) {
+                    if (!TradeRoute.isStopValid(unit, st)) {
+                        bad = Messages.message(st.invalidStopLabel(me));
+                    }
+                }
+                stop = unit.getStop();
+                if (stop == null) bad = "it has no stops";
+                at = bad == null && unit.atStop(stop);
+            }
+            if (bad != null) {
+                status(unitName(unit) + " leaves the route " + tr.getName() + ": " + bad);
+                api.assignTradeRoute(unit, null);
+                return;
+            }
+            if (!at) {
+                if (!moveToStop(unit, stop)) return;
+                synchronized (lock) {
+                    if (!unit.atStop(stop)) return;
+                }
+            }
+            String did = workAtStop(unit, stop);
+            if (!did.isEmpty()) {
+                status(unitName(unit) + " at " + stopName(stop.getLocation()) + ": " + did + ".");
+            }
+            TradeRouteStop next = null;
+            synchronized (lock) {
+                if (unit.hasTile() && unit.getMovesLeft() <= 0) return;
+                List<TradeRouteStop> more = unit.getCurrentStops();
+                if (more == null || more.isEmpty()) return;
+                if (unit.atStop(more.get(0))) more.remove(0);
+                for (TradeRouteStop trs : more) {
+                    if (trs.hasWork(unit, 0)) {
+                        next = trs;
+                        break;
+                    }
+                }
+                if (next == null) {
+                    // Nothing to do anywhere: wait here for goods.
+                    return;
+                }
+            }
+            if (!api.setCurrentStop(unit, tr.getIndex(next))) return;
+        }
+    }
+
+    /**
+     * Move a route unit towards its stop, as far as it gets this turn.
+     *
+     * @return True if it may have arrived (check atStop).
+     */
+    private boolean moveToStop(Unit unit, TradeRouteStop stop) {
+        final net.sf.freecol.common.model.Location loc = stop.getLocation();
+        boolean inEurope, onMap;
+        synchronized (lock) {
+            inEurope = unit.isInEurope();
+            onMap = unit.hasTile();
+        }
+        if (loc instanceof Europe) {
+            if (inEurope) return true;
+            if (!onMap) return false; // Still sailing
+            // No destination order: the server would take the unit off
+            // its route.
+            headForEurope(unit);
+            synchronized (lock) {
+                return unit.isInEurope();
+            }
+        }
+        if (inEurope) {
+            // Sail back across to the colony; arrives in later turns.
+            api.moveTo(unit, loc);
+            return false;
+        }
+        if (!onMap) return false; // Crossing the ocean
+        synchronized (lock) {
+            if (unit.getMovesLeft() <= 0) return false;
+            if (unit.findPath(loc) == null) {
+                status(unitName(unit) + " can not find a way to " + stopName(loc) + ".");
+                return false;
+            }
+        }
+        stepAlong(unit, loc.getTile());
+        return true;
+    }
+
+    /**
+     * Move a unit along the path to a tile, as far as it gets this
+     * turn, without giving it a destination order.
+     */
+    private void stepAlong(Unit unit, Tile dest) {
+        for (int guard = 0; guard < 50; guard++) {
+            Direction d;
+            boolean last;
+            synchronized (lock) {
+                if (unit.isDisposed() || unit.getMovesLeft() <= 0
+                    || dest == null || unit.getTile() == dest) return;
+                PathNode path = unit.findPath(dest);
+                if (path == null || path.next == null) return;
+                PathNode next = path.next;
+                if (next.getTurns() > 0) return; // Wait for next turn
+                d = next.getDirection();
+                last = next.next == null;
+            }
+            if (d == null || !step(unit, d, last)) return;
+        }
+    }
+
+    /**
+     * Unload and load at a stop.
+     *
+     * @return What happened, in words (empty if nothing).
+     */
+    private String workAtStop(Unit unit, TradeRouteStop stop) {
+        final boolean europe = stop.getLocation() instanceof Europe;
+        List<String> unloaded = new ArrayList<>(), loaded = new ArrayList<>();
+        // Unload what is not to be carried on from here.
+        List<Object[]> drop = new ArrayList<>();
+        synchronized (lock) {
+            net.sf.freecol.common.model.TradeLocation trl = unit.getTradeLocation();
+            for (Goods g : unit.getCompactGoodsList()) {
+                GoodsType type = g.getType();
+                if (stop.getCargo().contains(type)) continue;
+                int amount = g.getAmount();
+                if (europe) {
+                    if (!me.canTrade(type)) continue; // Boycotted
+                } else if (trl != null) {
+                    amount = Math.min(amount, trl.getImportAmount(type, 0));
+                }
+                if (amount > 0) drop.add(new Object[] { type, amount });
+            }
+        }
+        for (Object[] d : drop) {
+            GoodsType type = (GoodsType)d[0];
+            int amount = (Integer)d[1];
+            int before = goodsCount(unit, type);
+            api.unloadGoods(type, amount, unit);
+            int gone = before - goodsCount(unit, type);
+            if (gone > 0) {
+                unloaded.add((europe ? "sold " : "") + gone + " " + Messages.getName(type));
+            }
+        }
+        // Load up to what the stop lists, from what is spare there.
+        List<Object[]> take = new ArrayList<>();
+        synchronized (lock) {
+            for (AbstractGoods ag : stop.getCompactCargo()) {
+                GoodsType type = ag.getType();
+                int want = ag.getAmount() - unit.getGoodsCount(type);
+                want = Math.min(want, unit.getLoadableAmount(type));
+                if (want <= 0) continue;
+                if (europe) {
+                    if (!me.canTrade(type)) continue;
+                    int price = me.getMarket().getBidPrice(type, want);
+                    if (price > me.getGold()) continue;
+                } else {
+                    want = Math.min(want, stop.getExportAmount(type, 0));
+                }
+                if (want > 0) take.add(new Object[] { type, want });
+            }
+        }
+        for (Object[] t : take) {
+            GoodsType type = (GoodsType)t[0];
+            int amount = (Integer)t[1];
+            int before = goodsCount(unit, type);
+            api.loadGoods(europe ? me.getEurope() : stop.getLocation(), type, amount, unit);
+            int got = goodsCount(unit, type) - before;
+            if (got > 0) {
+                loaded.add((europe ? "bought " : "") + got + " " + Messages.getName(type));
+            }
+        }
+        List<String> out = new ArrayList<>();
+        if (!unloaded.isEmpty()) out.add((europe ? "" : "unloaded ") + String.join(", ", unloaded));
+        if (!loaded.isEmpty()) out.add((europe ? "" : "loaded ") + String.join(", ", loaded));
+        return String.join("; ", out);
+    }
+
+    private int goodsCount(Unit unit, GoodsType type) {
+        synchronized (lock) {
+            return unit.getGoodsCount(type);
         }
     }
 
@@ -2154,6 +2502,14 @@ public final class GameSession implements MessageHandler {
             if (!api.emigrate(slot)) break;
         }
         for (Unit u : cleared) api.setDestination(u, null);
+        List<Unit> routed = new ArrayList<>();
+        synchronized (lock) {
+            for (Unit u : me.getUnitSet()) {
+                if (u.getTradeRoute() != null && !u.isDisposed()) routed.add(u);
+            }
+            going.removeAll(routed);
+        }
+        for (Unit u : routed) runRoute(u);
         for (Unit u : going) {
             boolean toEurope;
             synchronized (lock) {
@@ -2266,6 +2622,12 @@ public final class GameSession implements MessageHandler {
             ErrorMessage em = (ErrorMessage)m;
             StringTemplate t = em.getTemplate();
             status((t != null) ? Messages.message(t) : em.getMessage());
+        } else if (m instanceof NewTradeRouteMessage) {
+            TradeRoute tr = ((NewTradeRouteMessage)m).getTradeRoute();
+            if (tr != null && me != null) {
+                tr.intern(); // So units on it find this very route
+                me.addTradeRoute(tr);
+            }
         } else if (m instanceof NationSummaryMessage) {
             NationSummaryMessage nm = (NationSummaryMessage)m;
             Player p = nm.getPlayer(game);
