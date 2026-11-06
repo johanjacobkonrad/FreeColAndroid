@@ -18,9 +18,7 @@
  */
 package net.sf.freecol.android;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 
 import android.content.Context;
@@ -33,7 +31,6 @@ import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
 
 import net.sf.freecol.android.map.Art;
@@ -49,8 +46,8 @@ import net.sf.freecol.common.model.Unit;
  * The game screen's right-hand panel, top to bottom: the minimap with
  * the year, gold and tax under it; the selected unit's card (picture,
  * name, moves, cargo, and the other units on its tile); the commands,
- * with one wide button for whatever fits the unit; the news; Europe
- * and End turn.
+ * with one wide button for whatever fits the unit; Europe and End
+ * turn.
  */
 final class Sidebar extends LinearLayout {
 
@@ -66,7 +63,6 @@ final class Sidebar extends LinearLayout {
     }
 
     static final String BUILD = "build", JOIN = "join", SAIL = "sail";
-    private static final int NEWS_KEPT = 40;
 
     private final GameSession session;
     private final Art art;
@@ -79,10 +75,6 @@ final class Sidebar extends LinearLayout {
     private final ImageView unitPic;
     private final TextView unitName, unitSub, noUnit;
     private final TextView nextB, waitB, ordersB, europeB, endB, contextB;
-    private final LinearLayout newsBox;
-    private final ScrollView newsScroll;
-    private final TextView newsTitle;
-    private final Deque<String> news = new ArrayDeque<>();
     private String contextMode = null;
     private String crestFor = null;
 
@@ -211,22 +203,8 @@ final class Sidebar extends LinearLayout {
         cmds.addView(contextB, clp);
         addView(cmds, full(gap));
 
-        // News: newest first, older ones fade.
-        LinearLayout newsCard = new LinearLayout(c);
-        newsCard.setOrientation(VERTICAL);
-        newsCard.setBackground(Theme.paper(c));
-        newsCard.setPadding(Theme.px(c, 7), Theme.px(c, 4), Theme.px(c, 7), Theme.px(c, 4));
-        newsTitle = Theme.heading(c, "News", Theme.EDGE);
-        newsCard.addView(newsTitle);
-        newsBox = new LinearLayout(c);
-        newsBox.setOrientation(VERTICAL);
-        newsScroll = new ScrollView(c);
-        newsScroll.setVerticalScrollBarEnabled(false);
-        newsScroll.addView(newsBox);
-        newsCard.addView(newsScroll, new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
-        LayoutParams nlp = new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f);
-        nlp.setMargins(0, 0, 0, gap);
-        addView(newsCard, nlp);
+        // Room to breathe; the news is on the map (NewsRibbon).
+        addView(new View(c), new LayoutParams(LayoutParams.MATCH_PARENT, 0, 1f));
 
         // Europe and End turn.
         LinearLayout bottom = new LinearLayout(c);
@@ -247,24 +225,6 @@ final class Sidebar extends LinearLayout {
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, bottom);
         return lp;
-    }
-
-
-    // News
-
-    void addNews(String line) {
-        news.addFirst(line);
-        while (news.size() > NEWS_KEPT) news.removeLast();
-        newsBox.removeAllViews();
-        int i = 0;
-        for (String s : news) {
-            TextView t = Theme.serif(getContext(), s, 11, (i == 0) ? Theme.PAPER_INK
-                                     : (i < 3) ? 0xFF5A4630 : Theme.PAPER_DIM, i == 0);
-            t.setPadding(0, 0, 0, Theme.px(getContext(), 3));
-            newsBox.addView(t);
-            i++;
-        }
-        newsScroll.scrollTo(0, 0);
     }
 
 
@@ -408,6 +368,5 @@ final class Sidebar extends LinearLayout {
         Theme.enable(ordersB, myTurn && has);
         Theme.enable(europeB, session.isInGame());
         Theme.enable(endB, myTurn);
-        newsTitle.setText(yearText.isEmpty() ? "NEWS" : "NEWS · " + yearText.toUpperCase());
     }
 }

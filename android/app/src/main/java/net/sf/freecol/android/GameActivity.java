@@ -57,6 +57,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private MapView mapView;
     private MinimapView minimap;
     private Sidebar sidebar;
+    private NewsRibbon news;
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
     private float dp;
@@ -89,7 +90,23 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.setBackgroundColor(Color.BLACK);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.HORIZONTAL);
-        content.addView(mapView, new LinearLayout.LayoutParams(
+        // The news floats over the top left of the map.
+        FrameLayout mapFrame = new FrameLayout(this);
+        mapFrame.addView(mapView);
+        news = new NewsRibbon(this);
+        final FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP | Gravity.START);
+        nlp.setMargins(pad, pad, pad, 0);
+        mapFrame.addView(news, nlp);
+        news.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            nlp.setMargins(pad + bars.left, pad + bars.top, pad, 0);
+            v.setLayoutParams(nlp);
+            return insets;
+        });
+        content.addView(mapFrame, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
         sidebar = new Sidebar(this, session, art, renderer, minimap,
                               new Sidebar.Controls() {
@@ -337,14 +354,31 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 if (done.compareAndSet(false, true)) answer.accept(null);
             };
             openQuestions.add(keep);
+            // The question and the name field share the dialog's inner
+            // margin and its serif, dark ink on parchment.
+            int side = (int)(24 * dp), pad = (int)(8 * dp);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(side, pad / 2, side, 0);
+            TextView msg = Theme.serif(this, text, 15, Theme.PAPER_INK, false);
+            msg.setPadding(0, 0, 0, pad * 3 / 2);
+            box.addView(msg);
             final android.widget.EditText edit = new android.widget.EditText(this);
             edit.setSingleLine(true);
             edit.setText(suggestion);
             edit.setSelectAllOnFocus(true);
+            edit.setTypeface(Theme.SERIF_BOLD);
+            edit.setTextSize(17);
+            edit.setTextColor(Theme.PAPER_INK);
+            edit.setHighlightColor(0x66B8913F);
+            edit.setBackground(Theme.cell(this, 0xFFF6EED8));
+            edit.setPadding(pad * 3 / 2, pad, pad * 3 / 2, pad);
+            box.addView(edit, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
             new android.app.AlertDialog.Builder(this)
                 .setTitle(title)
-                .setMessage(text)
-                .setView(edit)
+                .setView(box)
                 .setPositiveButton("OK", (d, w) -> {
                         openQuestions.remove(keep);
                         if (done.compareAndSet(false, true)) {
@@ -370,7 +404,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     @Override
     public void onStatus(String text) {
         runOnUiThread(() -> {
-            sidebar.addNews(text);
+            news.add(text);
             if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
                 colonyPanel.onStatus(text);
             }
