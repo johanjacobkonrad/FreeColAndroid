@@ -294,10 +294,36 @@ public final class GameSession implements MessageHandler {
         });
     }
 
+    /**
+     * Save to another file (a save slot), when it is our turn.
+     *
+     * @param file Where to save.
+     * @param done Told afterwards, on the game's thread: null when
+     *     saved, otherwise why not.
+     */
+    public void saveTo(File file, java.util.function.Consumer<String> done) {
+        worker.execute(() -> {
+            if (!isMyTurn()) {
+                done.accept("You can save during your turn.");
+                return;
+            }
+            String err = save(file);
+            done.accept(err);
+        });
+    }
+
     /** Save to the save file, safely: to a temporary file first. */
     private void save() {
-        final File file = saveFile;
-        if (file == null || server == null) return;
+        save(saveFile);
+    }
+
+    /**
+     * Save to a file, safely: to a temporary file first.
+     *
+     * @return Null when saved, otherwise what went wrong.
+     */
+    private String save(final File file) {
+        if (file == null || server == null) return "No game to save.";
         try {
             file.getParentFile().mkdirs();
             File tmp = new File(file.getPath() + ".tmp");
@@ -316,9 +342,11 @@ public final class GameSession implements MessageHandler {
                      new File(file.getPath() + ".txt")), StandardCharsets.UTF_8)) {
                 w.write(about);
             }
+            return null;
         } catch (Throwable t) {
             logger.log(Level.WARNING, "Save failed", t);
             status("Could not save the game: " + t.getMessage());
+            return String.valueOf(t.getMessage());
         }
     }
 

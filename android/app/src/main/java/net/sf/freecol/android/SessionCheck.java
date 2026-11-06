@@ -290,10 +290,18 @@ public final class SessionCheck {
                         + choices + " things on " + li.tile);
                 }
             }
+            ColonyListInfo list = new ColonyListInfo(s.getMyPlayer(),
+                new net.sf.freecol.android.map.IsometricRenderer(noArt));
+            for (ColonyListInfo.Row r : list.rows) {
+                System.out.println("  list: " + r.name + " size " + r.size + ", food "
+                    + r.food + ", " + r.building + ", image " + r.imageKey
+                    + (r.warnings.isEmpty() ? "" : ", " + r.warnings));
+            }
             int builds = ColonyInfo.buildChoices(s, colony).size();
             summary = info.land.size() == 9 && !info.buildings.isEmpty()
                 && info.warehouse.size() > 10 && builds > 0
-                && (tile == null || choices > 0);
+                && (tile == null || choices > 0)
+                && list.rows.size() == 1 && list.rows.get(0).colony == colony;
         }
         // Join: put whoever is outside the colony (or aboard a ship
         // in port) into it with the Join colony button's order.
@@ -720,6 +728,15 @@ public final class SessionCheck {
             colonies = old.getMyPlayer().getColonyList().size();
             turn = old.getGame().getTurn().toString();
         }
+        // Save into a slot, as the menu's Save game does, and load that.
+        File slot = new File(save.getParentFile(), "slot1.fsg");
+        java.util.concurrent.CompletableFuture<String> saved
+            = new java.util.concurrent.CompletableFuture<>();
+        old.saveTo(slot, err -> saved.complete(err == null ? "" : err));
+        String err = saved.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        System.out.println("Save to slot: " + (err.isEmpty() ? "ok" : err));
+        if (!err.isEmpty() || !slot.isFile()) return false;
+        save = slot;
         String about = GameSession.describeSave(save);
         old.stop();
         Thread.sleep(500);

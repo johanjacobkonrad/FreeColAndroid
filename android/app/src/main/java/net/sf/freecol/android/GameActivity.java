@@ -47,6 +47,10 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     /** Intent extra: carry on with the saved game. */
     static final String EXTRA_CONTINUE = "continue";
+    /** Intent extra: load this saved game (a path). */
+    static final String EXTRA_LOAD = "load";
+    /** How many save slots the menu offers, besides the autosave. */
+    private static final int SLOTS = 3;
     /** Intent extras for a new game (see NewGameOptions). */
     static final String EXTRA_NATION = "nation", EXTRA_DIFFICULTY = "difficulty",
         EXTRA_MAP_SIZE = "mapSize", EXTRA_LAND = "land";
@@ -60,6 +64,9 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private NewsRibbon news;
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
+    private ColonyListPanel colonyList;
+    /** A colony opened from the colony list goes back to it on close. */
+    private boolean backToList = false;
     private float dp;
 
 
@@ -124,6 +131,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 }
                 @Override public void europe() { openEurope(); }
                 @Override public void endTurn() { session.endTurn(); }
+                @Override public void menu() { showMenu(); }
             });
         android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
         int wide = Math.max(dm.widthPixels, dm.heightPixels);
@@ -175,6 +183,27 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.addView(europePanel, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+        colonyList = new ColonyListPanel(this, session, renderer, art,
+            this::closeColonyList, colony -> {
+                colonyList.setVisibility(android.view.View.GONE);
+                backToList = true;
+                mapView.centreOn(colony.getTile());
+                openColony(colony);
+            });
+        colonyList.setVisibility(android.view.View.GONE);
+        colonyList.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad / 2 + bars.top,
+                         pad + bars.right, pad / 2 + bars.bottom);
+            return insets;
+        });
+        // Under the colony screen, so a colony opened from the list
+        // shows on top of it.
+        root.addView(colonyList, root.indexOfChild(colonyPanel), new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
         mapView.setColonyOpener(this::openColony);
         setContentView(root);
         refresh();
@@ -187,7 +216,10 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 Engine.init(data);
                 File save = saveFile(this);
                 session.setSaveFile(save);
-                if (getIntent().getBooleanExtra(EXTRA_CONTINUE, false)
+                String load = getIntent().getStringExtra(EXTRA_LOAD);
+                if (load != null && new File(load).isFile()) {
+                    session.load(new File(load));
+                } else if (getIntent().getBooleanExtra(EXTRA_CONTINUE, false)
                     && save.isFile()) {
                     session.load(save);
                 } else {
@@ -233,6 +265,21 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     private void closeColony() {
         colonyPanel.setVisibility(android.view.View.GONE);
+        if (backToList) {
+            backToList = false;
+            openColonyList();
+        }
+        refresh();
+    }
+
+    private void openColonyList() {
+        colonyList.setVisibility(android.view.View.VISIBLE);
+        colonyList.show();
+        colonyList.requestApplyInsets();
+    }
+
+    private void closeColonyList() {
+        colonyList.setVisibility(android.view.View.GONE);
         refresh();
     }
 
@@ -253,9 +300,193 @@ public final class GameActivity extends Activity implements GameSession.Listener
             closeEurope();
         } else if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
             closeColony();
+        } else if (colonyList.getVisibility() == android.view.View.VISIBLE) {
+            closeColonyList();
         } else {
             super.onBackPressed();
         }
+    }
+
+    // The menu
+
+    /** The sidebar menu: colonies, save, load, quit. */
+    private void showMenu() {
+        if (!session.isInGame()) return;
+        final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(16 * dp);
+        box.setPadding(pad, pad / 4, pad, pad / 2);
+        Object[][] items = {
+            { "Colonies", Theme.Icon.COLONY, (Runnable)this::openColonyList },
+            { "Save game", Theme.Icon.SAVE, (Runnable)this::showSave },
+            { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
+            { "Quit to the start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
+        };
+        for (Object[] it : items) {
+            final Runnable action = (Runnable)it[2];
+            box.addView(menuItem((String)it[0], (Theme.Icon)it[1], v -> {
+                        dialog[0].dismiss();
+                        action.run();
+                    }), menuParams());
+        }
+        dialog[0] = new android.app.AlertDialog.Builder(this)
+            .setTitle("Menu").setView(box).show();
+    }
+
+    private TextView menuItem(String label, Theme.Icon icon,
+                              android.view.View.OnClickListener l) {
+        TextView b = Theme.text(this, label, 15, Theme.PAPER_INK, true);
+        b.setTypeface(Theme.SERIF_BOLD);
+        b.setGravity(Gravity.START | Gravity.CENTER_VERTICAL);
+        b.setBackground(Theme.cell(this, 0xFFF4EACF));
+        int p = (int)(10 * dp);
+        b.setPadding(p, p * 3 / 4, p, p * 3 / 4);
+        b.setMinHeight((int)(44 * dp));
+        if (icon != null) {
+            android.graphics.drawable.Drawable d
+                = new Theme.IconDrawable(icon, 0xFF7A5A2C, (int)(20 * dp));
+            d.setBounds(0, 0, (int)(20 * dp), (int)(20 * dp));
+            b.setCompoundDrawables(d, null, null, null);
+            b.setCompoundDrawablePadding(p);
+        }
+        b.setOnClickListener(l);
+        return b;
+    }
+
+    private LinearLayout.LayoutParams menuParams() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.setMargins(0, 0, 0, (int)(6 * dp));
+        return lp;
+    }
+
+    /** A save slot's file. */
+    private File slotFile(int n) {
+        return new File(saveFile(this).getParentFile(), "slot" + n + ".fsg");
+    }
+
+    /** How a save looks in the lists: its year and nation, and when. */
+    private String describe(File f) {
+        String about = GameSession.describeSave(f);
+        if (about == null) return null;
+        return about + "\n" + android.text.format.DateFormat.getMediumDateFormat(this)
+            .format(new java.util.Date(f.lastModified())) + ", "
+            + android.text.format.DateFormat.getTimeFormat(this)
+            .format(new java.util.Date(f.lastModified()));
+    }
+
+    private void showSave() {
+        if (!session.isMyTurn()) {
+            news.add("You can save during your turn.");
+            return;
+        }
+        final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(16 * dp);
+        box.setPadding(pad, pad / 4, pad, pad / 2);
+        for (int n = 1; n <= SLOTS; n++) {
+            final File f = slotFile(n);
+            final String about = describe(f);
+            final String name = "Slot " + n;
+            box.addView(menuItem(name + ": " + (about == null ? "empty" : about),
+                                 Theme.Icon.SAVE, v -> {
+                        dialog[0].dismiss();
+                        if (about == null) {
+                            saveInto(f, name);
+                        } else {
+                            new android.app.AlertDialog.Builder(this)
+                                .setMessage("Replace the game in " + name + "?")
+                                .setPositiveButton("Replace", (d, w) -> saveInto(f, name))
+                                .setNegativeButton("Cancel", null)
+                                .show();
+                        }
+                    }), menuParams());
+        }
+        dialog[0] = new android.app.AlertDialog.Builder(this)
+            .setTitle("Save game").setView(box)
+            .setNegativeButton("Cancel", null).show();
+    }
+
+    private void saveInto(File f, String name) {
+        session.saveTo(f, err -> runOnUiThread(() ->
+            news.add(err == null ? "Saved in " + name + "." : "Not saved: " + err)));
+    }
+
+    private void showLoad() {
+        final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(16 * dp);
+        box.setPadding(pad, pad / 4, pad, pad / 2);
+        List<File> files = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        files.add(saveFile(this));
+        names.add("Autosave");
+        for (int n = 1; n <= SLOTS; n++) {
+            files.add(slotFile(n));
+            names.add("Slot " + n);
+        }
+        boolean any = false;
+        for (int i = 0; i < files.size(); i++) {
+            final File f = files.get(i);
+            final String about = describe(f);
+            if (about == null) continue;
+            any = true;
+            box.addView(menuItem(names.get(i) + ": " + about, Theme.Icon.LOAD, v -> {
+                        dialog[0].dismiss();
+                        new android.app.AlertDialog.Builder(this)
+                            .setMessage("Leave this game and load " + about.split("\n")[0]
+                                        + "? Anything since your last save is lost.")
+                            .setPositiveButton("Load", (d, w) -> loadGame(f))
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                    }), menuParams());
+        }
+        if (!any) {
+            box.addView(Theme.serif(this, "There are no saved games yet.", 15,
+                                    Theme.PAPER_INK, false));
+        }
+        dialog[0] = new android.app.AlertDialog.Builder(this)
+            .setTitle("Load game").setView(box)
+            .setNegativeButton("Cancel", null).show();
+    }
+
+    /** Start the game screen afresh with a saved game. */
+    private void loadGame(File f) {
+        // Keep a copy: the autosave is overwritten as this screen closes.
+        File src = f;
+        if (f.equals(saveFile(this))) {
+            File copy = new File(f.getParentFile(), "loading.fsg");
+            try {
+                java.nio.file.Files.copy(f.toPath(), copy.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                src = copy;
+            } catch (java.io.IOException e) {
+                news.add("Could not load: " + e.getMessage());
+                return;
+            }
+        }
+        startActivity(new android.content.Intent(this, GameActivity.class)
+                      .putExtra(EXTRA_LOAD, src.getPath()));
+        finish();
+    }
+
+    private void confirmQuit() {
+        new android.app.AlertDialog.Builder(this)
+            .setMessage("Quit to the start screen? The game is saved, and "
+                        + "Continue there carries on from it.")
+            .setPositiveButton("Quit", (d, w) -> {
+                    if (session.isMyTurn()) {
+                        session.saveTo(saveFile(this), err -> runOnUiThread(this::finish));
+                    } else {
+                        finish();
+                    }
+                })
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     /**
