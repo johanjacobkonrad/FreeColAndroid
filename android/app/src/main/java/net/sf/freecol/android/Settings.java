@@ -74,7 +74,7 @@ final class Settings {
     static int slideMillis(Context c) {
         if (!animate(c)) return 0;
         String s = speed(c);
-        return "fast".equals(s) ? 140 : "slow".equals(s) ? 320 : 220;
+        return "fast".equals(s) ? 300 : "slow".equals(s) ? 850 : 500;
     }
 
     /** How long the map shows a unit after it moves, in milliseconds. */

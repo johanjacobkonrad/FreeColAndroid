@@ -81,7 +81,7 @@ public final class MapView extends View {
     private final java.util.ArrayDeque<Anim> anims = new java.util.ArrayDeque<>();
     private Anim current = null;
     /** How long a step takes (0: no animations). */
-    private volatile int slideMillis = 220;
+    private volatile int slideMillis = 500;
 
     void setSlideMillis(int ms) {
         slideMillis = ms;
@@ -99,7 +99,11 @@ public final class MapView extends View {
     /** Show a unit attacking the next tile.  Any thread. */
     void animateAttack(Unit unit, Tile from, Tile to,
                        net.sf.freecol.android.map.Art.Animation frames) {
-        int ms = (frames != null) ? Math.max(200, frames.total()) : 320;
+        // FreeCol's frames last 350 ms in all, which is a blur on a
+        // phone: play them at about the speed of a step (twice as slow
+        // at Normal).
+        float slow = Math.max(1f, slideMillis / 250f);
+        int ms = Math.round(((frames != null) ? Math.max(200, frames.total()) : 320) * slow);
         enqueue(new Anim(unit, from, to, true, frames, ms));
     }
 
