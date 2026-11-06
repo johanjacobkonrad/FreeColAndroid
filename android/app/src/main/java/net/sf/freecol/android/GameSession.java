@@ -181,6 +181,20 @@ public final class GameSession implements MessageHandler {
                                java.util.function.Consumer<String> answer) {
             answer.accept(suggestion);
         }
+
+        /**
+         * Let the player fill in a diplomatic offer (its choice fields)
+         * and send it, or not.  Call the answer exactly once.  Without
+         * a user interface the offer is sent as it is.
+         *
+         * @param offer The offer, to change in place.
+         * @param text Who the offer goes to, and how.
+         * @param answer Receives true to send it.
+         */
+        default void onNegotiate(DiplomacyInfo.Offer offer, String text,
+                                 java.util.function.Consumer<Boolean> answer) {
+            answer.accept(!offer.isEmpty());
+        }
     }
 
     /** The human player's user name. */
@@ -1903,11 +1917,24 @@ public final class GameSession implements MessageHandler {
             st = (to == null) ? null : to.getSettlement();
             if (st == null) return;
         }
-        int c = choose(st.getName(), "Your scout reaches " + st.getName() + ".",
-                       "Spy on the colony", "Attack", "Leave");
+        boolean canTalk;
+        DiplomacyInfo.Offer offer;
+        synchronized (lock) {
+            canTalk = st instanceof Colony && !st.getOwner().isREF();
+            offer = canTalk ? DiplomacyInfo.offer(me, st.getOwner()) : null;
+        }
+        int c = canTalk
+            ? choose(st.getName(), "Your scout reaches " + st.getName() + ".",
+                     "Negotiate", "Spy on the colony", "Attack", "Leave")
+            : choose(st.getName(), "Your scout reaches " + st.getName() + ".",
+                     "Spy on the colony", "Attack", "Leave");
+        if (!canTalk && c >= 0) c++; // No Negotiate on offer
         if (c == 0) {
-            api.spy(unit, st);
+            sendOffer(unit, st, offer, "To the " + offer.name + ", at "
+                      + st.getName() + ".");
         } else if (c == 1) {
+            api.spy(unit, st);
+        } else if (c == 2) {
             if (choose("Attack", "Really attack " + st.getName() + "?",
                        "Attack", "Cancel") == 0) {
                 api.attack(unit, d);
@@ -2747,6 +2774,71 @@ public final class GameSession implements MessageHandler {
             logger.log(Level.WARNING, "Question failed", e);
             return -1;
         }
+    }
+
+    /** Let the player make up an offer, and wait: true to send it. */
+    private boolean negotiate(DiplomacyInfo.Offer offer, String text) {
+        final java.util.concurrent.CompletableFuture<Boolean> f
+            = new java.util.concurrent.CompletableFuture<>();
+        try {
+            listener.onNegotiate(offer, text, f::complete);
+            return Boolean.TRUE.equals(f.get()) && !offer.isEmpty();
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Negotiation failed", e);
+            return false;
+        }
+    }
+
+    /**
+     * Make an offer to another European nation, from the menu: through
+     * a unit or colony of ours next to one of theirs.
+     *
+     * @param other The other nation.
+     * @param prepare For tests: fill in the offer before it is shown
+     *     (or null).
+     */
+    public void proposeDiplomacy(Player other,
+                                 java.util.function.Consumer<DiplomacyInfo.Offer> prepare) {
+        worker.execute(() -> {
+            if (!isMyTurn()) {
+                status("You can negotiate during your turn.");
+                return;
+            }
+            DiplomacyInfo.Nation nation = null;
+            DiplomacyInfo.Offer offer;
+            synchronized (lock) {
+                for (DiplomacyInfo.Nation n : DiplomacyInfo.nations(me)) {
+                    if (n.player == other) nation = n;
+                }
+                if (nation == null || nation.our == null) {
+                    status("None of your units or colonies is next to theirs.");
+                    return;
+                }
+                offer = DiplomacyInfo.offer(me, other);
+            }
+            if (prepare != null) prepare.accept(offer);
+            sendOffer(nation.our, nation.other, offer,
+                      "To the " + nation.name + ", from " + nation.where + ".");
+        });
+    }
+
+    /** Ask for the offer's contents and send it (on the worker). */
+    private void sendOffer(FreeColGameObject our, FreeColGameObject theirs,
+                           DiplomacyInfo.Offer offer, String text) {
+        if (!negotiate(offer, text)) return;
+        DiplomaticTrade dt;
+        synchronized (lock) {
+            dt = DiplomacyInfo.agreement(game, me, offer);
+        }
+        if (dt == null) return;
+        status("You propose to the " + offer.name + ": "
+               + offer.describe().replace("\n", ", ") + ".");
+        api.diplomacy(our, theirs, dt);
+        synchronized (lock) {
+            me.clearNationSummary(me);
+            me.clearNationSummary(offer.other);
+        }
+        changed();
     }
 
     /**

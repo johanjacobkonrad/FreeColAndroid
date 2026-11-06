@@ -339,6 +339,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
             { "Colonies", Theme.Icon.COLONY, (Runnable)this::openColonyList },
             { "Reports", Theme.Icon.ORDERS, (Runnable)this::openReports },
             { "Colopedia", Theme.Icon.BOOK, (Runnable)this::openColopedia },
+            { "Diplomacy", Theme.Icon.JOIN, (Runnable)this::showDiplomacy },
             { "Save game", Theme.Icon.SAVE, (Runnable)this::showSave },
             { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
             { "Quit to start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
@@ -399,6 +400,201 @@ public final class GameActivity extends Activity implements GameSession.Listener
             LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, (int)(6 * dp));
         return lp;
+    }
+
+    // Diplomacy
+
+    /** The other European nations: tap one to make an offer. */
+    private void showDiplomacy() {
+        final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int)(16 * dp);
+        box.setPadding(pad, pad / 4, pad, pad / 2);
+        List<DiplomacyInfo.Nation> nations;
+        synchronized (session.lock()) {
+            nations = DiplomacyInfo.nations(session.getMyPlayer());
+        }
+        TextView intro = Theme.serif(this, "Offers are carried by a unit or colony of "
+            + "yours next to one of theirs, such as a scout at their colony.",
+            13, Theme.PAPER_DIM, false);
+        intro.setPadding(0, 0, 0, pad / 2);
+        box.addView(intro);
+        for (final DiplomacyInfo.Nation n : nations) {
+            String line = n.name + (n.met ? " \u00b7 " + n.stance : "") + "\n"
+                + (!n.met ? "Not met yet"
+                   : (n.where != null) ? "Talk through " + n.where
+                   : "Nobody of yours is next to theirs");
+            final boolean can = n.met && n.our != null;
+            TextView item = menuItem(line, Theme.Icon.JOIN, v -> {
+                    if (!can) return;
+                    dialog[0].dismiss();
+                    session.proposeDiplomacy(n.player, null);
+                });
+            if (!can) item.setAlpha(0.55f);
+            box.addView(item, menuParams());
+        }
+        if (nations.isEmpty()) {
+            box.addView(Theme.serif(this, "There are no other European nations.",
+                                    15, Theme.PAPER_INK, false));
+        }
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(box);
+        dialog[0] = new android.app.AlertDialog.Builder(this)
+            .setTitle("Diplomacy").setView(sv)
+            .setNegativeButton("Close", null).show();
+    }
+
+    @Override
+    public void onNegotiate(final DiplomacyInfo.Offer offer, final String text,
+                            final java.util.function.Consumer<Boolean> answer) {
+        runOnUiThread(() -> {
+            final java.util.concurrent.atomic.AtomicBoolean done
+                = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final Runnable cancel = () -> {
+                if (done.compareAndSet(false, true)) answer.accept(false);
+            };
+            openQuestions.add(cancel);
+            final int pad = (int)(16 * dp);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(pad, pad / 4, pad, pad / 2);
+            TextView to = Theme.serif(this, text, 14, Theme.PAPER_INK, false);
+            box.addView(to);
+
+            // Relations.
+            List<String> stances = new ArrayList<>();
+            stances.add("No change");
+            stances.addAll(offer.stanceNames);
+            negotiateHeading(box, "Relations");
+            box.addView(chips(stances, 0, i ->
+                offer.stance = (i == 0) ? null : offer.stances.get(i - 1)));
+
+            // Gold, both ways.
+            negotiateHeading(box, "You give gold (you have " + offer.myGold + ")");
+            box.addView(stepper(0, offer.myGold, 100, v -> offer.giveGold = v));
+            negotiateHeading(box, "You ask for gold");
+            box.addView(stepper(0, 10000, 100, v -> offer.askGold = v));
+
+            // Colonies, both ways.
+            if (!offer.myColonies.isEmpty()) {
+                negotiateHeading(box, "You give a colony");
+                List<String> names = new ArrayList<>();
+                names.add("None");
+                for (net.sf.freecol.common.model.Colony c : offer.myColonies) names.add(c.getName());
+                box.addView(chips(names, 0, i ->
+                    offer.giveColony = (i == 0) ? null : offer.myColonies.get(i - 1)));
+            }
+            if (!offer.theirColonies.isEmpty()) {
+                negotiateHeading(box, "You ask for a colony");
+                List<String> names = new ArrayList<>();
+                names.add("None");
+                for (net.sf.freecol.common.model.Colony c : offer.theirColonies) names.add(c.getName());
+                box.addView(chips(names, 0, i ->
+                    offer.askColony = (i == 0) ? null : offer.theirColonies.get(i - 1)));
+            }
+            android.widget.ScrollView sv = new android.widget.ScrollView(this);
+            sv.addView(box);
+            final android.app.AlertDialog d = new android.app.AlertDialog.Builder(this)
+                .setTitle("Offer to the " + offer.name)
+                .setView(sv)
+                .setPositiveButton("Send offer", null)
+                .setNegativeButton("Cancel", (x, w) -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
+                .setOnCancelListener(x -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
+                .create();
+            d.setOnShowListener(x -> d.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                        if (offer.isEmpty()) {
+                            to.setText(text + "\nChoose something to offer or ask for first.");
+                            return;
+                        }
+                        openQuestions.remove(cancel);
+                        d.dismiss();
+                        if (done.compareAndSet(false, true)) answer.accept(true);
+                    }));
+            d.show();
+        });
+    }
+
+    private void negotiateHeading(LinearLayout box, String s) {
+        TextView h = Theme.heading(this, s, 0xFF7A5A2C);
+        h.setPadding(0, (int)(10 * dp), 0, (int)(4 * dp));
+        box.addView(h);
+    }
+
+    /** A row of choices, one picked (gold). */
+    private android.view.View chips(List<String> names, int picked,
+                                    java.util.function.IntConsumer onPick) {
+        final LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final List<TextView> all = new ArrayList<>();
+        for (int i = 0; i < names.size(); i++) {
+            final int which = i;
+            TextView t = Theme.text(this, names.get(i), 13, Theme.PAPER_INK, true);
+            t.setGravity(Gravity.CENTER);
+            int p = (int)(10 * dp);
+            t.setPadding(p, p / 2, p, p / 2);
+            t.setMinHeight((int)(38 * dp));
+            t.setOnClickListener(v -> {
+                    for (int j = 0; j < all.size(); j++) {
+                        all.get(j).setBackground((j == which) ? Theme.gold(this)
+                                                 : Theme.cell(this, 0xFFF4EACF));
+                    }
+                    onPick.accept(which);
+                });
+            t.setBackground((i == picked) ? Theme.gold(this) : Theme.cell(this, 0xFFF4EACF));
+            all.add(t);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, (int)(6 * dp), 0);
+            row.addView(t, lp);
+        }
+        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
+        hs.setHorizontalScrollBarEnabled(false);
+        hs.addView(row);
+        return hs;
+    }
+
+    /** An amount with - and + buttons. */
+    private android.view.View stepper(final int min, final int max, final int step,
+                                      final java.util.function.IntConsumer onChange) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        final int[] value = { min };
+        final TextView amount = Theme.serif(this, min + " gold", 15, Theme.PAPER_INK, true);
+        amount.setGravity(Gravity.CENTER);
+        amount.setMinWidth((int)(110 * dp));
+        String[] labels = { "\u2212" + (step * 10), "\u2212" + step, null, "+" + step, "+" + (step * 10) };
+        int[] deltas = { -step * 10, -step, 0, step, step * 10 };
+        for (int i = 0; i < labels.length; i++) {
+            if (labels[i] == null) {
+                row.addView(amount);
+                continue;
+            }
+            final int delta = deltas[i];
+            TextView b = Theme.text(this, labels[i], 13, Theme.PAPER_INK, true);
+            b.setGravity(Gravity.CENTER);
+            b.setBackground(Theme.cell(this, 0xFFF4EACF));
+            b.setMinWidth((int)(52 * dp));
+            b.setMinHeight((int)(38 * dp));
+            b.setOnClickListener(v -> {
+                    value[0] = Math.max(min, Math.min(max, value[0] + delta));
+                    amount.setText(value[0] + " gold");
+                    onChange.accept(value[0]);
+                });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.setMargins(0, 0, (int)(5 * dp), 0);
+            row.addView(b, lp);
+        }
+        return row;
     }
 
     // Reports and the Colopedia
