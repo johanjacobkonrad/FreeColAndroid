@@ -755,6 +755,20 @@ public final class SessionCheck {
                 }
                 ok &= page.size() > 0;
             }
+            // Diplomacy: who we could talk to, and an offer's agreement.
+            for (DiplomacyInfo.Nation n : DiplomacyInfo.nations(me)) {
+                System.out.println("  diplomacy: " + n.name + " met " + n.met + ", "
+                    + n.stance + ", " + (n.where == null ? "no contact" : n.where));
+                DiplomacyInfo.Offer o = DiplomacyInfo.offer(me, n.player);
+                ok &= DiplomacyInfo.agreement(s.getGame(), me, o) == null;
+                o.stance = o.stances.get(0);
+                o.askGold = 100;
+                net.sf.freecol.common.model.DiplomaticTrade dt
+                    = DiplomacyInfo.agreement(s.getGame(), me, o);
+                System.out.println("    offer: " + o.describe().replace('\n', ';')
+                    + " -> " + dt.getItems().size() + " items");
+                ok &= dt.getItems().size() == 2;
+            }
             net.sf.freecol.common.model.Specification spec = s.getGame().getSpecification();
             for (ColopediaInfo.Kind k : ColopediaInfo.Kind.values()) {
                 InfoPage list = ColopediaInfo.list(spec, k);

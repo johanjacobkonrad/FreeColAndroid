@@ -31,7 +31,8 @@ app=android/app/src/main/java/net/sf/freecol/android
     echo $app/Engine.java $app/LocalServerAPI.java $app/GameSession.java \
          $app/SessionCheck.java $app/ColonyInfo.java \
          $app/EuropeInfo.java $app/NewGameOptions.java $app/ColonyListInfo.java \
-         $app/InfoPage.java $app/ReportInfo.java $app/ColopediaInfo.java
+         $app/InfoPage.java $app/ReportInfo.java $app/ColopediaInfo.java \
+         $app/DiplomacyInfo.java
     find $app/map -name '*.java'
     if [ "${1:-}" = "--preview" ]; then
         find android/preview -name '*.java'
