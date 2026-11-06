@@ -100,6 +100,11 @@ public final class MainActivity extends Activity {
         title.setTypeface(Typeface.create(Typeface.SERIF, Typeface.BOLD));
         title.setShadowLayer(6 * dp, 0, 2 * dp, Color.BLACK);
         titles.addView(title);
+        // Hidden: hold the title for test games.
+        title.setOnLongClickListener(v -> {
+                showTestGames();
+                return true;
+            });
         TextView sub = text("The colonization of the New World", 15, INK_DIM, false);
         sub.setTypeface(Typeface.create(Typeface.SERIF, Typeface.ITALIC));
         sub.setShadowLayer(4 * dp, 0, 1 * dp, Color.BLACK);
@@ -190,6 +195,40 @@ public final class MainActivity extends Activity {
         setRight(box);
     }
 
+
+    // Test games (hold the title)
+
+    private void showTestGames() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Test games")
+            .setItems(new String[] {
+                    "Start near independence: three colonies, 70% rebels, an army, "
+                    + "and a small royal army to fight" },
+                (d, w) -> startTest("scenarios/independence.fsg"))
+            .setNegativeButton("Cancel", null)
+            .show();
+    }
+
+    /** Copy a test game out of the app and play it (saved apart from yours). */
+    private void startTest(String asset) {
+        java.io.File dir = new java.io.File(getFilesDir(), "saves");
+        dir.mkdirs();
+        java.io.File f = new java.io.File(dir, "test-start.fsg");
+        try (java.io.InputStream in = getAssets().open(asset);
+             java.io.OutputStream out = new java.io.FileOutputStream(f)) {
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        } catch (java.io.IOException e) {
+            new android.app.AlertDialog.Builder(this)
+                .setMessage("The test game is missing: " + e.getMessage())
+                .setPositiveButton("OK", null).show();
+            return;
+        }
+        startActivity(new Intent(this, GameActivity.class)
+                      .putExtra(GameActivity.EXTRA_LOAD, f.getPath())
+                      .putExtra(GameActivity.EXTRA_TEST, true));
+    }
 
     // New game setup
 

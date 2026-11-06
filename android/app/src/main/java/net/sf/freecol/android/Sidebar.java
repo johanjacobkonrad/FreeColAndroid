@@ -401,7 +401,8 @@ final class Sidebar extends LinearLayout {
         Theme.enable(nextB, myTurn);
         Theme.enable(waitB, myTurn && has);
         Theme.enable(ordersB, myTurn && has);
-        Theme.enable(europeB, session.isInGame());
+        // No Europe once independence is declared.
+        Theme.enable(europeB, session.isInGame() && session.hasEurope());
         Theme.enable(endB, myTurn);
     }
 }

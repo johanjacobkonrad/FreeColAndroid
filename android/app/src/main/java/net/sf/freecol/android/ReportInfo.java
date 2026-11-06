@@ -87,6 +87,18 @@ public final class ReportInfo {
         InfoPage page = new InfoPage(Kind.CONGRESS.label);
         page.summary = "Rebels " + me.getSoL() + "% · "
             + me.getFoundingFathers().size() + " founding fathers";
+        // Independence: whether we can declare yet.
+        if (me.getPlayerType() == Player.PlayerType.COLONIAL) {
+            net.sf.freecol.common.model.StringTemplate why = me.checkDeclareIndependence();
+            page.section("Independence").add("image.flavor.Declaration",
+                (why == null) ? "You can declare independence" : "Not ready to declare",
+                (why == null) ? "Menu \u2192 Declare independence. The King will send his army."
+                    : Messages.message(why) + " Your colonies are " + me.getSoL() + "% rebels.",
+                null);
+        } else if (me.getPlayerType() == Player.PlayerType.REBEL) {
+            page.section("Independence").add("image.flavor.Declaration",
+                "At war with the crown", "Defeat the royal army to win independence.", null);
+        }
         InfoPage.Section now = page.section("Now recruiting");
         FoundingFather current = me.getCurrentFather();
         if (current == null) {

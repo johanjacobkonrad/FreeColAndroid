@@ -49,6 +49,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
     static final String EXTRA_CONTINUE = "continue";
     /** Intent extra: load this saved game (a path). */
     static final String EXTRA_LOAD = "load";
+    /** Intent extra: a test game, saved apart from your own game. */
+    static final String EXTRA_TEST = "test";
     /** How many save slots the menu offers, besides the autosave. */
     private static final int SLOTS = 3;
     /** Intent extras for a new game (see NewGameOptions). */
@@ -243,7 +245,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 File data = new File(getFilesDir(), "data");
                 Assets.copy(getAssets(), "data", data);
                 Engine.init(data);
-                File save = saveFile(this);
+                File save = autosave();
                 session.setSaveFile(save);
                 String load = getIntent().getStringExtra(EXTRA_LOAD);
                 if (load != null && new File(load).isFile()) {
@@ -313,6 +315,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     }
 
     private void openEurope() {
+        if (!session.hasEurope()) return;
         europePanel.setVisibility(android.view.View.VISIBLE);
         europePanel.show();
         europePanel.requestApplyInsets();
@@ -361,6 +364,13 @@ public final class GameActivity extends Activity implements GameSession.Listener
             { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
             { "Quit to start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
         };
+        if (session.canEverDeclare()) {
+            Object[][] more = java.util.Arrays.copyOf(items, items.length + 1);
+            more[items.length - 1] = new Object[] { "Declare independence",
+                Theme.Icon.FLAG, (Runnable)this::confirmDeclare };
+            more[items.length] = items[items.length - 1]; // Quit stays last
+            items = more;
+        }
         // Two to a row, so it fits a phone held sideways.
         LinearLayout row = null;
         for (int i = 0; i < items.length; i++) {
@@ -417,6 +427,101 @@ public final class GameActivity extends Activity implements GameSession.Listener
             LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, (int)(6 * dp));
         return lp;
+    }
+
+    // Independence
+
+    /** Declare independence: the reason it can not happen yet, or the
+     *  Declaration with our new names. */
+    private void confirmDeclare() {
+        if (!session.isMyTurn()) {
+            news.add("You can declare independence during your turn.");
+            return;
+        }
+        String why = session.declareProblem();
+        if (why != null) {
+            int rebels;
+            synchronized (session.lock()) {
+                rebels = session.getMyPlayer().getSoL();
+            }
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Not yet")
+                .setMessage(why + "\n\nYour colonies are " + rebels + "% rebels. "
+                    + "Liberty bells (from statesmen in the town hall, printing "
+                    + "presses and newspapers) make more colonists rebels.")
+                .setPositiveButton("OK", null)
+                .show();
+            return;
+        }
+        final String[] names = session.declarationNames();
+        int pad = (int)(16 * dp);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(pad, pad / 4, pad, 0);
+        net.sf.freecol.android.map.Art.Img doi = art.get("image.flavor.Declaration");
+        if (doi != null) {
+            android.widget.ImageView iv = new android.widget.ImageView(this);
+            iv.setImageBitmap((android.graphics.Bitmap)doi.handle);
+            iv.setAdjustViewBounds(true);
+            iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            box.addView(iv, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, (int)(120 * dp)));
+        }
+        box.addView(Theme.serif(this, "Let us renounce the unjust tyranny of the crown "
+            + "and declare the independence of our colonies! The King will send his "
+            + "army, and everything we have in Europe or sailing there will be seized.",
+            14, Theme.PAPER_INK, false));
+        box.addView(Theme.heading(this, "Our country will be known as", 0xFF7A5A2C));
+        final android.widget.EditText country = nameField(names[1]);
+        box.addView(country);
+        box.addView(Theme.heading(this, "And its people as", 0xFF7A5A2C));
+        final android.widget.EditText nation = nameField(names[0]);
+        box.addView(nation);
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(box);
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Declaration of Independence")
+            .setView(sv)
+            .setPositiveButton("Liberty or Death!", (d, w) -> {
+                    String n = nation.getText().toString().trim();
+                    String c = country.getText().toString().trim();
+                    if (n.isEmpty()) n = names[0];
+                    if (c.isEmpty()) c = names[1];
+                    session.declareIndependence(n, c, text -> runOnUiThread(() -> {
+                            if (text == null) return;
+                            new android.app.AlertDialog.Builder(this)
+                                .setTitle("Independence!")
+                                .setMessage(text)
+                                .setPositiveButton("To arms", null)
+                                .show();
+                            refresh();
+                        }));
+                })
+            .setNegativeButton("Maybe later", null)
+            .show();
+    }
+
+    private android.widget.EditText nameField(String text) {
+        android.widget.EditText e = new android.widget.EditText(this);
+        e.setSingleLine(true);
+        e.setText(text);
+        e.setTypeface(Theme.SERIF_BOLD);
+        e.setTextColor(Theme.PAPER_INK);
+        e.setTextSize(16);
+        e.setBackground(Theme.cell(this, 0xFFF6EED8));
+        int p = (int)(8 * dp);
+        e.setPadding(p * 3 / 2, p, p * 3 / 2, p);
+        return e;
+    }
+
+    @Override
+    public void onGameOver(final boolean won, final String text) {
+        runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
+            .setTitle(won ? "Victory" : "The game is over")
+            .setMessage(text)
+            .setPositiveButton(won ? "Continue playing" : "Look at the map", null)
+            .setNegativeButton("Quit to start screen", (d, w) -> finish())
+            .show());
     }
 
     // Trade routes
@@ -716,7 +821,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     /** A save slot's file. */
     private File slotFile(int n) {
-        return new File(saveFile(this).getParentFile(), "slot" + n + ".fsg");
+        return new File(autosave().getParentFile(), "slot" + n + ".fsg");
     }
 
     /** How a save looks in the lists: its year and nation, and when. */
@@ -775,7 +880,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         box.setPadding(pad, pad / 4, pad, pad / 2);
         List<File> files = new ArrayList<>();
         List<String> names = new ArrayList<>();
-        files.add(saveFile(this));
+        files.add(autosave());
         names.add("Autosave");
         for (int n = 1; n <= SLOTS; n++) {
             files.add(slotFile(n));
@@ -810,7 +915,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private void loadGame(File f) {
         // Keep a copy: the autosave is overwritten as this screen closes.
         File src = f;
-        if (f.equals(saveFile(this))) {
+        if (f.equals(autosave())) {
             File copy = new File(f.getParentFile(), "loading.fsg");
             try {
                 java.nio.file.Files.copy(f.toPath(), copy.toPath(),
@@ -832,13 +937,23 @@ public final class GameActivity extends Activity implements GameSession.Listener
                         + "Continue there carries on from it.")
             .setPositiveButton("Quit", (d, w) -> {
                     if (session.isMyTurn()) {
-                        session.saveTo(saveFile(this), err -> runOnUiThread(this::finish));
+                        session.saveTo(autosave(), err -> runOnUiThread(this::finish));
                     } else {
                         finish();
                     }
                 })
             .setNegativeButton("Cancel", null)
             .show();
+    }
+
+    /**
+     * This game's autosave: your game's, or a test game's own so that
+     * playing a test never replaces your game.
+     */
+    private File autosave() {
+        File f = saveFile(this);
+        return getIntent().getBooleanExtra(EXTRA_TEST, false)
+            ? new File(f.getParentFile(), "test-autosave.fsg") : f;
     }
 
     /**

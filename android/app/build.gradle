@@ -55,6 +55,8 @@ def syncArtAssets = tasks.register('syncArtAssets', Sync) {
         include 'resources/images/ui/military.png'
         include 'resources/images/ui/political.png'
         include 'resources/images/ui/religious.png'
+        // The Declaration of Independence, shown when you declare.
+        include 'resources/images/ui/doi.png'
         include 'resources/images/river/*.png'
         // Only the standard size: the ".size9" images are most of it.
         exclude '**/*.size*.png'
@@ -92,7 +94,7 @@ android {
     sourceSets {
         main {
             java.srcDir engineSrc
-            assets.srcDirs engineAssets, artAssets
+            assets.srcDirs 'src/main/assets', engineAssets, artAssets
         }
     }
 
