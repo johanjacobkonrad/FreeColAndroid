@@ -357,62 +357,76 @@ public final class GameActivity extends Activity implements GameSession.Listener
         final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
         LinearLayout box = new LinearLayout(this);
         box.setOrientation(LinearLayout.VERTICAL);
-        int pad = (int)(16 * dp);
-        box.setPadding(pad, pad / 4, pad, pad / 2);
-        Object[][] items = {
-            { "Resume game", Theme.Icon.NEXT, (Runnable)() -> {} },
-            { "Colonies", Theme.Icon.COLONY, (Runnable)this::openColonyList },
-            { "Reports", Theme.Icon.ORDERS, (Runnable)this::openReports },
-            { "Colopedia", Theme.Icon.BOOK, (Runnable)this::openColopedia },
-            { "Diplomacy", Theme.Icon.JOIN, (Runnable)this::showDiplomacy },
-            { "Trade routes", Theme.Icon.SHIP, (Runnable)this::openRoutes },
-            { "Save game", Theme.Icon.SAVE, (Runnable)this::showSave },
-            { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
-            { "Quit to start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
-        };
+        int pad = (int)(12 * dp);
+        box.setPadding(pad, pad, pad, pad);
+        List<Object[]> items = new ArrayList<>();
+        items.add(new Object[] { "Resume", Theme.Icon.NEXT, (Runnable)() -> {} });
+        items.add(new Object[] { "Colonies", Theme.Icon.COLONY, (Runnable)this::openColonyList });
+        items.add(new Object[] { "Reports", Theme.Icon.ORDERS, (Runnable)this::openReports });
+        items.add(new Object[] { "Colopedia", Theme.Icon.BOOK, (Runnable)this::openColopedia });
+        items.add(new Object[] { "Diplomacy", Theme.Icon.JOIN, (Runnable)this::showDiplomacy });
+        items.add(new Object[] { "Trade routes", Theme.Icon.SHIP, (Runnable)this::openRoutes });
         if (session.canEverDeclare()) {
-            Object[][] more = java.util.Arrays.copyOf(items, items.length + 1);
-            more[items.length - 1] = new Object[] { "Declare independence",
-                Theme.Icon.FLAG, (Runnable)this::confirmDeclare };
-            more[items.length] = items[items.length - 1]; // Quit stays last
-            items = more;
+            items.add(new Object[] { "Independence", Theme.Icon.FLAG,
+                                     (Runnable)this::confirmDeclare });
         }
-        {
-            // Retire goes just before Quit.
-            Object[][] more = java.util.Arrays.copyOf(items, items.length + 1);
-            more[items.length - 1] = new Object[] { "Retire", Theme.Icon.CLOSE,
-                (Runnable)this::confirmRetire };
-            more[items.length] = items[items.length - 1];
-            items = more;
-        }
-        // Two to a row, so it fits a phone held sideways.
+        items.add(new Object[] { "Save", Theme.Icon.SAVE, (Runnable)this::showSave });
+        items.add(new Object[] { "Load", Theme.Icon.LOAD, (Runnable)this::showLoad });
+        items.add(new Object[] { "Retire", Theme.Icon.CLOSE, (Runnable)this::confirmRetire });
+        items.add(new Object[] { "Quit", Theme.Icon.BACK, (Runnable)this::confirmQuit });
+        // Three to a row of squarish tiles, icon over the name, so it
+        // fits a phone held sideways.
+        final int cols = 3;
         LinearLayout row = null;
-        for (int i = 0; i < items.length; i++) {
-            final Object[] it = items[i];
+        for (int i = 0; i < items.size(); i++) {
+            final Object[] it = items.get(i);
             final Runnable action = (Runnable)it[2];
-            if (i % 2 == 0) {
+            if (i % cols == 0) {
                 row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 box.addView(row);
             }
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
-            lp.setMargins((i % 2 == 0) ? 0 : (int)(3 * dp), 0,
-                          (i % 2 == 0) ? (int)(3 * dp) : 0, (int)(6 * dp));
-            row.addView(menuItem((String)it[0], (Theme.Icon)it[1], v -> {
+                0, (int)(62 * dp), 1f);
+            int m = (int)(3 * dp);
+            lp.setMargins(m, m, m, m);
+            row.addView(menuTile((String)it[0], (Theme.Icon)it[1], v -> {
                         dialog[0].dismiss();
                         action.run();
                     }), lp);
         }
-        if (items.length % 2 == 1) {
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        for (int i = items.size() % cols; i > 0 && i < cols; i++) {
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, 1, 1f);
             row.addView(new android.view.View(this), lp);
         }
         android.widget.ScrollView sv = new android.widget.ScrollView(this);
         sv.addView(box);
-        dialog[0] = new android.app.AlertDialog.Builder(this)
-            .setTitle("Menu").setView(sv).show();
+        dialog[0] = new android.app.AlertDialog.Builder(this).setView(sv).show();
+        // Wide enough for three tiles a row.
+        if (dialog[0].getWindow() != null) {
+            int w = Math.min(getResources().getDisplayMetrics().widthPixels - (int)(32 * dp),
+                             (int)(540 * dp));
+            dialog[0].getWindow().setLayout(w, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+    }
+
+    /** A square-ish menu tile: the icon over its name. */
+    private TextView menuTile(String label, Theme.Icon icon,
+                              android.view.View.OnClickListener l) {
+        TextView b = Theme.text(this, label, 13, Theme.PAPER_INK, true);
+        b.setTypeface(Theme.SERIF_BOLD);
+        b.setGravity(Gravity.CENTER);
+        b.setMaxLines(1);
+        b.setBackground(Theme.cell(this, 0xFFF4EACF));
+        int p = (int)(4 * dp);
+        b.setPadding(p, p, p, p);
+        android.graphics.drawable.Drawable d
+            = new Theme.IconDrawable(icon, 0xFF7A5A2C, (int)(22 * dp));
+        d.setBounds(0, 0, (int)(22 * dp), (int)(22 * dp));
+        b.setCompoundDrawables(null, d, null, null);
+        b.setCompoundDrawablePadding((int)(4 * dp));
+        b.setOnClickListener(l);
+        return b;
     }
 
     private TextView menuItem(String label, Theme.Icon icon,
