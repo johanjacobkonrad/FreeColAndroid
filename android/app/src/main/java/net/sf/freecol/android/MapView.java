@@ -25,6 +25,7 @@ import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 import android.view.View;
 
+import net.sf.freecol.android.map.IsometricRenderer;
 import net.sf.freecol.android.map.MapRenderer;
 import net.sf.freecol.android.map.Viewport;
 import net.sf.freecol.common.model.Colony;
@@ -55,6 +56,129 @@ public final class MapView extends View {
     }
 
     private ColonyOpener colonyOpener = null;
+
+    // Animations: units sliding between tiles, and attacks.
+
+    private static final class Anim {
+        final Unit unit;
+        final Tile from, to;
+        final net.sf.freecol.android.map.Art.Animation frames; // Attacks
+        final boolean attack;
+        final int millis;
+        long start = -1;
+
+        Anim(Unit unit, Tile from, Tile to, boolean attack,
+             net.sf.freecol.android.map.Art.Animation frames, int millis) {
+            this.unit = unit;
+            this.from = from;
+            this.to = to;
+            this.attack = attack;
+            this.frames = frames;
+            this.millis = millis;
+        }
+    }
+
+    private final java.util.ArrayDeque<Anim> anims = new java.util.ArrayDeque<>();
+    private Anim current = null;
+    /** How long a step takes (0: no animations). */
+    private volatile int slideMillis = 220;
+
+    void setSlideMillis(int ms) {
+        slideMillis = ms;
+    }
+
+    private IsometricRenderer iso() {
+        return (renderer instanceof IsometricRenderer) ? (IsometricRenderer)renderer : null;
+    }
+
+    /** Show a unit going from one tile to the next.  Any thread. */
+    void animateMove(Unit unit, Tile from, Tile to) {
+        enqueue(new Anim(unit, from, to, false, null, slideMillis));
+    }
+
+    /** Show a unit attacking the next tile.  Any thread. */
+    void animateAttack(Unit unit, Tile from, Tile to,
+                       net.sf.freecol.android.map.Art.Animation frames) {
+        int ms = (frames != null) ? Math.max(200, frames.total()) : 320;
+        enqueue(new Anim(unit, from, to, true, frames, ms));
+    }
+
+    private void enqueue(Anim a) {
+        if (slideMillis <= 0 || iso() == null || !isShown()) return;
+        synchronized (anims) {
+            if (anims.size() > 8) return; // Too much at once: just jump
+            anims.add(a);
+        }
+        iso().setHidden(a.unit, true);
+        postInvalidateOnAnimation();
+    }
+
+    /** Wait until every animation queued so far has been shown. */
+    void awaitAnimations() {
+        long end = System.currentTimeMillis() + 3000;
+        synchronized (anims) {
+            while ((current != null || !anims.isEmpty())
+                   && System.currentTimeMillis() < end && isShown()) {
+                try {
+                    anims.wait(50);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
+        }
+    }
+
+    /** Draw the current animation (on the UI thread, in onDraw). */
+    private void drawAnimation() {
+        IsometricRenderer r = iso();
+        if (r == null) return;
+        Anim a;
+        synchronized (anims) {
+            if (current == null) current = anims.poll();
+            a = current;
+        }
+        if (a == null) return;
+        long now = android.os.SystemClock.uptimeMillis();
+        if (a.start < 0) a.start = now;
+        float t = Math.min(1f, (now - a.start) / (float)a.millis);
+        float fx = r.centreX(a.from), fy = r.centreY(a.from);
+        float tx = r.centreX(a.to), ty = r.centreY(a.to);
+        boolean west = tx < fx;
+        if (!a.attack) {
+            // Ease in and out.
+            float e = t * t * (3 - 2 * t);
+            r.drawUnitAt(surface, a.unit, null, fx + (tx - fx) * e, fy + (ty - fy) * e,
+                         viewport, session.getMyPlayer(), false);
+        } else if (a.frames != null) {
+            int at = (int)(t * a.frames.total()), i = 0;
+            for (int acc = 0; i < a.frames.frames.size() - 1; i++) {
+                acc += a.frames.millis.get(i);
+                if (at < acc) break;
+            }
+            // A little towards the enemy, facing them.
+            r.drawUnitAt(surface, a.unit, a.frames.frames.get(i),
+                         fx + (tx - fx) * 0.25f, fy + (ty - fy) * 0.25f,
+                         viewport, session.getMyPlayer(), west);
+        } else {
+            // No frames for this unit: a lunge towards the enemy and back.
+            float e = (t < 0.5f) ? t * 2 : (1 - t) * 2;
+            r.drawUnitAt(surface, a.unit, null, fx + (tx - fx) * 0.4f * e,
+                         fy + (ty - fy) * 0.4f * e, viewport, session.getMyPlayer(), false);
+        }
+        if (t >= 1f) {
+            synchronized (anims) {
+                current = null;
+                // Show it on its tile again unless another animation of
+                // it is waiting.
+                boolean again = false;
+                for (Anim o : anims) if (o.unit == a.unit) again = true;
+                if (!again) r.setHidden(a.unit, false);
+                anims.notifyAll();
+            }
+        }
+        postInvalidateOnAnimation();
+    }
     private boolean centred = false;
     private Unit lastSelected = null;
 
@@ -209,6 +333,7 @@ public final class MapView extends View {
             surface.canvas = canvas;
             renderer.draw(surface, map, session.getMyPlayer(),
                           session.getSelectedUnit(), viewport);
+            drawAnimation();
             surface.canvas = null;
         }
         if (onRedraw != null) onRedraw.run();

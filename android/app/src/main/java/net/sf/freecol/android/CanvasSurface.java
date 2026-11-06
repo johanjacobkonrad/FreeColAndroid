@@ -80,6 +80,15 @@ final class CanvasSurface implements Surface {
     }
 
     @Override
+    public void drawImageFlipped(Art.Img img, float x, float y, float w, float h) {
+        canvas.save();
+        canvas.scale(-1f, 1f, x + w / 2f, y + h / 2f);
+        dst.set(x, y, x + w, y + h);
+        canvas.drawBitmap((Bitmap)img.handle, null, dst, plain);
+        canvas.restore();
+    }
+
+    @Override
     public void fillRect(float x, float y, float w, float h, int argb) {
         fill.setColor(argb);
         canvas.drawRect(x, y, x + w, y + h, fill);

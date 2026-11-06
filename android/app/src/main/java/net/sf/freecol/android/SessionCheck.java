@@ -102,8 +102,19 @@ public final class SessionCheck {
             synchronized (s.lock()) {
                 Map map = s.getGame().getMap();
                 if (ship == null) {
+                    // Our ship (the game may have selected someone else
+                    // first, such as a colonist aboard it).
                     ship = s.getSelectedUnit();
-                    if (ship == null || !ship.isNaval()) break;
+                    if (ship == null || !ship.isNaval()) {
+                        ship = null;
+                        for (Unit u : s.getMyPlayer().getUnitSet()) {
+                            if (u.isNaval() && u.hasTile()) ship = u;
+                        }
+                    }
+                    if (ship == null) {
+                        System.out.println("No ship to sail; selected: " + s.getSelectedUnit());
+                        break;
+                    }
                     shipStart = ship.getTile();
                 }
                 if (turn == 0) {

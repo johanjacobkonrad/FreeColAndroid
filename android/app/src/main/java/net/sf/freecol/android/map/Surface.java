@@ -39,6 +39,14 @@ public interface Surface {
     void drawImage(Art.Img img, float x, float y, float w, float h,
                    boolean faded);
 
+    /**
+     * Draw an image mirrored left to right (a unit facing the other
+     * way).  Surfaces that can not mirror draw it as it is.
+     */
+    default void drawImageFlipped(Art.Img img, float x, float y, float w, float h) {
+        drawImage(img, x, y, w, h, false);
+    }
+
     /** Fill a rectangle with an ARGB colour. */
     void fillRect(float x, float y, float w, float h, int argb);
 

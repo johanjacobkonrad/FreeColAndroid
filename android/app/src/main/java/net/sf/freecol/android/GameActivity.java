@@ -92,6 +92,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         }
         renderer = new IsometricRenderer(art);
         mapView = new MapView(this, session, renderer);
+        mapView.setSlideMillis(Settings.slideMillis(this));
         minimap = new MinimapView(this, session, art);
         minimap.setViewport(mapView.getViewport());
         minimap.setJumper(mapView::jumpTo);
@@ -1052,10 +1053,45 @@ public final class GameActivity extends Activity implements GameSession.Listener
         Audio.get(this).play(key);
     }
 
+    @Override
+    public void onUnitMoved(Unit unit, Tile from, Tile to) {
+        mapView.animateMove(unit, from, to);
+    }
+
+    @Override
+    public void onAttack(Unit unit, Tile from, Tile to) {
+        mapView.animateAttack(unit, from, to, attackFrames(unit));
+    }
+
+    @Override
+    public void awaitAnimations() {
+        mapView.awaitAnimations();
+    }
+
+    /** FreeCol's attack animation for a unit, if it has one. */
+    private net.sf.freecol.android.map.Art.Animation attackFrames(Unit unit) {
+        String type, role;
+        boolean naval;
+        synchronized (session.lock()) {
+            type = unit.getType().getId();
+            String r = unit.getRole().getId();
+            role = r.substring(r.lastIndexOf('.') + 1);
+            naval = unit.isNaval();
+        }
+        String dir = naval ? "sw" : "e";
+        net.sf.freecol.android.map.Art.Animation a
+            = art.animation("animation.unit." + type + "." + role + ".attack." + dir);
+        if (a == null) a = art.animation("animation.unit." + type + ".attack." + dir);
+        return a;
+    }
+
     /** Settings, from the game menu: two columns, no scrolling. */
     private void showSettings() {
         int pad = (int)(22 * dp);
-        LinearLayout box = Settings.view(this, ms -> session.setMovePause(ms), true);
+        LinearLayout box = Settings.view(this, ms -> {
+                session.setMovePause(ms);
+                mapView.setSlideMillis(Settings.slideMillis(this));
+            }, true);
         box.setPadding(pad, pad / 3, pad, 0);
         android.app.AlertDialog d = new android.app.AlertDialog.Builder(this)
             .setTitle("Settings").setView(box)

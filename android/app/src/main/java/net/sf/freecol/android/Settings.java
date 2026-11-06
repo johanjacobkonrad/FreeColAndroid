@@ -39,7 +39,7 @@ import java.util.List;
 final class Settings {
 
     private static final String FILE = "settings", MUSIC = "music", EFFECTS = "effects",
-        SPEED = "speed";
+        SPEED = "speed", ANIMATE = "animate";
 
     /** Move speeds: id, name, pause in milliseconds. */
     static final Object[][] SPEEDS = {
@@ -63,6 +63,18 @@ final class Settings {
 
     static String speed(Context c) {
         return prefs(c).getString(SPEED, "normal");
+    }
+
+    /** Units slide between tiles and attacks are shown. */
+    static boolean animate(Context c) {
+        return prefs(c).getBoolean(ANIMATE, true);
+    }
+
+    /** How long a unit takes to slide one tile (0: no animations). */
+    static int slideMillis(Context c) {
+        if (!animate(c)) return 0;
+        String s = speed(c);
+        return "fast".equals(s) ? 140 : "slow".equals(s) ? 320 : 220;
     }
 
     /** How long the map shows a unit after it moves, in milliseconds. */
@@ -131,27 +143,53 @@ final class Settings {
                                   12, look.dim, false);
         why.setPadding(0, Theme.px(c, 2), 0, Theme.px(c, 6));
         right.addView(why);
-        final List<TextView> all = new ArrayList<>();
-        for (Object[] sp : SPEEDS) {
-            final String id = (String)sp[0];
-            TextView t = Theme.text(c, (String)sp[1], 14, look.ink, true);
-            t.setGravity(Gravity.CENTER);
-            t.setTag(id);
-            t.setOnClickListener(v -> {
-                    prefs(c).edit().putString(SPEED, id).apply();
-                    for (TextView o : all) mark(c, look, o, o.getTag().equals(id));
-                    if (onSpeed != null) onSpeed.accept(movePause(c));
-                });
-            all.add(t);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, Theme.px(c, 42));
-            lp.setMargins(0, 0, 0, Theme.px(c, 6));
-            right.addView(t, lp);
-            mark(c, look, t, id.equals(speed(c)));
-        }
+        List<String[]> speeds = new ArrayList<>();
+        for (Object[] sp : SPEEDS) speeds.add(new String[] { (String)sp[0], (String)sp[1] });
+        right.addView(choices(c, look, speeds, speed(c), id -> {
+                prefs(c).edit().putString(SPEED, id).apply();
+                if (onSpeed != null) onSpeed.accept(movePause(c));
+            }));
+        TextView ah = Theme.heading(c, "Animations", look.heading);
+        ah.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 2));
+        right.addView(ah);
+        TextView aw = Theme.text(c, "Units slide from tile to tile, and attacks are shown.",
+                                 12, look.dim, false);
+        aw.setPadding(0, 0, 0, Theme.px(c, 6));
+        right.addView(aw);
+        List<String[]> onOff = new ArrayList<>();
+        onOff.add(new String[] { "on", "On" });
+        onOff.add(new String[] { "off", "Off" });
+        right.addView(choices(c, look, onOff, animate(c) ? "on" : "off", id -> {
+                prefs(c).edit().putBoolean(ANIMATE, "on".equals(id)).apply();
+                if (onSpeed != null) onSpeed.accept(movePause(c));
+            }));
         cols.addView(right, new LinearLayout.LayoutParams(0,
             LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         return cols;
+    }
+
+    /** A row of choices, one picked (gold). */
+    private static LinearLayout choices(Context c, Look look, List<String[]> items,
+                                        String picked, java.util.function.Consumer<String> onPick) {
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        final List<TextView> all = new ArrayList<>();
+        for (int i = 0; i < items.size(); i++) {
+            final String id = items.get(i)[0];
+            TextView t = Theme.text(c, items.get(i)[1], 14, look.ink, true);
+            t.setGravity(Gravity.CENTER);
+            t.setTag(id);
+            t.setOnClickListener(v -> {
+                    for (TextView o : all) mark(c, look, o, o.getTag().equals(id));
+                    onPick.accept(id);
+                });
+            all.add(t);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.px(c, 42), 1f);
+            lp.setMargins(i == 0 ? 0 : Theme.px(c, 3), 0, i == items.size() - 1 ? 0 : Theme.px(c, 3), 0);
+            row.addView(t, lp);
+            mark(c, look, t, id.equals(picked));
+        }
+        return row;
     }
 
     private static void mark(Context c, Look look, TextView t, boolean on) {
