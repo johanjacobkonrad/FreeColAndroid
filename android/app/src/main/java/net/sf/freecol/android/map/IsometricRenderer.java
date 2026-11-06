@@ -291,6 +291,17 @@ public final class IsometricRenderer implements MapRenderer {
         } else if (settlement == null) {
             shown = t.getFirstUnit();
         }
+        if (shown != null && hidden.contains(shown)) {
+            // Being animated: show the next unit here, if any.
+            Unit other = null;
+            for (Unit u : t.getUnitList()) {
+                if (!hidden.contains(u) && !u.isOnCarrier()) {
+                    other = u;
+                    break;
+                }
+            }
+            shown = (settlement == null) ? other : null;
+        }
         if (shown == null) return;
         if (selected != null && selected.getTile() == t) {
             centred(s, art.get("image.tile.unitSelect"), t, v, false);
@@ -362,6 +373,44 @@ public final class IsometricRenderer implements MapRenderer {
         s.fillRect(cx - w / 2, by + size * 0.3f - Math.max(1.5f, size * 0.12f),
                    w, Math.max(1.5f, size * 0.12f), edge);
         s.drawText(name, cx, by, size, 0xFFFFFFFF);
+    }
+
+    /** Units being animated: drawn by the animation, not on their tile. */
+    private final java.util.Set<Unit> hidden = java.util.Collections.newSetFromMap(
+        new java.util.concurrent.ConcurrentHashMap<>());
+
+    /** Hide (or show again) a unit that an animation is drawing. */
+    public void setHidden(Unit unit, boolean hide) {
+        if (unit == null) return;
+        if (hide) hidden.add(unit); else hidden.remove(unit);
+    }
+
+    /**
+     * Draw a unit's picture (and its owner chip) centred on a point of
+     * the world rather than a tile: a unit moving between tiles.
+     *
+     * @param img The picture (a frame of an animation), or null for the
+     *     unit's own.
+     * @param flip Mirror it (facing west).
+     */
+    public void drawUnitAt(Surface s, Unit unit, Art.Img img, float wcx, float wcy,
+                           Viewport v, Player me, boolean flip) {
+        if (img == null) img = art.get(unitKey(unit));
+        if (img == null) return;
+        float wx = wcx - img.width / 2f, wy = wcy - img.height / 2f - UNIT_OFFSET;
+        if (flip) {
+            s.drawImageFlipped(img, v.toScreenX(wx), v.toScreenY(wy),
+                               img.width * v.scale, img.height * v.scale);
+        } else {
+            s.drawImage(img, v.toScreenX(wx), v.toScreenY(wy),
+                        img.width * v.scale, img.height * v.scale, false);
+        }
+        Integer col = unit.getOwner().getNationColor();
+        int argb = (col == null) ? 0xFF808080 : (0xFF000000 | col);
+        float cx = wcx - HALF_W + CHIP_X, cy = wcy - HALF_H;
+        s.fillRect(v.toScreenX(cx) - v.scale, v.toScreenY(cy) - v.scale,
+                   14 * v.scale, 18 * v.scale, 0xFF000000);
+        s.fillRect(v.toScreenX(cx), v.toScreenY(cy), 12 * v.scale, 16 * v.scale, argb);
     }
 
     private void drawUnit(Surface s, Unit unit, Tile t, Viewport v, Player me) {

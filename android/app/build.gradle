@@ -62,6 +62,8 @@ def syncArtAssets = tasks.register('syncArtAssets', Sync) {
         include 'resources/images/ui/victory.png'
         // Sound effects (the music is packed separately, smaller).
         include 'resources/sound/**/*.ogg'
+        // Attack animations (zips of frames).
+        include 'resources/images/units/*/*.sza'
         include 'resources/images/river/*.png'
         // Only the standard size: the ".size9" images are most of it.
         exclude '**/*.size*.png'

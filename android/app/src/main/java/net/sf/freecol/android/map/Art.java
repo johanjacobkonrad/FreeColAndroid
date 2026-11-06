@@ -90,7 +90,7 @@ public abstract class Art {
         p.load(in);
         for (String key : p.stringPropertyNames()) {
             String v = p.getProperty(key);
-            if (key.startsWith("image.")) {
+            if (key.startsWith("image.") || key.startsWith("animation.")) {
                 paths.put(key, v.startsWith("resource:") ? v : prefix + v);
             } else if (key.startsWith("color.") && v.startsWith("urn:color:0x")) {
                 try {
@@ -219,6 +219,63 @@ public abstract class Art {
             images.put(path, img);
         }
         return (img == MISSING) ? null : img;
+    }
+
+    /** An animation: its frames and how long each shows. */
+    public static final class Animation {
+        public final java.util.List<Img> frames = new java.util.ArrayList<>();
+        public final java.util.List<Integer> millis = new java.util.ArrayList<>();
+
+        public int total() {
+            int t = 0;
+            for (int m : millis) t += m;
+            return t;
+        }
+    }
+
+    private final java.util.Map<String, Animation> animations = new java.util.HashMap<>();
+
+    /**
+     * An animation by its key ("animation.unit.<type>.<role>.attack.e"):
+     * FreeCol's ".sza" files, zips of frames listed with their times
+     * in "animation.txt" ("soldier-attack-1.png (50ms)").
+     *
+     * @param key The resource key.
+     * @return The animation, or null if there is none.
+     */
+    public synchronized Animation animation(String key) {
+        String path = resolve(key);
+        if (path == null) return null;
+        if (animations.containsKey(path)) return animations.get(path);
+        Animation a = null;
+        java.util.Map<String, byte[]> files = new java.util.HashMap<>();
+        try (java.util.zip.ZipInputStream zin = new java.util.zip.ZipInputStream(open(path))) {
+            for (java.util.zip.ZipEntry e; (e = zin.getNextEntry()) != null; ) {
+                java.io.ByteArrayOutputStream buf = new java.io.ByteArrayOutputStream();
+                byte[] b = new byte[16384];
+                for (int n; (n = zin.read(b)) > 0; ) buf.write(b, 0, n);
+                files.put(e.getName(), buf.toByteArray());
+            }
+            byte[] list = files.get("animation.txt");
+            if (list != null) {
+                a = new Animation();
+                for (String line : new String(list, java.nio.charset.StandardCharsets.UTF_8)
+                         .split("\\r?\\n")) {
+                    java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("\\s*(\\S+)\\s*\\((\\d+)ms\\)").matcher(line);
+                    if (!m.find() || !files.containsKey(m.group(1))) continue;
+                    Img img = decode(new java.io.ByteArrayInputStream(files.get(m.group(1))));
+                    if (img == null) continue;
+                    a.frames.add(img);
+                    a.millis.add(Integer.parseInt(m.group(2)));
+                }
+                if (a.frames.isEmpty()) a = null;
+            }
+        } catch (IOException ioe) {
+            a = null;
+        }
+        animations.put(path, a);
+        return a;
     }
 
     /** The image for a key, without variations. */

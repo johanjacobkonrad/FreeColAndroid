@@ -215,6 +215,19 @@ public final class GameSession implements MessageHandler {
          * @param key The sound's key.
          */
         default void onSound(String key) {}
+
+        /**
+         * A unit moved from one tile to the next (ours or another
+         * nation's, where we can see).  Called while the game is
+         * locked: do not wait here.
+         */
+        default void onUnitMoved(Unit unit, Tile from, Tile to) {}
+
+        /** A unit of ours attacks the next tile (before the result). */
+        default void onAttack(Unit unit, Tile from, Tile to) {}
+
+        /** Wait (on the game's thread) until the animations are shown. */
+        default void awaitAnimations() {}
     }
 
     /** The human player's user name. */
@@ -2141,6 +2154,7 @@ public final class GameSession implements MessageHandler {
         switch (mt) {
         case MOVE: case MOVE_HIGH_SEAS:
             api.move(unit, d);
+            listener.awaitAnimations(); // Let the step be seen
             break;
         case EXPLORE_LOST_CITY_RUMOUR:
             if (!exploreRumour(unit, d, to)) return false;
@@ -2230,6 +2244,7 @@ public final class GameSession implements MessageHandler {
             return false;
         }
         api.move(unit, d);
+        listener.awaitAnimations();
         reportMessages();
         return true;
     }
@@ -2243,7 +2258,7 @@ public final class GameSession implements MessageHandler {
                 + def.getDescription();
         }
         if (choose("Attack", "Attack " + who + "?", "Attack", "Cancel") != 0) return;
-        attackSound(unit);
+        attackSound(unit, d);
         api.attack(unit, d);
         reportMessages();
     }
@@ -2268,7 +2283,7 @@ public final class GameSession implements MessageHandler {
         } else if ((natives && c == 1) || (!natives && c == 0)) {
             if (choose("Attack", "Really attack " + st.getName() + "?",
                        "Attack", "Cancel") != 0) return;
-            attackSound(unit);
+            attackSound(unit, d);
             api.attack(unit, d);
             reportMessages();
         }
@@ -2351,7 +2366,7 @@ public final class GameSession implements MessageHandler {
         case 2:
             if (choose("Attack", "Really attack " + is.getName() + "?",
                        "Attack", "Cancel") == 0) {
-                    attackSound(unit);
+                    attackSound(unit, d);
                     api.attack(unit, d);
                 }
             break;
@@ -2433,7 +2448,7 @@ public final class GameSession implements MessageHandler {
         } else if (c == 2) {
             if (choose("Attack", "Really attack " + st.getName() + "?",
                        "Attack", "Cancel") == 0) {
-                attackSound(unit);
+                attackSound(unit, d);
                 api.attack(unit, d);
                 reportMessages();
             }
@@ -2703,7 +2718,21 @@ public final class GameSession implements MessageHandler {
         }
     }
 
-    /** The sound of a unit attacking (as the server picks it). */
+    /** The sound of a unit attacking (as the server picks it), and its
+     *  animation: shown before the result. */
+    private void attackSound(Unit unit, Direction d) {
+        Tile from, to;
+        synchronized (lock) {
+            from = unit.getTile();
+            to = (from == null) ? null : from.getNeighbourOrNull(d);
+        }
+        attackSound(unit);
+        if (from != null && to != null) {
+            listener.onAttack(unit, from, to);
+            listener.awaitAnimations();
+        }
+    }
+
     private void attackSound(Unit unit) {
         boolean naval, bombard, mounted;
         synchronized (lock) {
@@ -2842,10 +2871,23 @@ public final class GameSession implements MessageHandler {
         }
         for (FreeColObject fco : objects) {
             FreeColGameObject fcgo = game.getFreeColGameObject(fco.getId());
+            // A unit going from one tile to the next is animated.
+            Tile before = (fcgo instanceof Unit) ? ((Unit)fcgo).getTile() : null;
             if (fcgo == null) {
                 logger.warning("Update of missing object: " + fco.getId());
             } else if (!fcgo.copyIn(fco)) {
                 logger.warning("Update copy-in failed: " + fco.getId());
+            } else if (before != null && me != null) {
+                Unit u = (Unit)fcgo;
+                Tile after = u.getTile();
+                if (after != null && after != before && before.isAdjacent(after)
+                    && !u.isOnCarrier() && (me.canSee(before) || me.canSee(after))) {
+                    try {
+                        listener.onUnitMoved(u, before, after);
+                    } catch (RuntimeException e) {
+                        logger.log(Level.FINE, "Animation failed", e);
+                    }
+                }
             }
         }
         if (me != null) me.invalidateCanSeeTiles();
