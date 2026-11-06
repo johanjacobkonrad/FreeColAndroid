@@ -1918,6 +1918,7 @@ public final class GameSession implements MessageHandler {
         }
         // Load up to what the stop lists, from what is spare there.
         List<Object[]> take = new ArrayList<>();
+        List<String> kept = new ArrayList<>();
         synchronized (lock) {
             for (AbstractGoods ag : stop.getCompactCargo()) {
                 GoodsType type = ag.getType();
@@ -1929,7 +1930,18 @@ public final class GameSession implements MessageHandler {
                     int price = me.getMarket().getBidPrice(type, want);
                     if (price > me.getGold()) continue;
                 } else {
-                    want = Math.min(want, stop.getExportAmount(type, 0));
+                    // The colony keeps its reserve (tap the goods in the
+                    // colony to change it); say so, or it looks like a
+                    // fault when goods are left behind.
+                    int spare = stop.getExportAmount(type, 0);
+                    int have = stop.getAvailableGoodsCount(type);
+                    if (spare < want && have > Math.max(0, spare)
+                        && stop.getLocation() instanceof Colony) {
+                        kept.add((have - Math.max(0, spare)) + " "
+                            + Messages.getName(type) + " (the colony keeps "
+                            + getReserve((Colony)stop.getLocation(), type) + ")");
+                    }
+                    want = Math.min(want, spare);
                 }
                 if (want > 0) take.add(new Object[] { type, want });
             }
@@ -1947,6 +1959,7 @@ public final class GameSession implements MessageHandler {
         List<String> out = new ArrayList<>();
         if (!unloaded.isEmpty()) out.add((europe ? "" : "unloaded ") + String.join(", ", unloaded));
         if (!loaded.isEmpty()) out.add((europe ? "" : "loaded ") + String.join(", ", loaded));
+        if (!kept.isEmpty()) out.add("left " + String.join(", ", kept));
         return String.join("; ", out);
     }
 
