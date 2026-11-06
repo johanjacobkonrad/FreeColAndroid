@@ -65,6 +65,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
     private ColonyListPanel colonyList;
+    /** Reports and the Colopedia. */
+    private InfoPanel infoPanel;
     /** A colony opened from the colony list goes back to it on close. */
     private boolean backToList = false;
     private float dp;
@@ -204,6 +206,19 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.addView(colonyList, root.indexOfChild(colonyPanel), new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+        infoPanel = new InfoPanel(this, art, this::closeInfo);
+        infoPanel.setVisibility(android.view.View.GONE);
+        infoPanel.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad / 2 + bars.top,
+                         pad + bars.right, pad / 2 + bars.bottom);
+            return insets;
+        });
+        root.addView(infoPanel, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
         mapView.setColonyOpener(this::openColony);
         setContentView(root);
         refresh();
@@ -300,6 +315,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
             closeEurope();
         } else if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
             closeColony();
+        } else if (infoPanel.getVisibility() == android.view.View.VISIBLE) {
+            if (!infoPanel.goBack()) closeInfo();
         } else if (colonyList.getVisibility() == android.view.View.VISIBLE) {
             closeColonyList();
         } else {
@@ -320,19 +337,40 @@ public final class GameActivity extends Activity implements GameSession.Listener
         Object[][] items = {
             { "Resume game", Theme.Icon.NEXT, (Runnable)() -> {} },
             { "Colonies", Theme.Icon.COLONY, (Runnable)this::openColonyList },
+            { "Reports", Theme.Icon.ORDERS, (Runnable)this::openReports },
+            { "Colopedia", Theme.Icon.BOOK, (Runnable)this::openColopedia },
             { "Save game", Theme.Icon.SAVE, (Runnable)this::showSave },
             { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
-            { "Quit to the start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
+            { "Quit to start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
         };
-        for (Object[] it : items) {
+        // Two to a row, so it fits a phone held sideways.
+        LinearLayout row = null;
+        for (int i = 0; i < items.length; i++) {
+            final Object[] it = items[i];
             final Runnable action = (Runnable)it[2];
-            box.addView(menuItem((String)it[0], (Theme.Icon)it[1], v -> {
+            if (i % 2 == 0) {
+                row = new LinearLayout(this);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                box.addView(row);
+            }
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            lp.setMargins((i % 2 == 0) ? 0 : (int)(3 * dp), 0,
+                          (i % 2 == 0) ? (int)(3 * dp) : 0, (int)(6 * dp));
+            row.addView(menuItem((String)it[0], (Theme.Icon)it[1], v -> {
                         dialog[0].dismiss();
                         action.run();
-                    }), menuParams());
+                    }), lp);
         }
+        if (items.length % 2 == 1) {
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            row.addView(new android.view.View(this), lp);
+        }
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(box);
         dialog[0] = new android.app.AlertDialog.Builder(this)
-            .setTitle("Menu").setView(box).show();
+            .setTitle("Menu").setView(sv).show();
     }
 
     private TextView menuItem(String label, Theme.Icon icon,
@@ -361,6 +399,62 @@ public final class GameActivity extends Activity implements GameSession.Listener
             LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, (int)(6 * dp));
         return lp;
+    }
+
+    // Reports and the Colopedia
+
+    private net.sf.freecol.common.model.Specification spec() {
+        synchronized (session.lock()) {
+            return session.getGame().getSpecification();
+        }
+    }
+
+    private void openInfo(InfoPanel.Source src) {
+        infoPanel.setVisibility(android.view.View.VISIBLE);
+        infoPanel.show(src, 0);
+        infoPanel.requestApplyInsets();
+    }
+
+    private void closeInfo() {
+        infoPanel.setVisibility(android.view.View.GONE);
+        refresh();
+    }
+
+    private void openReports() {
+        final ReportInfo.Kind[] kinds = ReportInfo.Kind.values();
+        final String[] names = new String[kinds.length];
+        for (int i = 0; i < kinds.length; i++) names[i] = kinds[i].label;
+        openInfo(new InfoPanel.Source() {
+                @Override public String title() { return "Reports"; }
+                @Override public String[] tabs() { return names; }
+                @Override public InfoPage tab(int i) {
+                    synchronized (session.lock()) {
+                        return ReportInfo.page(kinds[i], session.getMyPlayer(), renderer);
+                    }
+                }
+                @Override public InfoPage link(String id) {
+                    return ColopediaInfo.page(spec(), id);
+                }
+            });
+        // The other nations' figures come from the server: show them
+        // when they arrive.
+        session.refreshNationSummaries(() -> runOnUiThread(infoPanel::refresh));
+    }
+
+    private void openColopedia() {
+        final ColopediaInfo.Kind[] kinds = ColopediaInfo.Kind.values();
+        final String[] names = new String[kinds.length];
+        for (int i = 0; i < kinds.length; i++) names[i] = kinds[i].label;
+        openInfo(new InfoPanel.Source() {
+                @Override public String title() { return "Colopedia"; }
+                @Override public String[] tabs() { return names; }
+                @Override public InfoPage tab(int i) {
+                    return ColopediaInfo.list(spec(), kinds[i]);
+                }
+                @Override public InfoPage link(String id) {
+                    return ColopediaInfo.page(spec(), id);
+                }
+            });
     }
 
     /** A save slot's file. */
