@@ -78,6 +78,9 @@ final class Sidebar extends LinearLayout {
     private final TextView unitName, unitSub, noUnit;
     private final TextView nextB, waitB, ordersB, europeB, endB, contextB;
     private String contextMode = null;
+    /** The minimap gives up height first when the sidebar is too full. */
+    private static final int MINIMAP_DP = 80, MINIMAP_MIN_DP = 34;
+    private FrameLayout minimapFrame;
     private String crestFor = null;
 
 
@@ -105,7 +108,8 @@ final class Sidebar extends LinearLayout {
         mm.setBackground(mmEdge);
         mm.addView(minimap, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
-        top.addView(mm, new LayoutParams(LayoutParams.MATCH_PARENT, Theme.px(c, 80)));
+        this.minimapFrame = mm;
+        top.addView(mm, new LayoutParams(LayoutParams.MATCH_PARENT, Theme.px(c, MINIMAP_DP)));
         LinearLayout status = new LinearLayout(c);
         status.setOrientation(HORIZONTAL);
         status.setGravity(Gravity.CENTER_VERTICAL);
@@ -231,6 +235,30 @@ final class Sidebar extends LinearLayout {
         addView(bottom, new LayoutParams(LayoutParams.MATCH_PARENT, Theme.px(c, 42)));
     }
 
+    /**
+     * Keep End turn on screen: if everything does not fit, the minimap
+     * gets shorter (it scales to fit), down to a strip.
+     */
+    @Override
+    protected void onMeasure(int widthSpec, int heightSpec) {
+        LayoutParams mlp = (LayoutParams)minimapFrame.getLayoutParams();
+        mlp.height = Theme.px(getContext(), MINIMAP_DP);
+        super.onMeasure(widthSpec, heightSpec);
+        if (MeasureSpec.getMode(heightSpec) == MeasureSpec.UNSPECIFIED) return;
+        int used = getPaddingTop() + getPaddingBottom();
+        for (int i = 0; i < getChildCount(); i++) {
+            View ch = getChildAt(i);
+            if (ch.getVisibility() == GONE) continue;
+            LayoutParams lp = (LayoutParams)ch.getLayoutParams();
+            used += ch.getMeasuredHeight() + lp.topMargin + lp.bottomMargin;
+        }
+        int over = used - MeasureSpec.getSize(heightSpec);
+        if (over > 0) {
+            mlp.height = Math.max(Theme.px(getContext(), MINIMAP_MIN_DP), mlp.height - over);
+            super.onMeasure(widthSpec, heightSpec);
+        }
+    }
+
     private static LayoutParams full(int bottom) {
         LayoutParams lp = new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, bottom);
@@ -275,10 +303,7 @@ final class Sidebar extends LinearLayout {
                         load.add(new Object[] { (gi == null) ? null : gi.handle,
                                                 Integer.toString(g.getAmount()) });
                     }
-                    for (Unit p : unit.getUnitList()) {
-                        Art.Img ui = art.get(renderer.unitKey(p));
-                        load.add(new Object[] { (ui == null) ? null : ui.handle, "" });
-                    }
+                    // Passengers show in the row of units on the tile.
                     Tile t = unit.getTile();
                     if (t != null) here = session.getMyUnitsAt(t);
                     mode = session.canSailToEurope(unit) ? SAIL
