@@ -203,10 +203,10 @@ public final class GameSession implements MessageHandler {
         /**
          * The game is over (or the war is won and play may go on).
          *
-         * @param won True if we won.
+         * @param kind Won, lost or retired.
          * @param text What happened.
          */
-        default void onGameOver(boolean won, String text) {}
+        default void onGameOver(EndGameInfo.Kind kind, String text) {}
     }
 
     /** The human player's user name. */
@@ -1627,6 +1627,25 @@ public final class GameSession implements MessageHandler {
         }
     }
 
+    // The end
+
+    /** Set while retiring, when the server withdraws us. */
+    private volatile boolean retiring = false;
+
+    /**
+     * Retire: end the game now and take the score (it may reach the
+     * high scores).
+     */
+    public void retire() {
+        worker.execute(() -> {
+            retiring = true;
+            api.retire();
+            reportMessages();
+            listener.onGameOver(EndGameInfo.Kind.RETIRED,
+                "You retire from the affairs of the New World.");
+        });
+    }
+
     // Independence
 
     /** True while we are a colony of the crown, able to declare. */
@@ -2715,7 +2734,11 @@ public final class GameSession implements MessageHandler {
         } else if (m instanceof SetDeadMessage) {
             Player p = ((SetDeadMessage)m).getPlayer(game);
             if (p == me) {
-                status("Your colony has failed. The game is over.");
+                if (!retiring) {
+                    String t = "Your nation has withdrawn from the New World. The game is over.";
+                    status(t);
+                    listener.onGameOver(EndGameInfo.Kind.LOST, t);
+                }
             } else if (p != null && me != null) {
                 me.setStance(p, null);
             }
@@ -2749,7 +2772,7 @@ public final class GameSession implements MessageHandler {
                 : "The game is over: the " + Messages.message(winner.getNationLabel())
                   + " have won.";
             status(text);
-            listener.onGameOver(won, text);
+            listener.onGameOver(won ? EndGameInfo.Kind.WON : EndGameInfo.Kind.LOST, text);
         } else {
             answer(m);
         }

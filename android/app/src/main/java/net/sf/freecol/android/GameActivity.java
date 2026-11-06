@@ -63,6 +63,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private MapView mapView;
     private MinimapView minimap;
     private Sidebar sidebar;
+    /** Everything on screen: the map and sidebar, and the screens over them. */
+    private FrameLayout root;
     private NewsRibbon news;
     private ColonyPanel colonyPanel;
     private EuropePanel europePanel;
@@ -98,7 +100,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         final int pad = (int)(8 * dp);
 
         // The map on the left, the sidebar on the right.
-        FrameLayout root = new FrameLayout(this);
+        root = new FrameLayout(this);
         root.setBackgroundColor(Color.BLACK);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.HORIZONTAL);
@@ -328,6 +330,10 @@ public final class GameActivity extends Activity implements GameSession.Listener
 
     @Override
     public void onBackPressed() {
+        if (endPanel != null) {
+            finish();
+            return;
+        }
         if (europePanel.getVisibility() == android.view.View.VISIBLE) {
             closeEurope();
         } else if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
@@ -369,6 +375,14 @@ public final class GameActivity extends Activity implements GameSession.Listener
             more[items.length - 1] = new Object[] { "Declare independence",
                 Theme.Icon.FLAG, (Runnable)this::confirmDeclare };
             more[items.length] = items[items.length - 1]; // Quit stays last
+            items = more;
+        }
+        {
+            // Retire goes just before Quit.
+            Object[][] more = java.util.Arrays.copyOf(items, items.length + 1);
+            more[items.length - 1] = new Object[] { "Retire", Theme.Icon.CLOSE,
+                (Runnable)this::confirmRetire };
+            more[items.length] = items[items.length - 1];
             items = more;
         }
         // Two to a row, so it fits a phone held sideways.
@@ -514,14 +528,49 @@ public final class GameActivity extends Activity implements GameSession.Listener
         return e;
     }
 
+    /** The end-of-game screen, while it shows. */
+    private EndGamePanel endPanel = null;
+
     @Override
-    public void onGameOver(final boolean won, final String text) {
-        runOnUiThread(() -> new android.app.AlertDialog.Builder(this)
-            .setTitle(won ? "Victory" : "The game is over")
-            .setMessage(text)
-            .setPositiveButton(won ? "Continue playing" : "Look at the map", null)
-            .setNegativeButton("Quit to start screen", (d, w) -> finish())
-            .show());
+    public void onGameOver(final EndGameInfo.Kind kind, final String text) {
+        runOnUiThread(() -> {
+            EndGameInfo info;
+            synchronized (session.lock()) {
+                if (session.getMyPlayer() == null) return;
+                info = new EndGameInfo(kind, text, session.getMyPlayer());
+            }
+            if (endPanel != null) root.removeView(endPanel);
+            // After winning the war you may play on; otherwise it is over.
+            Runnable keep = (kind == EndGameInfo.Kind.WON) ? () -> {
+                    root.removeView(endPanel);
+                    endPanel = null;
+                    refresh();
+                } : null;
+            endPanel = new EndGamePanel(this, art, info, info.highScores, keep, this::finish);
+            endPanel.setOnApplyWindowInsetsListener((v, insets) -> {
+                android.graphics.Insets bars = insets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                int pad = (int)(10 * dp);
+                v.setPadding(pad + bars.left, pad + bars.top, pad + bars.right,
+                             pad + bars.bottom);
+                return insets;
+            });
+            root.addView(endPanel, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+            endPanel.requestApplyInsets();
+        });
+    }
+
+    /** Retire: end the game now and see the score. */
+    private void confirmRetire() {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Retire")
+            .setMessage("Retire now? The game ends and your score goes on the high "
+                        + "scores if it is good enough.")
+            .setPositiveButton("Retire", (d, w) -> session.retire())
+            .setNegativeButton("Keep playing", null)
+            .show();
     }
 
     // Trade routes
