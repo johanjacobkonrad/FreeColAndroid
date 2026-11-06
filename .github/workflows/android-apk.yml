@@ -25,6 +25,12 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # The music, re-encoded smaller (87 MB of tracks down to about 20).
+      - name: Music
+        run: |
+          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          android/encode-music.sh
+
       # The hosted Ubuntu runners come with the Android SDK installed.
       - name: Build
         run: gradle -p android assembleDebug --stacktrace

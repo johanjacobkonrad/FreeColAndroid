@@ -207,6 +207,14 @@ public final class GameSession implements MessageHandler {
          * @param text What happened.
          */
         default void onGameOver(EndGameInfo.Kind kind, String text) {}
+
+        /**
+         * Play a sound, by its key in FreeCol's resources (for example
+         * "sound.event.loadCargo").
+         *
+         * @param key The sound's key.
+         */
+        default void onSound(String key) {}
     }
 
     /** The human player's user name. */
@@ -965,6 +973,7 @@ public final class GameSession implements MessageHandler {
             }
             if (colony == null) return;
             api.loadGoods(colony, type, amount, carrier);
+            sound("sound.event.loadCargo");
             changed();
         });
     }
@@ -1028,6 +1037,7 @@ public final class GameSession implements MessageHandler {
                 if (!inPort) return;
             }
             api.unloadGoods(type, amount, carrier);
+            sound("sound.event.unloadCargo");
             changed();
         });
     }
@@ -1301,6 +1311,7 @@ public final class GameSession implements MessageHandler {
                 }
             }
             api.loadGoods(me.getEurope(), type, n, carrier);
+            sound("sound.event.loadCargo");
             changed();
         });
     }
@@ -1324,6 +1335,7 @@ public final class GameSession implements MessageHandler {
                 }
             }
             api.unloadGoods(type, amount, carrier);
+            sound("sound.event.sellCargo");
             changed();
         });
     }
@@ -1714,6 +1726,9 @@ public final class GameSession implements MessageHandler {
                 return;
             }
             api.declareIndependence(nation, country);
+            synchronized (lock) {
+                sound("sound.anthem." + me.getNationId());
+            }
             List<String> lines = new ArrayList<>();
             synchronized (lock) {
                 if (me.getPlayerType() != Player.PlayerType.REBEL) {
@@ -2182,6 +2197,7 @@ public final class GameSession implements MessageHandler {
             status("That settlement will not let this unit in.");
             return false;
         default:
+            sound("sound.event.illegalMove");
             status("Can not move there.");
             return false;
         }
@@ -2227,6 +2243,7 @@ public final class GameSession implements MessageHandler {
                 + def.getDescription();
         }
         if (choose("Attack", "Attack " + who + "?", "Attack", "Cancel") != 0) return;
+        attackSound(unit);
         api.attack(unit, d);
         reportMessages();
     }
@@ -2251,6 +2268,7 @@ public final class GameSession implements MessageHandler {
         } else if ((natives && c == 1) || (!natives && c == 0)) {
             if (choose("Attack", "Really attack " + st.getName() + "?",
                        "Attack", "Cancel") != 0) return;
+            attackSound(unit);
             api.attack(unit, d);
             reportMessages();
         }
@@ -2332,7 +2350,10 @@ public final class GameSession implements MessageHandler {
             break;
         case 2:
             if (choose("Attack", "Really attack " + is.getName() + "?",
-                       "Attack", "Cancel") == 0) api.attack(unit, d);
+                       "Attack", "Cancel") == 0) {
+                    attackSound(unit);
+                    api.attack(unit, d);
+                }
             break;
         default:
             return;
@@ -2361,6 +2382,7 @@ public final class GameSession implements MessageHandler {
         String pick = opts.get(c);
         if (pick.startsWith("Establish") || pick.startsWith("Denounce")) {
             api.missionary(unit, d, pick.startsWith("Denounce"));
+            sound("sound.event.missionEstablished");
             synchronized (lock) {
                 if (is.hasMissionary(me)) {
                     status("Your mission at " + is.getName() + " is established.");
@@ -2411,6 +2433,7 @@ public final class GameSession implements MessageHandler {
         } else if (c == 2) {
             if (choose("Attack", "Really attack " + st.getName() + "?",
                        "Attack", "Cancel") == 0) {
+                attackSound(unit);
                 api.attack(unit, d);
                 reportMessages();
             }
@@ -2656,13 +2679,42 @@ public final class GameSession implements MessageHandler {
 
     private void reportMessages() {
         List<String> lines = new ArrayList<>();
+        boolean built = false, sunk = false;
         synchronized (lock) {
             for (ModelMessage mm : me.getNewModelMessages()) {
                 lines.add(Messages.message(mm));
                 mm.setDisplayed(true);
+                if (mm.getMessageType() == ModelMessage.MessageType.BUILDING_COMPLETED) built = true;
+                if (String.valueOf(mm.getId()).contains("unitSunk")
+                    || String.valueOf(mm.getId()).contains("shipSunk")) sunk = true;
             }
         }
         for (String s : lines) status(s);
+        if (sunk) sound("sound.event.shipSunk");
+        else if (built) sound("sound.event.buildingComplete");
+    }
+
+    /** Play a sound (see Listener.onSound). */
+    private void sound(String key) {
+        try {
+            listener.onSound(key);
+        } catch (RuntimeException e) {
+            logger.log(Level.FINE, "Sound failed", e); // Never stops the game
+        }
+    }
+
+    /** The sound of a unit attacking (as the server picks it). */
+    private void attackSound(Unit unit) {
+        boolean naval, bombard, mounted;
+        synchronized (lock) {
+            naval = unit.isNaval();
+            bombard = unit.hasAbility(Ability.BOMBARD);
+            mounted = unit.isMounted();
+        }
+        // FreeCol has no sound for soldiers on foot: their muskets
+        // sound like the artillery's.
+        sound(naval ? "sound.attack.naval" : mounted ? "sound.attack.mounted"
+              : "sound.attack.artillery");
     }
 
 
@@ -2708,6 +2760,7 @@ public final class GameSession implements MessageHandler {
                     m.peekStringAttributeMap());
         } else if (m instanceof StartGameMessage) {
             inGame = true;
+            if (me != null) sound("sound.intro." + me.getNationId());
             // The first player moves first without being told to.
             if (game.getCurrentPlayer() == me) worker.execute(this::beginTurn);
         } else if (m instanceof SetCurrentPlayerMessage) {
@@ -2974,6 +3027,7 @@ public final class GameSession implements MessageHandler {
                 worker.execute(() -> api.newRegionName(r, t, u, name));
             }
         } else if (m instanceof FountainOfYouthMessage) {
+            sound("sound.event.fountainOfYouth");
             final int n = ((FountainOfYouthMessage)m).getMigrants();
             status("The Fountain of Youth! " + n + " colonists will join you.");
             worker.execute(() -> {

@@ -151,7 +151,14 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        showMenu(); // The saved game may have changed
+        if (full.getVisibility() != View.VISIBLE) showMenu(); // The saved game may have changed
+        Audio.get(this).startMusic();
+    }
+
+    @Override
+    protected void onPause() {
+        Audio.get(this).stopMusic();
+        super.onPause();
     }
 
 
@@ -294,20 +301,16 @@ public final class MainActivity extends Activity {
         back.setOnClickListener(v -> showMenu());
         head.addView(back);
         page.addView(head);
-        TextView none = Theme.serif(this, "Nothing to set yet. Move speed, sound and the "
-            + "map view will appear here.", 15, Theme.DIM, false);
-        none.setPadding(0, px(16), 0, 0);
-        page.addView(none);
-        setRight(page);
+        page.addView(Settings.view(this, null));
+        ScrollView sv = new ScrollView(this);
+        sv.addView(page);
+        setRight(sv);
     }
 
     // High scores
 
     private void showHighScores() {
-        LinearLayout wait = column();
-        wait.setGravity(Gravity.CENTER);
-        wait.addView(text("Loading...", 15, INK_DIM, false));
-        setRight(wait);
+        // No "Loading" page: the menu stays until the list is ready.
         new Thread(() -> {
             List<EndGameInfo.Row> rows;
             try {
@@ -361,10 +364,7 @@ public final class MainActivity extends Activity {
     // New game setup
 
     private void showSetup() {
-        LinearLayout wait = column();
-        wait.setGravity(Gravity.CENTER);
-        wait.addView(text("Loading the rules...", 15, INK_DIM, false));
-        setRight(wait);
+        // No "Loading" page: the menu stays until the rules are read.
         new Thread(() -> {
             List<NewGameOptions.Choice> nations;
             try {
