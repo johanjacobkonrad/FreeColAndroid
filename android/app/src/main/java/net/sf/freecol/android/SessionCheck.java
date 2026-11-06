@@ -169,6 +169,9 @@ public final class SessionCheck {
         // Trade with a coastal native village, if one is in sight.
         boolean nativesOk = !europeOk || checkNatives(s, ship);
 
+        // A trade route between the colony and Europe, with the ship.
+        boolean routeOk = !colonyOk || checkRoute(s, ship, colonyTile);
+
         // The menu's reports and the Colopedia.
         boolean infoOk = checkInfo(s);
 
@@ -182,10 +185,10 @@ public final class SessionCheck {
             + "; Europe: " + europeOk + "; natives: " + nativesOk
             + (traded ? " (traded)" : "")
             + "; save and load: " + reloaded + "; new-game options: " + optionsOk
-            + "; reports and Colopedia: " + infoOk);
+            + "; reports and Colopedia: " + infoOk + "; trade route: " + routeOk);
         boolean ok = optionsOk && moved && (colonyOk || played == turns) && reloaded
             && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk
-            && infoOk;
+            && infoOk && routeOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
     }
@@ -727,6 +730,97 @@ public final class SessionCheck {
             @Override protected Img decode(java.io.InputStream in) { return null; }
             @Override protected Img applyMask(Img i, Img m) { return null; }
         };
+    }
+
+    /**
+     * Make a trade route (the colony, then Europe), check the rules
+     * accept it, set a reserve, put the ship on it and take it off.
+     */
+    private static boolean checkRoute(GameSession s, Unit ship, Tile colonyTile)
+        throws Exception {
+        waitForTurn(s, 120_000);
+        s.sync();
+        final java.util.concurrent.CompletableFuture<net.sf.freecol.common.model.TradeRoute> made
+            = new java.util.concurrent.CompletableFuture<>();
+        s.newTradeRoute(made::complete);
+        net.sf.freecol.common.model.TradeRoute tr = made.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        if (tr == null) {
+            System.out.println("Trade route: could not make one");
+            return false;
+        }
+        net.sf.freecol.common.model.Colony colony;
+        net.sf.freecol.common.model.GoodsType furs;
+        java.util.List<GameSession.StopDraft> stops = new java.util.ArrayList<>();
+        synchronized (s.lock()) {
+            colony = colonyTile.getColony();
+            // Carry whatever the colony has most of (furs if nothing).
+            furs = s.getGame().getSpecification().getGoodsType("model.goods.furs");
+            int most = 0;
+            for (net.sf.freecol.common.model.GoodsType gt
+                     : s.getGame().getSpecification().getStorableGoodsTypeList()) {
+                if (gt.isFoodType()) continue;
+                if (colony.getGoodsCount(gt) > most) {
+                    most = colony.getGoodsCount(gt);
+                    furs = gt;
+                }
+            }
+            System.out.println("Trade route cargo: " + furs.getSuffix() + " (" + most + " in store)");
+            GameSession.StopDraft a = new GameSession.StopDraft(colony);
+            a.cargo.add(furs);
+            stops.add(a);
+            stops.add(new GameSession.StopDraft(s.getMyPlayer().getEurope()));
+        }
+        // An empty route is refused, with a reason.
+        java.util.concurrent.CompletableFuture<String> bad = new java.util.concurrent.CompletableFuture<>();
+        s.updateTradeRoute(tr, "Test", new java.util.ArrayList<>(), bad::complete);
+        String why = bad.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        java.util.concurrent.CompletableFuture<String> good = new java.util.concurrent.CompletableFuture<>();
+        s.updateTradeRoute(tr, "Furs to Europe", stops, good::complete);
+        String err = good.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        System.out.println("Trade route: empty refused (" + why + "); saved: "
+            + (err == null ? "yes" : err));
+        s.setReserve(colony, furs, 0);
+        s.assignTradeRoute(ship, tr);
+        s.sync();
+        boolean on, reserve;
+        String orders;
+        synchronized (s.lock()) {
+            on = ship.getTradeRoute() == tr;
+            orders = s.describeOrders(ship);
+            reserve = GameSession.getReserve(colony, furs) == 0;
+        }
+        System.out.println("  ship on route: " + on + " (" + orders + "), reserve set: " + reserve);
+        // Let it run: load at the colony, sail to Europe, sell there.
+        boolean loaded = false, inEurope = false, sold = false;
+        for (int turn = 0; turn < 14 && !sold; turn++) {
+            s.endTurn();
+            s.sync();
+            waitForOthers(s, 120_000);
+            waitForTurn(s, 120_000);
+            s.sync();
+            synchronized (s.lock()) {
+                int n = ship.getGoodsCount(furs);
+                if (n > 0) loaded = true;
+                if (ship.isInEurope()) inEurope = true;
+                // It sells in Europe at the start of a turn and sails
+                // straight back, so look for the cargo gone.
+                if (loaded && n == 0) sold = true;
+                System.out.println("  route turn " + turn + ": " + s.describeOrders(ship)
+                    + ", " + (ship.isInEurope() ? "in Europe" : ship.hasTile()
+                              ? String.valueOf(ship.getTile()) : "at sea")
+                    + ", carrying " + n);
+            }
+        }
+        System.out.println("  route ran: loaded " + loaded + ", sold " + sold);
+        s.clearOrders(ship);
+        s.sync();
+        boolean off;
+        synchronized (s.lock()) {
+            off = ship.getTradeRoute() == null;
+        }
+        // Loading needs something in store; without it the ship waits.
+        return why != null && err == null && on && reserve && off
+            && (sold || !loaded);
     }
 
     /**

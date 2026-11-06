@@ -67,6 +67,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private ColonyListPanel colonyList;
     /** Reports and the Colopedia. */
     private InfoPanel infoPanel;
+    private TradeRoutePanel routePanel;
     /** A colony opened from the colony list goes back to it on close. */
     private boolean backToList = false;
     private float dp;
@@ -219,6 +220,19 @@ public final class GameActivity extends Activity implements GameSession.Listener
         root.addView(infoPanel, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+        routePanel = new TradeRoutePanel(this, session, art, this::closeRoutes);
+        routePanel.setVisibility(android.view.View.GONE);
+        routePanel.setOnApplyWindowInsetsListener((v, insets) -> {
+            android.graphics.Insets bars = insets.getInsets(
+                WindowInsets.Type.systemBars()
+                | WindowInsets.Type.displayCutout());
+            v.setPadding(pad + bars.left, pad / 2 + bars.top,
+                         pad + bars.right, pad / 2 + bars.bottom);
+            return insets;
+        });
+        root.addView(routePanel, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
         mapView.setColonyOpener(this::openColony);
         setContentView(root);
         refresh();
@@ -315,6 +329,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
             closeEurope();
         } else if (colonyPanel.getVisibility() == android.view.View.VISIBLE) {
             closeColony();
+        } else if (routePanel.getVisibility() == android.view.View.VISIBLE) {
+            closeRoutes();
         } else if (infoPanel.getVisibility() == android.view.View.VISIBLE) {
             if (!infoPanel.goBack()) closeInfo();
         } else if (colonyList.getVisibility() == android.view.View.VISIBLE) {
@@ -340,6 +356,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
             { "Reports", Theme.Icon.ORDERS, (Runnable)this::openReports },
             { "Colopedia", Theme.Icon.BOOK, (Runnable)this::openColopedia },
             { "Diplomacy", Theme.Icon.JOIN, (Runnable)this::showDiplomacy },
+            { "Trade routes", Theme.Icon.SHIP, (Runnable)this::openRoutes },
             { "Save game", Theme.Icon.SAVE, (Runnable)this::showSave },
             { "Load game", Theme.Icon.LOAD, (Runnable)this::showLoad },
             { "Quit to start screen", Theme.Icon.BACK, (Runnable)this::confirmQuit },
@@ -400,6 +417,50 @@ public final class GameActivity extends Activity implements GameSession.Listener
             LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, 0, 0, (int)(6 * dp));
         return lp;
+    }
+
+    // Trade routes
+
+    private void openRoutes() {
+        routePanel.setVisibility(android.view.View.VISIBLE);
+        routePanel.show();
+        routePanel.requestApplyInsets();
+    }
+
+    private void closeRoutes() {
+        routePanel.setVisibility(android.view.View.GONE);
+        refresh();
+    }
+
+    /** Put a wagon train or ship on one of the trade routes, or off. */
+    private void chooseRoute(final Unit unit) {
+        final List<net.sf.freecol.common.model.TradeRoute> routes;
+        final net.sf.freecol.common.model.TradeRoute current;
+        synchronized (session.lock()) {
+            routes = new ArrayList<>(session.getMyPlayer().getTradeRoutes());
+            current = unit.getTradeRoute();
+        }
+        if (routes.isEmpty()) {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Trade route")
+                .setMessage("You have no trade routes yet. Make one from the menu "
+                            + "(\u2630 \u2192 Trade routes).")
+                .setPositiveButton("Make one", (d, w) -> openRoutes())
+                .setNegativeButton("Cancel", null)
+                .show();
+            return;
+        }
+        List<String> names = new ArrayList<>();
+        for (net.sf.freecol.common.model.TradeRoute tr : routes) {
+            names.add(tr.getName() + (tr == current ? " (now)" : ""));
+        }
+        if (current != null) names.add("Leave the route");
+        new android.app.AlertDialog.Builder(this)
+            .setTitle("Trade route for " + unit.getDescription())
+            .setItems(names.toArray(new String[0]), (d, w) ->
+                session.assignTradeRoute(unit, (w < routes.size()) ? routes.get(w) : null))
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     // Diplomacy
@@ -955,6 +1016,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 labels.add(naval ? "Sentry" : "Fortify");
                 actions.add(() -> session.fortifyUnit());
             }
+            if (unit.canCarryGoods()) {
+                labels.add(unit.getTradeRoute() == null ? "Trade route..."
+                           : "Trade route: " + unit.getTradeRoute().getName());
+                actions.add(() -> chooseRoute(unit));
+            }
             for (ColonyInfo.Choice<net.sf.freecol.common.model.TileImprovementType> c
                      : session.improvementChoices(unit)) {
                 labels.add(c.label);
@@ -964,7 +1030,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 labels.add("Equip: " + c.label);
                 actions.add(() -> session.equip(unit, c));
             }
-            if (unit.getDestination() != null
+            if (unit.getDestination() != null || unit.getTradeRoute() != null
                 || unit.getState() != Unit.UnitState.ACTIVE) {
                 labels.add("Clear orders");
                 actions.add(() -> session.clearOrders(unit));

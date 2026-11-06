@@ -449,10 +449,7 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
     private void tapGoods(ColonyInfo.Stock st) {
         if (!session.isMyTurn()) return;
         if (selectedCarrier == null) {
-            hint.setText(st.name + ": " + st.count + " in store"
-                + ((st.net != 0) ? ", " + ((st.net > 0) ? "+" : "") + st.net
-                   + " a turn" : "")
-                + ". Select a ship to load goods.");
+            chooseReserve(st);
             return;
         }
         int amount = Math.min(100, st.count);
@@ -460,6 +457,63 @@ final class ColonyPanel extends LinearLayout implements GameSession.Listener {
             intoPort(carrierItem(selectedCarrier));
             session.loadGoods(selectedCarrier, st.type, amount);
         }
+    }
+
+    /**
+     * How much of a goods the colony keeps: trade routes only take
+     * what is above it.
+     */
+    private void chooseReserve(final ColonyInfo.Stock st) {
+        final Colony col = colony;
+        int now;
+        synchronized (session.lock()) {
+            now = GameSession.getReserve(col, st.type);
+        }
+        final int[] value = { now };
+        final Context c = getContext();
+        LinearLayout box = new LinearLayout(c);
+        box.setOrientation(VERTICAL);
+        int pad = px(20);
+        box.setPadding(pad, px(4), pad, 0);
+        box.addView(Theme.serif(c, st.count + " in store"
+            + ((st.net != 0) ? ", " + ((st.net > 0) ? "+" : "") + st.net + " a turn" : "")
+            + ". To load it, select a ship or wagon first.\n\nKeep for the colony "
+            + "(trade routes only take what is above this):", 14, Theme.PAPER_INK, false));
+        LinearLayout row = new LinearLayout(c);
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, px(10), 0, 0);
+        final TextView amount = Theme.serif(c, Integer.toString(now), 18, Theme.PAPER_INK, true);
+        amount.setGravity(Gravity.CENTER);
+        amount.setMinWidth(px(80));
+        int[] deltas = { -50, -10, 0, 10, 50 };
+        for (int d : deltas) {
+            if (d == 0) {
+                row.addView(amount);
+                continue;
+            }
+            final int delta = d;
+            TextView b = Theme.text(c, (d > 0 ? "+" : "\u2212") + Math.abs(d), 14,
+                                    Theme.PAPER_INK, true);
+            b.setGravity(Gravity.CENTER);
+            b.setBackground(Theme.cell(c, 0xFFF4EACF));
+            b.setOnClickListener(v -> {
+                    value[0] = Math.max(0, Math.min(300, value[0] + delta));
+                    amount.setText(Integer.toString(value[0]));
+                });
+            LayoutParams lp = new LayoutParams(px(50), px(40));
+            lp.setMargins(0, 0, px(5), 0);
+            row.addView(b, lp);
+        }
+        box.addView(row);
+        new AlertDialog.Builder(c)
+            .setTitle(st.name + " in " + col.getName())
+            .setView(box)
+            .setPositiveButton("Keep", (d, w) -> {
+                    if (value[0] != now) session.setReserve(col, st.type, value[0]);
+                })
+            .setNegativeButton("Cancel", null)
+            .show();
     }
 
     private void chooseCrop(ColonyInfo.LandItem li) {
