@@ -45,6 +45,7 @@ import net.sf.freecol.common.model.Ability;
 import net.sf.freecol.common.model.BuildableType;
 import net.sf.freecol.common.model.BuildingType;
 import net.sf.freecol.common.model.Colony;
+import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.GoodsType;
 import net.sf.freecol.common.model.Constants.IndianDemandAction;
 import net.sf.freecol.common.model.Direction;
@@ -740,9 +741,28 @@ public final class GameSession implements MessageHandler {
                 if (price > 0) status("Bought the land for " + price + " gold.");
             }
             api.work(unit, wl);
+            GoodsType best = null;
             synchronized (lock) {
-                if (unit.getLocation() != wl) status("Could not work there.");
+                if (unit.getLocation() != wl) {
+                    status("Could not work there.");
+                } else if (wl instanceof ColonyTile) {
+                    // The server picks a crop by what the colony needs;
+                    // start on whatever the land yields most of instead
+                    // (the crop can still be changed by tapping the tile).
+                    ColonyTile ct = (ColonyTile)wl;
+                    List<ColonyInfo.Choice<GoodsType>> choices
+                        = ColonyInfo.workChoices(ct, unit);
+                    GoodsType now = unit.getWorkType();
+                    if (!choices.isEmpty()) {
+                        GoodsType top = choices.get(0).value;
+                        int nowAmount = (now == null) ? 0
+                            : ct.getPotentialProduction(now, unit.getType());
+                        if (top != now && ct.getPotentialProduction(top, unit.getType())
+                            > nowAmount) best = top;
+                    }
+                }
             }
+            if (best != null) api.changeWorkType(unit, best);
             changed();
         });
     }

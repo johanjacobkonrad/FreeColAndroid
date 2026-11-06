@@ -248,6 +248,17 @@ public final class SessionCheck {
             onTile = tile == null || founder.getLocation() == tile;
             System.out.println("  moved to " + tile + ": " + onTile
                 + " producing " + founder.getWorkType());
+            // It starts on the crop the land yields most of.
+            if (tile != null && onTile) {
+                java.util.List<ColonyInfo.Choice<net.sf.freecol.common.model.GoodsType>> ch
+                    = ColonyInfo.workChoices(tile, founder);
+                int best = ch.isEmpty() ? 0
+                    : tile.getPotentialProduction(ch.get(0).value, founder.getType());
+                int got = tile.getPotentialProduction(founder.getWorkType(), founder.getType());
+                System.out.println("  best crop " + (ch.isEmpty() ? "-" : ch.get(0).label)
+                    + ", working for " + got);
+                onTile = got >= best;
+            }
         }
         net.sf.freecol.common.model.BuildableType want = null;
         synchronized (s.lock()) {
