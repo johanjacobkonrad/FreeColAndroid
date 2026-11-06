@@ -32,7 +32,7 @@ app=android/app/src/main/java/net/sf/freecol/android
          $app/SessionCheck.java $app/ColonyInfo.java \
          $app/EuropeInfo.java $app/NewGameOptions.java $app/ColonyListInfo.java \
          $app/InfoPage.java $app/ReportInfo.java $app/ColopediaInfo.java \
-         $app/DiplomacyInfo.java
+         $app/DiplomacyInfo.java $app/WarCheck.java
     find $app/map -name '*.java'
     if [ "${1:-}" = "--preview" ]; then
         find android/preview -name '*.java'
@@ -59,6 +59,14 @@ javac --release 11 -encoding UTF-8 -nowarn -Xmaxerrs 100 \
 
 echo "Playing..."
 java -cp "jars/*:$out/classes:$wstx/*" net.sf.freecol.android.SessionCheck data 12
+
+# The war of independence, from the "Start near independence" test game.
+scenario=android/app/src/main/assets/scenarios/independence.fsg
+if [ -f "$scenario" ]; then
+    echo "Playing the war..."
+    java -cp "jars/*:$out/classes:$wstx/*" net.sf.freecol.android.WarCheck \
+        data "$scenario" 25
+fi
 
 if [ "${1:-}" = "--preview" ]; then
     java -Djava.awt.headless=true -cp "jars/*:$out/classes:$wstx/*" \

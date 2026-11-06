@@ -199,6 +199,14 @@ public final class GameSession implements MessageHandler {
                                  java.util.function.Consumer<Boolean> answer) {
             answer.accept(!offer.isEmpty());
         }
+
+        /**
+         * The game is over (or the war is won and play may go on).
+         *
+         * @param won True if we won.
+         * @param text What happened.
+         */
+        default void onGameOver(boolean won, String text) {}
     }
 
     /** The human player's user name. */
@@ -1619,6 +1627,92 @@ public final class GameSession implements MessageHandler {
         }
     }
 
+    // Independence
+
+    /** True while we are a colony of the crown, able to declare. */
+    public boolean canEverDeclare() {
+        synchronized (lock) {
+            return me != null && me.getPlayerType() == Player.PlayerType.COLONIAL;
+        }
+    }
+
+    /**
+     * Why we can not declare independence yet.
+     *
+     * @return The reason, or null if we can.
+     */
+    public String declareProblem() {
+        synchronized (lock) {
+            if (me == null) return "No game.";
+            StringTemplate t = me.checkDeclareIndependence();
+            return (t == null) ? null : Messages.message(t);
+        }
+    }
+
+    /** Has Europe (we lose it on declaring independence). */
+    public boolean hasEurope() {
+        synchronized (lock) {
+            return me != null && me.getEurope() != null;
+        }
+    }
+
+    /**
+     * The usual names for our new nation and country.
+     *
+     * @return { nation ("Free Dutch"), country ("United States of ...") }.
+     */
+    public String[] declarationNames() {
+        synchronized (lock) {
+            return new String[] {
+                Messages.message(StringTemplate.template("confirmDeclarationDialog.defaultNation")
+                    .addStringTemplate("%nation%", me.getNationLabel())),
+                Messages.message(StringTemplate.template("confirmDeclarationDialog.defaultCountry")
+                    .addStringTemplate("%nation%", me.getNationLabel()))
+            };
+        }
+    }
+
+    /**
+     * Declare independence.  The crown seizes what is in Europe, sends
+     * its army, and some colonists join the Continental Army.
+     *
+     * @param nation What our people are called ("Free Dutch").
+     * @param country Our country's name.
+     * @param done Told the Congress's resolution and what followed,
+     *     or null if it did not happen.
+     */
+    public void declareIndependence(String nation, String country,
+                                    java.util.function.Consumer<String> done) {
+        worker.execute(() -> {
+            if (!isMyTurn()) {
+                done.accept(null);
+                return;
+            }
+            String why = declareProblem();
+            if (why != null) {
+                status(why);
+                done.accept(null);
+                return;
+            }
+            api.declareIndependence(nation, country);
+            List<String> lines = new ArrayList<>();
+            synchronized (lock) {
+                if (me.getPlayerType() != Player.PlayerType.REBEL) {
+                    done.accept(null);
+                    return;
+                }
+                for (ModelMessage mm : me.getNewModelMessages()) {
+                    lines.add(Messages.message(mm));
+                    mm.setDisplayed(true);
+                }
+                me.invalidateCanSeeTiles();
+            }
+            for (String l : lines) status(l);
+            done.accept(String.join("\n\n", lines));
+            changed();
+        });
+    }
+
     // Trade routes
 
     /** A stop's place in words. */
@@ -2649,7 +2743,13 @@ public final class GameSession implements MessageHandler {
             }
         } else if (m instanceof GameEndedMessage) {
             Player winner = ((GameEndedMessage)m).getWinner(game);
-            status((winner == me) ? "You have won!" : "The game is over.");
+            final boolean won = winner == me;
+            final String text = won ? "You are victorious!"
+                : (winner == null) ? "The game is over."
+                : "The game is over: the " + Messages.message(winner.getNationLabel())
+                  + " have won.";
+            status(text);
+            listener.onGameOver(won, text);
         } else {
             answer(m);
         }
