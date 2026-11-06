@@ -732,6 +732,9 @@ public final class SessionCheck {
         };
     }
 
+    /** Told how the loaded game ended (retiring, in checkLoad). */
+    private static volatile java.util.function.Consumer<EndGameInfo.Kind> retireListener = null;
+
     /**
      * Make a trade route (the colony, then Europe), check the rules
      * accept it, set a reserve, put the ship on it and take it off.
@@ -919,6 +922,9 @@ public final class SessionCheck {
                 @Override public void onStatus(String text) {
                     System.out.println("  >> " + text);
                 }
+                @Override public void onGameOver(EndGameInfo.Kind kind, String text) {
+                    if (retireListener != null) retireListener.accept(kind);
+                }
             });
         s.load(save);
         waitForTurn(s, 120_000);
@@ -941,8 +947,21 @@ public final class SessionCheck {
         synchronized (s.lock()) {
             System.out.println("Played on to " + s.getGame().getTurn());
         }
+        // Retire, as the menu does, and read the end-of-game screen.
+        final java.util.concurrent.CompletableFuture<EndGameInfo.Kind> end
+            = new java.util.concurrent.CompletableFuture<>();
+        retireListener = end::complete;
+        s.retire();
+        EndGameInfo.Kind kind = end.get(60, java.util.concurrent.TimeUnit.SECONDS);
+        s.sync();
+        EndGameInfo info;
+        synchronized (s.lock()) {
+            info = new EndGameInfo(kind, "", s.getMyPlayer());
+        }
+        System.out.println("Retired: " + info.title + ", score " + info.score
+            + ", place " + info.rank + ", " + info.highScores.size() + " high scores");
         s.stop();
-        return same && about != null;
+        return same && about != null && kind == EndGameInfo.Kind.RETIRED;
     }
 
     /** Tap a unit's tile until that unit is selected. */

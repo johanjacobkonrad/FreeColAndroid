@@ -42,6 +42,8 @@ public final class WarCheck {
 
     /** Set when the game ends (no more turns will come). */
     private static volatile boolean over = false;
+    private static volatile EndGameInfo.Kind endKind = null;
+    private static volatile String endText = null;
 
     public static void main(String[] args) {
         try {
@@ -65,8 +67,10 @@ public final class WarCheck {
                         news.add(text);
                     }
                 }
-                @Override public void onGameOver(boolean won, String text) {
+                @Override public void onGameOver(EndGameInfo.Kind kind, String text) {
                     System.out.println("GAME OVER: " + text);
+                    endKind = kind;
+                    endText = text;
                     over = true;
                 }
             });
@@ -155,11 +159,28 @@ public final class WarCheck {
             s.sync();
             played++;
         }
+        // The end-of-game screen's contents, and the high scores.
+        boolean endOk = true;
+        if (over) {
+            Thread.sleep(500);
+            EndGameInfo info;
+            synchronized (s.lock()) {
+                info = new EndGameInfo(endKind, endText, s.getMyPlayer());
+            }
+            System.out.println("End: " + info.title + " | " + info.nation + ", " + info.year
+                + ", score " + info.score + ", place " + info.rank + "; "
+                + info.scored.size() + " scoring events");
+            for (EndGameInfo.Row r : info.highScores) {
+                System.out.println("  #" + r.rank + " " + r.score + " " + r.who + " "
+                    + r.when + " (" + r.detail + ")" + (r.mine ? " <- this game" : ""));
+            }
+            endOk = endKind == EndGameInfo.Kind.WON && !info.highScores.isEmpty();
+        }
         s.stop();
         System.out.println("War: played " + played + " turns, royal units landed "
             + landed + ", attacks " + attacks + ", game over " + over);
         // The royal army must have come; the war must have run without a hang.
-        boolean ok = landed > 0 && played > 0;
+        boolean ok = landed > 0 && played > 0 && endOk;
         System.out.println(ok ? "OK" : "FAILED");
         return ok;
     }

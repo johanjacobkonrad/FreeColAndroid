@@ -188,13 +188,43 @@ public final class MainActivity extends Activity {
         LinearLayout box = column();
         box.addView(menu, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        LinearLayout links = new LinearLayout(this);
+        links.setOrientation(LinearLayout.HORIZONTAL);
+        TextView scores = text("High scores", 13, INK, true);
+        scores.setPadding(px(32), px(8), px(16), px(12));
+        scores.setOnClickListener(v -> showHighScores());
+        links.addView(scores);
         TextView test = text("Engine test", 12, INK_DIM, false);
-        test.setPadding(px(32), px(8), px(32), px(12));
+        test.setPadding(px(16), px(8), px(32), px(12));
         test.setOnClickListener(v -> showEngineTest());
-        box.addView(test);
+        links.addView(test);
+        box.addView(links);
         setRight(box);
     }
 
+
+    // High scores
+
+    private void showHighScores() {
+        LinearLayout wait = column();
+        wait.setGravity(Gravity.CENTER);
+        wait.addView(text("Loading...", 15, INK_DIM, false));
+        setRight(wait);
+        new Thread(() -> {
+            List<EndGameInfo.Row> rows;
+            try {
+                File data = new File(getFilesDir(), "data");
+                Assets.copy(getAssets(), "data", data);
+                Engine.init(data);
+                rows = EndGameInfo.highScores();
+            } catch (Throwable t) {
+                rows = new java.util.ArrayList<>();
+            }
+            final List<EndGameInfo.Row> r = rows;
+            runOnUiThread(() -> setRight(new EndGamePanel(this, null, null, r, null,
+                                                          this::showMenu)));
+        }, "HighScores").start();
+    }
 
     // Test games (hold the title)
 

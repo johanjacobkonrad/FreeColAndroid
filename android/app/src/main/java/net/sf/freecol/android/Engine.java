@@ -58,6 +58,15 @@ public final class Engine {
         if (err != null) {
             throw new IllegalStateException("bad data directory: " + err);
         }
+        // Where the high scores go: beside the data (the app's own
+        // files on a phone), or as -Dfreecol.userdir says.
+        String u = System.getProperty("freecol.userdir");
+        File user = (u != null) ? new File(u)
+            : new File(dataDir.getAbsoluteFile().getParentFile(), "user");
+        user.mkdirs();
+        String uerr = FreeColDirectories.setUserDataDirectory(user.getPath());
+        if (uerr != null) java.util.logging.Logger.getLogger("Engine")
+            .warning("No user data directory: " + uerr);
         Messages.loadMessageBundle(Locale.UK);
         FreeColRules.loadRules();
         initialised = true;
