@@ -40,6 +40,9 @@ public final class NewGameOptions {
     /** A labelled choice. */
     public static final class Choice {
         public final String id, label, detail;
+        /** For nations: the advantage's name, what it does, the units
+         *  it starts with ("" otherwise). */
+        public String kind = "", about = "", units = "";
 
         Choice(String id, String label, String detail) {
             this.id = id;
@@ -86,8 +89,20 @@ public final class NewGameOptions {
             if (no.getNations().get(n) != NationState.AVAILABLE) continue;
             String type = Messages.getName(n.getType());
             String about = Messages.message(n.getType().getId() + ".shortDescription");
-            result.add(new Choice(n.getId(), Messages.getName(n),
-                type + ": " + about));
+            Choice c = new Choice(n.getId(), Messages.getName(n), type + ": " + about);
+            c.kind = type;
+            c.about = about + ".";
+            if (n.getType() instanceof net.sf.freecol.common.model.EuropeanNationType) {
+                List<String> units = new ArrayList<>();
+                for (net.sf.freecol.common.model.AbstractUnit au
+                         : ((net.sf.freecol.common.model.EuropeanNationType)n.getType())
+                             .getStartingUnits()) {
+                    units.add(Messages.message(au.getSingleLabel()));
+                }
+                java.util.Collections.sort(units);
+                c.units = "Starts with " + String.join(", ", units) + ".";
+            }
+            result.add(c);
         }
         return result;
     }

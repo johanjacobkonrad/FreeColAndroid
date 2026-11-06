@@ -171,7 +171,7 @@ public final class Theme {
     // Line icons
 
     /** The little gold line icons on buttons. */
-    public enum Icon { NEXT, WAIT, ORDERS, SHIP, HOUSE, COLONY, JOIN, BACK, CLOSE, BUILD, EQUIP, SAIL, MENU, SAVE, LOAD, BOOK, FLAG }
+    public enum Icon { NEXT, WAIT, ORDERS, SHIP, HOUSE, COLONY, JOIN, BACK, CLOSE, BUILD, EQUIP, SAIL, MENU, SAVE, LOAD, BOOK, FLAG, TROPHY, GEAR }
 
     /** Draws an {@link Icon} as strokes in a 24x24 box. */
     static final class IconDrawable extends Drawable {
@@ -207,6 +207,17 @@ public final class Theme {
                 canvas.drawCircle(12, 12, 8, paint);
                 line(12, 7, 12, 12); line(12, 12, 15, 14); break;
             case ORDERS: line(4, 7, 20, 7); line(4, 12, 20, 12); line(4, 17, 14, 17); break;
+            case TROPHY:
+                line(8, 21, 16, 21); line(12, 17, 12, 21);
+                line(7, 4, 17, 4); line(17, 4, 17, 9); line(7, 4, 7, 9);
+                path.addArc(new android.graphics.RectF(7, 4, 17, 14), 0, 180);
+                line(7, 6, 4, 6); line(4, 6, 4, 8); line(4, 8, 7, 10);
+                line(17, 6, 20, 6); line(20, 6, 20, 8); line(20, 8, 17, 10); break;
+            case GEAR:
+                canvas.drawCircle(12, 12, 3, paint);
+                line(12, 2, 12, 5); line(12, 19, 12, 22); line(2, 12, 5, 12); line(19, 12, 22, 12);
+                line(4.9f, 4.9f, 7, 7); line(17, 17, 19.1f, 19.1f);
+                line(4.9f, 19.1f, 7, 17); line(17, 7, 19.1f, 4.9f); break;
             case FLAG:
                 line(5, 21, 5, 3); line(5, 4, 19, 4); line(19, 4, 15, 8);
                 line(15, 8, 19, 12); line(19, 12, 5, 12); break;

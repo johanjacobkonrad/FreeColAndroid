@@ -83,7 +83,8 @@ public final class SessionCheck {
             = Engine.loadSpecification(opts.difficulty);
         java.util.List<NewGameOptions.Choice> nations = NewGameOptions.nations(spec);
         for (NewGameOptions.Choice c : nations) {
-            System.out.println("  nation choice: " + c.label + " - " + c.detail);
+            System.out.println("  nation choice: " + c.label + " - " + c.kind + " | " + c.about
+                + " | " + c.units);
         }
         opts.nationId = nations.get(1).id;
         opts.applyTo(spec);

@@ -34,7 +34,6 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
-import android.widget.HorizontalScrollView;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -46,10 +45,11 @@ import net.sf.freecol.android.map.Art;
 /**
  * The start screen: FreeCol's landing engraving on the left; on the
  * right, Continue (with the saved nation's coat of arms), New game,
- * and the Phase 1 engine test tucked away as a small link.
+ * High scores and Settings, and the Phase 1 engine test tucked away as
+ * a small link.
  *
- * New game replaces the right-hand side with the game setup: nation,
- * difficulty, map size and land, then Start.
+ * New game covers the whole screen: the nations as cards, and a bar
+ * with difficulty, map size and land (tap to choose) and Start.
  */
 public final class MainActivity extends Activity {
 
@@ -62,6 +62,8 @@ public final class MainActivity extends Activity {
     private AndroidArt art;
     private float dp;
     private FrameLayout right;
+    /** Over everything: the new game page (it needs the whole width). */
+    private FrameLayout full;
     private final NewGameOptions options = new NewGameOptions();
 
 
@@ -123,15 +125,26 @@ public final class MainActivity extends Activity {
         root.addView(right, new LinearLayout.LayoutParams(0,
             LinearLayout.LayoutParams.MATCH_PARENT, 0.5f));
 
+        full = new FrameLayout(this);
+        full.setBackground(Theme.wood());
+        full.setClickable(true);
+        full.setVisibility(View.GONE);
+        FrameLayout frame = new FrameLayout(this);
+        frame.addView(root, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        frame.addView(full, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+
         // Keep the menus clear of system bars and cutouts; the picture
         // can go under them.
-        root.setOnApplyWindowInsetsListener((v, insets) -> {
+        frame.setOnApplyWindowInsetsListener((v, insets) -> {
             android.graphics.Insets bars = insets.getInsets(
                 WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
             right.setPadding(0, bars.top, bars.right, bars.bottom);
+            full.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return WindowInsets.CONSUMED;
         });
-        setContentView(root);
+        setContentView(frame);
         showMenu();
     }
 
@@ -177,9 +190,23 @@ public final class MainActivity extends Activity {
             menu.addView(card, wide(0, 0, 0, px(14)));
         }
 
-        TextView newGame = button("New game", true);
+        TextView newGame = Theme.button(this, "New game", null, Theme.Kind.GOLD, false);
+        newGame.setTextSize(17);
         newGame.setOnClickListener(v -> showSetup());
-        menu.addView(newGame, wide(0, 0, 0, px(8)));
+        menu.addView(newGame, wide(0, 0, 0, px(10)));
+        LinearLayout pair = new LinearLayout(this);
+        pair.setOrientation(LinearLayout.HORIZONTAL);
+        TextView scores = Theme.button(this, "High scores", Theme.Icon.TROPHY,
+                                       Theme.Kind.PLANK, false);
+        scores.setOnClickListener(v -> showHighScores());
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0, px(48), 1f);
+        slp.setMargins(0, 0, px(10), 0);
+        pair.addView(scores, slp);
+        TextView settings = Theme.button(this, "Settings", Theme.Icon.GEAR,
+                                         Theme.Kind.PLANK, false);
+        settings.setOnClickListener(v -> showSettings());
+        pair.addView(settings, new LinearLayout.LayoutParams(0, px(48), 1f));
+        menu.addView(pair, wide(0, 0, 0, px(8)));
         if (about != null) {
             menu.addView(text("A new game replaces your saved game once it starts.",
                               12, INK_DIM, false));
@@ -188,20 +215,34 @@ public final class MainActivity extends Activity {
         LinearLayout box = column();
         box.addView(menu, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-        LinearLayout links = new LinearLayout(this);
-        links.setOrientation(LinearLayout.HORIZONTAL);
-        TextView scores = text("High scores", 13, INK, true);
-        scores.setPadding(px(32), px(8), px(16), px(12));
-        scores.setOnClickListener(v -> showHighScores());
-        links.addView(scores);
         TextView test = text("Engine test", 12, INK_DIM, false);
-        test.setPadding(px(16), px(8), px(32), px(12));
+        test.setPadding(px(32), px(8), px(32), px(12));
         test.setOnClickListener(v -> showEngineTest());
-        links.addView(test);
-        box.addView(links);
+        box.addView(test);
         setRight(box);
     }
 
+
+    // Settings
+
+    private void showSettings() {
+        LinearLayout page = column();
+        page.setPadding(px(32), px(24), px(32), px(16));
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.addView(Theme.serif(this, "Settings", 22, Theme.GOLD, true),
+                     new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView back = Theme.button(this, "Back", Theme.Icon.BACK, Theme.Kind.PLANK, false);
+        back.setOnClickListener(v -> showMenu());
+        head.addView(back);
+        page.addView(head);
+        TextView none = Theme.serif(this, "Nothing to set yet. Move speed, sound and the "
+            + "map view will appear here.", 15, Theme.DIM, false);
+        none.setPadding(0, px(16), 0, 0);
+        page.addView(none);
+        setRight(page);
+    }
 
     // High scores
 
@@ -294,108 +335,197 @@ public final class MainActivity extends Activity {
         if (options.nationId == null && !nations.isEmpty()) {
             options.nationId = nations.get(0).id;
         }
+        showMenu(); // Behind the page, for Back
         LinearLayout page = column();
-        page.setPadding(px(24), px(16), px(24), px(8));
-        page.addView(text("New game", 22, INK, true));
+        page.setPadding(px(20), px(14), px(20), px(12));
 
-        // Nation cards.
-        page.addView(heading("Nation"));
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        final List<View> cards = new ArrayList<>();
-        final TextView advantage = text("", 12, INK_DIM, false);
-        for (NewGameOptions.Choice c : nations) {
-            LinearLayout card = column();
-            card.setGravity(Gravity.CENTER_HORIZONTAL);
-            card.setPadding(px(8), px(8), px(8), px(6));
-            Bitmap flag = bitmap("image.miscicon." + c.id);
-            if (flag != null) {
-                ImageView iv = new ImageView(this);
-                iv.setImageBitmap(flag);
-                iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-                card.addView(iv, new LinearLayout.LayoutParams(px(40), px(44)));
-            }
-            card.addView(text(c.label, 13, INK, true));
-            card.setTag(c);
+        // Back, and the title.
+        LinearLayout head = new LinearLayout(this);
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView back = new ImageView(this);
+        back.setImageDrawable(new Theme.IconDrawable(Theme.Icon.BACK, Theme.GOLD, px(22)));
+        back.setScaleType(ImageView.ScaleType.CENTER);
+        back.setBackground(Theme.plank(this));
+        back.setContentDescription("Back");
+        back.setOnClickListener(v -> closeSetup());
+        head.addView(back, new LinearLayout.LayoutParams(px(44), px(44)));
+        TextView title = Theme.serif(this, "Choose your nation", 22, Theme.GOLD, true);
+        title.setPadding(px(14), 0, 0, 0);
+        head.addView(title);
+        page.addView(head, wide(0, 0, 0, px(10)));
+
+        // The nations, as cards.
+        LinearLayout cards = new LinearLayout(this);
+        cards.setOrientation(LinearLayout.HORIZONTAL);
+        final List<View> all = new ArrayList<>();
+        for (int i = 0; i < nations.size(); i++) {
+            final NewGameOptions.Choice c = nations.get(i);
+            View card = nationCard(c);
             card.setOnClickListener(v -> {
                     options.nationId = c.id;
-                    markCards(cards, c.id);
-                    advantage.setText(c.detail);
+                    for (View o : all) markNation(o, ((NewGameOptions.Choice)o.getTag()).id.equals(c.id));
                 });
-            cards.add(card);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(px(84),
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.setMargins(0, 0, px(8), 0);
-            row.addView(card, lp);
+            all.add(card);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            lp.setMargins(i == 0 ? 0 : px(5), 0, i == nations.size() - 1 ? 0 : px(5), 0);
+            cards.addView(card, lp);
         }
-        HorizontalScrollView rs = new HorizontalScrollView(this);
-        rs.setHorizontalScrollBarEnabled(false);
-        rs.addView(row);
-        page.addView(rs);
-        markCards(cards, options.nationId);
-        for (NewGameOptions.Choice c : nations) {
-            if (c.id.equals(options.nationId)) advantage.setText(c.detail);
-        }
-        advantage.setPadding(0, px(4), 0, 0);
-        page.addView(advantage);
+        for (View o : all) markNation(o, ((NewGameOptions.Choice)o.getTag()).id.equals(options.nationId));
+        page.addView(cards, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // Difficulty, map size, land.
-        page.addView(heading("Difficulty"));
-        List<String[]> diff = new ArrayList<>();
-        for (NewGameOptions.Choice c : difficulties) diff.add(new String[] { c.id, c.label });
-        page.addView(segments(diff, options.difficulty, id -> options.difficulty = id));
-
-        page.addView(heading("Map size"));
-        List<String[]> sizes = new ArrayList<>();
-        for (Object[] m : NewGameOptions.MAP_SIZES) {
-            sizes.add(new String[] { (String)m[0], m[1] + "  " + m[2] + "×" + m[3] });
-        }
-        page.addView(segments(sizes, options.mapSize, id -> options.mapSize = id));
-        TextView sizeNote = text("Bigger maps take the computer players longer each turn.",
-                                 11, INK_DIM, false);
-        page.addView(sizeNote);
-
-        page.addView(heading("Land"));
-        List<String[]> land = new ArrayList<>();
-        for (Object[] l : NewGameOptions.LAND) land.add(new String[] { (String)l[0], (String)l[1] });
-        page.addView(segments(land, options.land, id -> options.land = id));
-
-        ScrollView scroll = new ScrollView(this);
-        scroll.addView(page);
-
-        // Back / Start, always visible.
+        // The world: difficulty, map size and land, then Start.
         LinearLayout bar = new LinearLayout(this);
         bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setPadding(px(24), px(6), px(24), px(12));
-        TextView back = button("Back", false);
-        back.setOnClickListener(v -> showMenu());
-        bar.addView(back, new LinearLayout.LayoutParams(0,
-            LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        View gap = new View(this);
-        bar.addView(gap, new LinearLayout.LayoutParams(px(12), 1));
-        TextView start = button("Start", true);
+        bar.setBackground(Theme.plank(this));
+        int bp = px(6);
+        bar.setPadding(bp, bp, bp, bp);
+        List<String[]> diff = new ArrayList<>();
+        for (NewGameOptions.Choice c : difficulties) diff.add(new String[] { c.id, c.label });
+        bar.addView(picker("Difficulty", diff, () -> options.difficulty,
+                           id -> options.difficulty = id, null), pickerParams());
+        List<String[]> sizes = new ArrayList<>();
+        for (Object[] m : NewGameOptions.MAP_SIZES) {
+            sizes.add(new String[] { (String)m[0], m[1] + "  (" + m[2] + " \u00d7 " + m[3] + ")" });
+        }
+        bar.addView(picker("Map size", sizes, () -> options.mapSize,
+                           id -> options.mapSize = id,
+                           "bigger maps mean longer waits each turn"),
+                    pickerParams());
+        List<String[]> land = new ArrayList<>();
+        for (Object[] l : NewGameOptions.LAND) land.add(new String[] { (String)l[0], (String)l[1] });
+        bar.addView(picker("Land", land, () -> options.land, id -> options.land = id, null),
+                    pickerParams());
+        TextView start = Theme.button(this, "Start", null, Theme.Kind.GOLD, false);
+        start.setTextSize(17);
         start.setOnClickListener(v -> startActivity(
             new Intent(this, GameActivity.class)
                 .putExtra(GameActivity.EXTRA_NATION, options.nationId)
                 .putExtra(GameActivity.EXTRA_DIFFICULTY, options.difficulty)
                 .putExtra(GameActivity.EXTRA_MAP_SIZE, options.mapSize)
                 .putExtra(GameActivity.EXTRA_LAND, options.land)));
-        bar.addView(start, new LinearLayout.LayoutParams(0,
-            LinearLayout.LayoutParams.WRAP_CONTENT, 2f));
+        bar.addView(start, new LinearLayout.LayoutParams(0, px(50), 1.3f));
+        page.addView(bar, wide(0, px(12), 0, 0));
 
-        LinearLayout box = column();
-        box.addView(scroll, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-        box.addView(bar);
-        setRight(box);
+        full.removeAllViews();
+        full.addView(page, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
+        full.setVisibility(View.VISIBLE);
     }
 
-    private void markCards(List<View> cards, String selected) {
-        for (View v : cards) {
-            NewGameOptions.Choice c = (NewGameOptions.Choice)v.getTag();
-            boolean on = c.id.equals(selected);
-            v.setBackground(rounded(on ? 0xFF4A3920 : CARD, on ? CARD_ON : CARD));
+    private void closeSetup() {
+        full.setVisibility(View.GONE);
+        full.removeAllViews();
+        showMenu();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (full.getVisibility() == View.VISIBLE) {
+            closeSetup();
+        } else {
+            super.onBackPressed();
         }
+    }
+
+    /** A nation's card: coat of arms, name, advantage, starting units. */
+    private View nationCard(NewGameOptions.Choice c) {
+        LinearLayout card = column();
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        card.setPadding(px(10), px(12), px(10), px(10));
+        card.setTag(c);
+        Bitmap flag = bitmap("image.miscicon." + c.id);
+        if (flag != null) {
+            ImageView iv = new ImageView(this);
+            iv.setImageBitmap(flag);
+            iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            card.addView(iv, new LinearLayout.LayoutParams(px(50), px(56)));
+        }
+        TextView name = Theme.serif(this, c.label, 17, INK, true);
+        name.setGravity(Gravity.CENTER);
+        name.setPadding(0, px(4), 0, 0);
+        card.addView(name, wide(0, 0, 0, 0));
+        TextView kind = Theme.heading(this, c.kind, Theme.GOLD);
+        kind.setGravity(Gravity.CENTER);
+        kind.setPadding(0, px(2), 0, px(4));
+        card.addView(kind, wide(0, 0, 0, 0));
+        TextView about = text(c.about + (c.units.isEmpty() ? "" : "\n" + c.units), 12,
+                              Theme.DIM, false);
+        about.setGravity(Gravity.CENTER);
+        about.setLineSpacing(0, 1.1f);
+        card.addView(about, wide(0, 0, 0, 0));
+        return card;
+    }
+
+    private void markNation(View v, boolean on) {
+        LinearLayout card = (LinearLayout)v;
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(8 * dp);
+        if (on) {
+            g.setColor(Theme.PAPER);
+            g.setStroke(px(2), Theme.GOLD);
+        } else {
+            g.setColor(Theme.WOOD_TOP);
+            g.setStroke(Math.max(1, (int)dp), Theme.EDGE);
+        }
+        card.setBackground(g);
+        // Name, advantage, text (the last three): dark on the chosen
+        // card's parchment.
+        int n = card.getChildCount();
+        if (n >= 3) {
+            ((TextView)card.getChildAt(n - 3)).setTextColor(on ? Theme.PAPER_INK : INK);
+            ((TextView)card.getChildAt(n - 2)).setTextColor(on ? 0xFF7A5A2C : Theme.GOLD);
+            ((TextView)card.getChildAt(n - 1)).setTextColor(on ? 0xFF4A3620 : Theme.DIM);
+        }
+    }
+
+    private LinearLayout.LayoutParams pickerParams() {
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, px(50), 1f);
+        lp.setMargins(0, 0, px(6), 0);
+        return lp;
+    }
+
+    /** One of the world settings: its name and value; tap to choose. */
+    private View picker(final String label, final List<String[]> choices,
+                        final java.util.function.Supplier<String> current,
+                        final java.util.function.Consumer<String> onPick, final String note) {
+        LinearLayout cell = column();
+        cell.setGravity(Gravity.CENTER_VERTICAL);
+        cell.setPadding(px(12), 0, px(8), 0);
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(0x1AE3C27A);
+        g.setCornerRadius(5 * dp);
+        cell.setBackground(g);
+        TextView l = Theme.heading(this, label, Theme.DIM);
+        cell.addView(l);
+        final TextView value = text("", 14, INK, true);
+        cell.addView(value);
+        final Runnable show = () -> {
+            for (String[] c : choices) {
+                if (c[0].equals(current.get())) value.setText(c[1].split("  ")[0] + " \u25be");
+            }
+        };
+        show.run();
+        cell.setOnClickListener(v -> {
+                String[] names = new String[choices.size()];
+                int at = 0;
+                for (int i = 0; i < names.length; i++) {
+                    names[i] = choices.get(i)[1];
+                    if (choices.get(i)[0].equals(current.get())) at = i;
+                }
+                android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
+                    .setTitle((note == null) ? label : label + " \u00b7 " + note)
+                    .setSingleChoiceItems(names, at, (d, w) -> {
+                            onPick.accept(choices.get(w)[0]);
+                            show.run();
+                            d.dismiss();
+                        })
+                    .setNegativeButton("Cancel", null);
+                b.show(); // (A message would hide the list: the note is in the title.)
+            });
+        return cell;
     }
 
     /** A row of mutually exclusive choices. */
