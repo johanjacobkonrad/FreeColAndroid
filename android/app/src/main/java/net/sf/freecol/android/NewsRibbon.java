@@ -31,7 +31,8 @@ import android.widget.TextView;
 
 /**
  * The news as a see-through parchment ribbon over the top left of the
- * map: the latest message, and a "+3" to tap for the ones before it.
+ * map: the latest messages (1, 3 or 5, as the settings say; the newest
+ * in bold), and a "+3" to tap for the ones before them.
  */
 final class NewsRibbon extends LinearLayout {
 
@@ -39,7 +40,9 @@ final class NewsRibbon extends LinearLayout {
 
     private final Deque<String> news = new ArrayDeque<>();
     private final TextView latest, more;
-    private final LinearLayout older;
+    private final LinearLayout older, recent;
+    /** How many messages show while the list is closed. */
+    private int lines = 3;
     private final ScrollView olderScroll;
     /** Messages that came in since the list was last opened. */
     private int unseen = 0;
@@ -66,6 +69,10 @@ final class NewsRibbon extends LinearLayout {
         more.setPadding(Theme.px(c, 10), 0, 0, 0);
         row.addView(more);
         addView(row);
+        // The messages before the latest, when more than one shows.
+        recent = new LinearLayout(c);
+        recent.setOrientation(VERTICAL);
+        addView(recent);
 
         older = new LinearLayout(c);
         older.setOrientation(VERTICAL);
@@ -95,6 +102,12 @@ final class NewsRibbon extends LinearLayout {
         super.onMeasure(MeasureSpec.makeMeasureSpec(max, MeasureSpec.AT_MOST), h);
     }
 
+    /** How many of the latest messages to show (1, 3 or 5). */
+    void setLines(int n) {
+        lines = Math.max(1, n);
+        update();
+    }
+
     /** Add a message at the top. */
     void add(String line) {
         if (line == null || line.isEmpty()) return;
@@ -114,11 +127,24 @@ final class NewsRibbon extends LinearLayout {
         setVisibility(news.isEmpty() ? GONE : VISIBLE);
         if (news.isEmpty()) return;
         latest.setText(news.peekFirst());
-        int others = news.size() - 1;
-        int extra = Math.min(Math.max(unseen - 1, 0), others);
-        more.setText(others == 0 ? ""
+        // Closed: the latest few; open: all of them, in the list.
+        int showing = open ? 1 : Math.min(lines, news.size());
+        int others = news.size() - showing;
+        int extra = Math.min(Math.max(unseen - showing, 0), others);
+        more.setText(news.size() <= 1 ? ""
                      : open ? "▴"
+                     : others == 0 ? ""
                      : (extra > 0 ? "+" + extra + " ▾" : "▾"));
+        recent.removeAllViews();
+        int k = 0;
+        for (String s : news) {
+            if (k++ == 0) continue;
+            if (k > showing) break;
+            TextView t = Theme.serif(getContext(), s, 11.5f, 0xFF4A3820, false);
+            t.setMaxLines(2);
+            t.setPadding(0, Theme.px(getContext(), 2), 0, 0);
+            recent.addView(t);
+        }
         older.removeAllViews();
         olderScroll.setVisibility(open ? VISIBLE : GONE);
         if (!open) return;
