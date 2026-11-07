@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app icon's background: the dark wood of the game's panels. -->
+    <color name="ic_launcher_wood">#2E1F13</color>
+</resources>
