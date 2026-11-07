@@ -175,31 +175,44 @@ final class Settings {
                 prefs(c).edit().putString(SPEED, id).apply();
                 if (onSpeed != null) onSpeed.accept(movePause(c));
             }));
+        // Animations and news lines side by side: both are short.
+        LinearLayout pair = new LinearLayout(c);
+        pair.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout anim = new LinearLayout(c);
+        anim.setOrientation(LinearLayout.VERTICAL);
         TextView ah = Theme.heading(c, "Animations", look.heading);
-        ah.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 2));
-        right.addView(ah);
-        TextView aw = Theme.text(c, "Units slide between tiles; attacks are shown.",
-                                 12, look.dim, false);
-        aw.setPadding(0, 0, 0, Theme.px(c, 6));
-        right.addView(aw);
+        ah.setPadding(0, 0, 0, Theme.px(c, 6));
+        anim.addView(ah);
         List<String[]> onOff = new ArrayList<>();
         onOff.add(new String[] { "on", "On" });
         onOff.add(new String[] { "off", "Off" });
-        right.addView(choices(c, look, onOff, animate(c) ? "on" : "off", id -> {
+        anim.addView(choices(c, look, onOff, animate(c) ? "on" : "off", id -> {
                 prefs(c).edit().putBoolean(ANIMATE, "on".equals(id)).apply();
                 if (onSpeed != null) onSpeed.accept(movePause(c));
             }));
+        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(0,
+            LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        alp.setMargins(0, 0, Theme.px(c, 14), 0);
+        pair.addView(anim, alp);
+        LinearLayout newsCol = new LinearLayout(c);
+        newsCol.setOrientation(LinearLayout.VERTICAL);
         TextView newsHead = Theme.heading(c, "News lines", look.heading);
-        newsHead.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 6));
-        right.addView(newsHead);
+        newsHead.setPadding(0, 0, 0, Theme.px(c, 6));
+        newsCol.addView(newsHead);
         List<String[]> lines = new ArrayList<>();
         lines.add(new String[] { "1", "1" });
         lines.add(new String[] { "3", "3" });
         lines.add(new String[] { "5", "5" });
-        right.addView(choices(c, look, lines, Integer.toString(newsLines(c)), id -> {
+        newsCol.addView(choices(c, look, lines, Integer.toString(newsLines(c)), id -> {
                 prefs(c).edit().putInt(NEWS_LINES, Integer.parseInt(id)).apply();
                 if (onSpeed != null) onSpeed.accept(movePause(c));
             }));
+        pair.addView(newsCol, new LinearLayout.LayoutParams(0,
+            LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        plp.setMargins(0, Theme.px(c, 16), 0, 0);
+        right.addView(pair, plp);
         cols.addView(right, new LinearLayout.LayoutParams(0,
             LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         return cols;
