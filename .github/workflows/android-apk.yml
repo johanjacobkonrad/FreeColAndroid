@@ -26,19 +26,28 @@ jobs:
           gradle-version: '8.11.1'
 
       # The music, re-encoded smaller (87 MB of tracks down to about 20).
-      # Usually under a minute; the time limits stop a stuck package
-      # download from holding up the build (it once hung 20 minutes).
+      # The tracks never change, so the result is cached; ffmpeg is only
+      # needed when the cache is empty.  It comes as a static build from
+      # GitHub's release storage: installing it with apt from the
+      # runners' Ubuntu mirror once stalled for over 20 minutes.
+      - name: Music cache
+        id: music
+        uses: actions/cache@v4
+        with:
+          path: android/app/build/generated/music-assets
+          key: music-${{ hashFiles('data/default/resources/music/default/*', 'android/encode-music.sh') }}
+
       - name: Music
+        if: steps.music.outputs.cache-hit != 'true'
         timeout-minutes: 10
         run: |
           if ! command -v ffmpeg; then
-            for try in 1 2 3; do
-              timeout 180 sudo apt-get update -o Acquire::Retries=3 \
-                && timeout 240 sudo apt-get install -y -o Acquire::Retries=3 ffmpeg \
-                && break
-              echo "Installing ffmpeg failed (try $try); retrying..."
-            done
+            curl -fsSL --retry 3 --max-time 300 -o "$RUNNER_TEMP/ffmpeg.tar.xz" \
+              https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+            tar -xJf "$RUNNER_TEMP/ffmpeg.tar.xz" -C "$RUNNER_TEMP"
+            export PATH="$(echo "$RUNNER_TEMP"/ffmpeg-*/bin):$PATH"
           fi
+          ffmpeg -hide_banner -encoders | grep -q libvorbis
           android/encode-music.sh
 
       # The hosted Ubuntu runners come with the Android SDK installed.
