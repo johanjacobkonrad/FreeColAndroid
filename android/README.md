@@ -192,6 +192,12 @@ Moving a unit into a settlement now does what it does on the desktop:
 - **Soldier or dragoon**: demand tribute, or attack after confirming.
   Attacks on units also ask first.
 - **Scout at a European colony**: spy on it, or attack.
+- **Ship or wagon train at another nation's colony** (once Jan de Witt
+  is in your Congress): make a trade offer. Sell a load from your
+  cargo, ask for up to 100 of any goods, and set the gold either way,
+  starting at about a fair price. Their warehouse and gold are hidden,
+  so they may turn it down for want of either; they may also counter
+  with a smaller sum. One offer per carrier per turn.
 
 The server's questions are real dialogs now: first contact (peace or
 not), the next founding father (with what each does), the King's tax

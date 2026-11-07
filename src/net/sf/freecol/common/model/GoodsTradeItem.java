@@ -117,10 +117,12 @@ public class GoodsTradeItem extends TradeItem {
     public int evaluateFor(Player player) {
         final Market market = player.getMarket();
         final Goods goods = getGoods();
+        // Giving goods away costs what buying them back would (it was
+        // counted as a gain, so the AI gave its goods away for nothing).
         return (!isValid()) ? INVALID_TRADE_ITEM
             : (getSource() == player)
             ? ((market == null) ? -2 * goods.getAmount()
-                : market.getBidPrice(goods.getType(), goods.getAmount()))
+                : -market.getBidPrice(goods.getType(), goods.getAmount()))
             : ((market == null) ? 2 * goods.getAmount()
                 : (int)Math.round(market.getSalePrice(goods.getType(),
                                                       goods.getAmount())
