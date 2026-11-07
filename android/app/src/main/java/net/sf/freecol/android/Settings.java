@@ -189,9 +189,9 @@ final class Settings {
                 prefs(c).edit().putBoolean(ANIMATE, "on".equals(id)).apply();
                 if (onSpeed != null) onSpeed.accept(movePause(c));
             }));
-        TextView nh = Theme.heading(c, "News lines", look.heading);
-        nh.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 6));
-        right.addView(nh);
+        TextView newsHead = Theme.heading(c, "News lines", look.heading);
+        newsHead.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 6));
+        right.addView(newsHead);
         List<String[]> lines = new ArrayList<>();
         lines.add(new String[] { "1", "1" });
         lines.add(new String[] { "3", "3" });
