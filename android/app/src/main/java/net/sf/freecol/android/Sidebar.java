@@ -43,8 +43,8 @@ import net.sf.freecol.common.model.Unit;
 
 
 /**
- * The game screen's right-hand panel, top to bottom: the minimap with
- * the year, gold and tax under it; the selected unit's card (picture,
+ * The game screen's right-hand panel, top to bottom: the year, gold,
+ * tax and menu over the minimap; the selected unit's card (picture,
  * name, moves, cargo, and the other units on its tile); the commands,
  * with one wide button for whatever fits the unit; Europe and End
  * turn.
@@ -109,11 +109,10 @@ final class Sidebar extends LinearLayout {
         mm.addView(minimap, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
         this.minimapFrame = mm;
-        top.addView(mm, new LayoutParams(LayoutParams.MATCH_PARENT, Theme.px(c, MINIMAP_DP)));
         LinearLayout status = new LinearLayout(c);
         status.setOrientation(HORIZONTAL);
         status.setGravity(Gravity.CENTER_VERTICAL);
-        status.setPadding(0, p, 0, 0);
+        status.setPadding(0, 0, 0, p);
         crest = new ImageView(c);
         crest.setScaleType(ImageView.ScaleType.FIT_CENTER);
         status.addView(crest, new LayoutParams(Theme.px(c, 20), Theme.px(c, 22)));
@@ -134,6 +133,7 @@ final class Sidebar extends LinearLayout {
         mlp.setMargins(Theme.px(c, 4), 0, 0, 0);
         status.addView(menu, mlp);
         top.addView(status);
+        top.addView(mm, new LayoutParams(LayoutParams.MATCH_PARENT, Theme.px(c, MINIMAP_DP)));
         addView(top, full(gap));
 
         // The selected unit.
@@ -268,6 +268,23 @@ final class Sidebar extends LinearLayout {
 
     // Refresh from the game
 
+    /**
+     * The terrain under a unit: type, then a river or road, and any
+     * bonus resource ("Mixed forest · river · beaver").
+     */
+    static String terrain(Tile t) {
+        if (t == null || t.getType() == null) return "";
+        List<String> parts = new ArrayList<>();
+        parts.add(Messages.getName(t.getType()));
+        if (t.hasRiver()) parts.add("river");
+        if (t.hasRoad() && t.getColony() == null) parts.add("road");
+        if (t.getResource() != null && t.getResource().getType() != null) {
+            parts.add(Messages.getName(t.getResource().getType())
+                      .toLowerCase(java.util.Locale.UK));
+        }
+        return String.join(" \u00b7 ", parts);
+    }
+
     void refresh() {
         final Context c = getContext();
         boolean myTurn = session.isMyTurn();
@@ -291,8 +308,10 @@ final class Sidebar extends LinearLayout {
                     String type = Messages.getName(unit.getType());
                     name = (own != null && !own.isEmpty()) ? own : unit.getDescription();
                     String doing = session.describeOrders(unit);
+                    String where = terrain(unit.getTile());
                     sub = ((own != null && !own.isEmpty()) ? type + " · " : "")
                         + "moves " + unit.getMovesAsString()
+                        + (where.isEmpty() ? "" : "\n" + where)
                         + (doing.isEmpty() ? "" : "\n" + doing);
                     movesWhole = (unit.getMovesLeft() + 2) / 3;
                     movesMax = Math.max(movesWhole, unit.getInitialMovesLeft() / 3);

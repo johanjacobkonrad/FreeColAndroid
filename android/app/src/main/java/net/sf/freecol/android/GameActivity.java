@@ -1231,8 +1231,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
                 mapView.setSlideMillis(Settings.slideMillis(this));
             }, true);
         box.setPadding(pad, pad / 3, pad, 0);
+        // Fits a phone's height; scrolls only if a screen is shorter.
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(box);
         android.app.AlertDialog d = new android.app.AlertDialog.Builder(this)
-            .setTitle("Settings").setView(box)
+            .setTitle("Settings").setView(sv)
             .setPositiveButton("Done", null).show();
         if (d.getWindow() != null) {
             int w = Math.min(getResources().getDisplayMetrics().widthPixels - (int)(32 * dp),
