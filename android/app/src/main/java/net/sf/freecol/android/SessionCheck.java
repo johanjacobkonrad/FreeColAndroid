@@ -67,6 +67,19 @@ public final class SessionCheck {
                     if (title.startsWith("Trade at")) traded = true;
                     answer.accept(pick);
                 }
+                @Override public boolean askRegionNames() {
+                    return true;
+                }
+                @Override public void onAskName(String title, String text,
+                        String suggestion, java.util.function.Consumer<String> answer) {
+                    // Regions get a name of our own, to check it takes.
+                    String name = title.startsWith("New ")
+                        ? "Checked " + suggestion : suggestion;
+                    if (title.startsWith("New ")) regionNames.add(name);
+                    System.out.println("  ? " + title + ": " + text + " [" + suggestion
+                        + "] -> " + name);
+                    answer.accept(name);
+                }
             });
         File save = File.createTempFile("freecol-check", ".fsg");
         save.deleteOnExit();
@@ -187,6 +200,9 @@ public final class SessionCheck {
         // The menu's reports and the Colopedia.
         boolean infoOk = checkInfo(s);
 
+        // Regions we named have our names.
+        boolean regionsOk = checkRegions(s);
+
         // Autosave happened at the start of this turn; load it into a
         // fresh session and check the game carries on.
         boolean reloaded = checkLoad(s, save);
@@ -197,12 +213,40 @@ public final class SessionCheck {
             + "; Europe: " + europeOk + "; natives: " + nativesOk
             + (traded ? " (traded)" : "")
             + "; save and load: " + reloaded + "; new-game options: " + optionsOk
-            + "; reports and Colopedia: " + infoOk + "; trade route: " + routeOk);
+            + "; reports and Colopedia: " + infoOk + "; trade route: " + routeOk
+            + "; region names: " + regionsOk);
         boolean ok = optionsOk && moved && (colonyOk || played == turns) && reloaded
             && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk
-            && infoOk && routeOk;
+            && infoOk && routeOk && regionsOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
+    }
+
+    /** Names given to regions when asked. */
+    private static final java.util.List<String> regionNames
+        = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+    /**
+     * Each region name given when asked is now a region's name.
+     *
+     * @return True if so (or none were asked).
+     */
+    private static boolean checkRegions(GameSession s) throws Exception {
+        s.sync();
+        java.util.Set<String> named = new java.util.HashSet<>();
+        synchronized (s.lock()) {
+            for (net.sf.freecol.common.model.Region r
+                     : s.getGame().getMap().getRegions()) {
+                if (r.getName() != null) named.add(r.getName());
+            }
+        }
+        java.util.List<String> missing = new java.util.ArrayList<>();
+        synchronized (regionNames) {
+            for (String n : regionNames) if (!named.contains(n)) missing.add(n);
+            System.out.println("Regions named: " + regionNames.size()
+                + (missing.isEmpty() ? "" : ", not taken: " + missing));
+        }
+        return missing.isEmpty();
     }
 
     /**

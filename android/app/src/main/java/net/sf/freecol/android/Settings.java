@@ -33,13 +33,14 @@ import java.util.List;
 
 /**
  * The player's settings, kept on the phone: music and sound effect
- * volume, and how long the map shows a unit after it moves.  Also the
+ * volume, naming new regions, how long the map shows a unit after it
+ * moves, and animations.  Also the
  * view that changes them, used by the start screen and the game menu.
  */
 final class Settings {
 
     private static final String FILE = "settings", MUSIC = "music", EFFECTS = "effects",
-        SPEED = "speed", ANIMATE = "animate";
+        SPEED = "speed", ANIMATE = "animate", NAME_REGIONS = "nameRegions";
 
     /** Move speeds: id, name, pause in milliseconds. */
     static final Object[][] SPEEDS = {
@@ -68,6 +69,11 @@ final class Settings {
     /** Units slide between tiles and attacks are shown. */
     static boolean animate(Context c) {
         return prefs(c).getBoolean(ANIMATE, true);
+    }
+
+    /** Ask the player to name the rivers, lakes and so on they find. */
+    static boolean nameRegions(Context c) {
+        return prefs(c).getBoolean(NAME_REGIONS, true);
     }
 
     /** How long a unit takes to slide one tile (0: no animations). */
@@ -101,8 +107,8 @@ final class Settings {
     }
 
     /**
-     * The settings, to change in place, in two columns: sound on the
-     * left, the game on the right.  Changes are kept at once, and the
+     * The settings, to change in place, in two columns: sound and
+     * naming on the left, the map on the right.  Changes are kept at once, and the
      * volume changes are heard at once.
      *
      * @param c The context.
@@ -129,6 +135,19 @@ final class Settings {
         left.addView(gap, new LinearLayout.LayoutParams(1, Theme.px(c, 10)));
         left.addView(slider(c, look, "Sound effects", effects(c), v -> {
                 prefs(c).edit().putInt(EFFECTS, v).apply();
+            }));
+        TextView nh = Theme.heading(c, "New places", look.heading);
+        nh.setPadding(0, Theme.px(c, 10), 0, Theme.px(c, 2));
+        left.addView(nh);
+        TextView nw = Theme.text(c, "Name the rivers, lakes, mountains and seas you find, "
+                                 + "or keep the names they come with.", 12, look.dim, false);
+        nw.setPadding(0, 0, 0, Theme.px(c, 6));
+        left.addView(nw);
+        List<String[]> naming = new ArrayList<>();
+        naming.add(new String[] { "ask", "Ask me" });
+        naming.add(new String[] { "auto", "Automatic" });
+        left.addView(choices(c, look, naming, nameRegions(c) ? "ask" : "auto", id -> {
+                prefs(c).edit().putBoolean(NAME_REGIONS, "ask".equals(id)).apply();
             }));
         LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(0,
             LinearLayout.LayoutParams.WRAP_CONTENT, 1f);

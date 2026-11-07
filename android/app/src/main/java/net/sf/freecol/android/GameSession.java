@@ -187,6 +187,17 @@ public final class GameSession implements MessageHandler {
         }
 
         /**
+         * Should newly discovered regions (rivers, mountains, lakes,
+         * seas) be named by the player through {@link #onAskName}, or
+         * get their suggested names?
+         *
+         * @return True to ask.
+         */
+        default boolean askRegionNames() {
+            return false;
+        }
+
+        /**
          * Let the player fill in a diplomatic offer (its choice fields)
          * and send it, or not.  Call the answer exactly once.  Without
          * a user interface the offer is sent as it is.
@@ -3056,18 +3067,30 @@ public final class GameSession implements MessageHandler {
                 status("You name the new land " + name + ".");
             });
         } else if (m instanceof NewRegionNameMessage) {
-            // Regions are named automatically: asking for every one
-            // would be a lot of typing on a phone.
+            // As on the desktop: a region with a name of its own (the
+            // Pacific) is just announced; others are named by the
+            // player, if they want to be asked (the settings).
             NewRegionNameMessage nm = (NewRegionNameMessage)m;
             final Region r = nm.getRegion(game);
             final Tile t = nm.getTile(game);
             final Unit u = nm.getUnit(me);
-            final String name = nm.getNewRegionName();
-            if (r != null && name != null) {
+            final String suggestion = nm.getNewRegionName();
+            if (r == null || suggestion == null) return;
+            if (r.hasName() || !listener.askRegionNames()) {
                 status((r.isPacific()) ? "You have reached the Pacific Ocean!"
-                       : "You discover " + name + ".");
-                worker.execute(() -> api.newRegionName(r, t, u, name));
+                       : "You discover " + suggestion + ".");
+                worker.execute(() -> api.newRegionName(r, t, u, suggestion));
+                return;
             }
+            final String kind = regionKind(r);
+            worker.execute(() -> {
+                String name = askName("New " + kind,
+                    "You have discovered a new " + kind.toLowerCase()
+                    + " and claim it for the Crown. As is customary, you may name it:",
+                    suggestion);
+                api.newRegionName(r, t, u, name);
+                status("You name the " + kind.toLowerCase() + " " + name + ".");
+            });
         } else if (m instanceof FountainOfYouthMessage) {
             sound("sound.event.fountainOfYouth");
             final int n = ((FountainOfYouthMessage)m).getMigrants();
@@ -3433,6 +3456,14 @@ public final class GameSession implements MessageHandler {
             me.clearNationSummary(offer.other);
         }
         changed();
+    }
+
+    /** What sort of region: "River", "Mountain range", "Lake"... */
+    static String regionKind(Region r) {
+        if (r.getType() == null) return "Region";
+        String k = Messages.message(r.getType().getNameKey());
+        if (k == null || k.isEmpty() || k.startsWith("model.")) return "Region";
+        return k.substring(0, 1).toUpperCase() + k.substring(1).toLowerCase();
     }
 
     /**

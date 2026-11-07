@@ -1220,6 +1220,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
     }
 
     @Override
+    public boolean askRegionNames() {
+        return Settings.nameRegions(this);
+    }
+
+    @Override
     public void onChanged() {
         runOnUiThread(this::refresh);
         runOnUiThread(minimap::gameChanged);
