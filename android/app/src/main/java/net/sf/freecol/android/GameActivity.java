@@ -1202,6 +1202,11 @@ public final class GameActivity extends Activity implements GameSession.Listener
     }
 
     @Override
+    public void onShowTile(Tile tile) {
+        runOnUiThread(() -> mapView.centreOn(tile));
+    }
+
+    @Override
     public void awaitAnimations() {
         mapView.awaitAnimations();
     }

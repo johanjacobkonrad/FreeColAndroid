@@ -266,8 +266,14 @@ public final class GameSession implements MessageHandler {
          */
         default void onUnitMoved(Unit unit, Tile from, Tile to) {}
 
-        /** A unit of ours attacks the next tile (before the result). */
+        /**
+         * A unit attacks the next tile (before the result): ours, or
+         * someone else's that we can see.
+         */
         default void onAttack(Unit unit, Tile from, Tile to) {}
+
+        /** Bring a tile into view (where something happens to us). */
+        default void onShowTile(Tile tile) {}
 
         /** Wait (on the game's thread) until the animations are shown. */
         default void awaitAnimations() {}
@@ -2787,6 +2793,59 @@ public final class GameSession implements MessageHandler {
         }
     }
 
+    /**
+     * Someone else's attack that we can see (ours are shown as we
+     * make them): mostly the other nations' and natives' attacks on
+     * our units and colonies, which happen during their turns.  The
+     * map goes to the fight if it is on us, plays it, says who won,
+     * and stays there a moment.  Called while the game is locked, so
+     * the showing happens on the worker.
+     */
+    private void attacked(net.sf.freecol.common.networking.AnimateAttackMessage am) {
+        Unit attacker = am.getAttacker(game), defender = am.getDefender(game);
+        final Tile from = am.getAttackerTile(game), to = am.getDefenderTile(game);
+        if (attacker == null || defender == null || from == null || to == null || me == null) return;
+        // The game's own units, so the animation hides the right one.
+        Unit a = game.getFreeColGameObject(attacker.getId(), Unit.class);
+        final Unit shown = (a != null) ? a : attacker;
+        if (me.owns(attacker)) return; // Already shown as we attacked
+        final boolean onUs = me.owns(defender);
+        final boolean won = am.getResult();
+        final String them = who(attacker);
+        final String target = (onUs ? "your " : "the " + nationOf(defender) + " ")
+            + Messages.getName(defender.getType()).toLowerCase(java.util.Locale.UK);
+        final String where = (to.getSettlement() != null)
+            ? " at " + to.getSettlement().getName() : "";
+        final String text = them + " attacked " + target + where + ": "
+            + (won ? (onUs ? "they won." : "the attackers won.")
+               : (onUs ? "you held them off." : "they were beaten back."));
+        worker.execute(() -> {
+            if (onUs) listener.onShowTile(to);
+            attackSound(shown);
+            listener.onAttack(shown, from, to);
+            listener.awaitAnimations();
+            status(text);
+            if (onUs && movePause > 0) {
+                try {
+                    Thread.sleep(Math.max(movePause, 900));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+    }
+
+    /** "The Spanish dragoon", "The Arawak brave". */
+    private static String who(Unit u) {
+        return "The " + nationOf(u) + " "
+            + Messages.getName(u.getType()).toLowerCase(java.util.Locale.UK);
+    }
+
+    private static String nationOf(Unit u) {
+        return (u.getOwner() == null) ? "unknown"
+            : Messages.message(u.getOwner().getNationLabel());
+    }
+
     /** The sound of a unit attacking (as the server picks it), and its
      *  animation: shown before the result. */
     private void attackSound(Unit unit, Direction d) {
@@ -2915,6 +2974,8 @@ public final class GameSession implements MessageHandler {
             if (p != null && me != null && nm.getNationSummary() != null) {
                 me.putNationSummary(p, nm.getNationSummary());
             }
+        } else if (m instanceof net.sf.freecol.common.networking.AnimateAttackMessage) {
+            attacked((net.sf.freecol.common.networking.AnimateAttackMessage)m);
         } else if (m instanceof GameEndedMessage) {
             Player winner = ((GameEndedMessage)m).getWinner(game);
             final boolean won = winner == me;

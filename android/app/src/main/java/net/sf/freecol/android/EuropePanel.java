@@ -189,10 +189,11 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
         if (!myTurn) {
             hint.setText("Wait for your turn to trade.");
         } else if (selectedUnit != null) {
-            hint.setText("Tap a ship to put them aboard, or Equip them.");
+            hint.setText(describe(selectedUnit)
+                + ": tap a ship to put them aboard, or Equip them.");
         } else if (selectedShip != null) {
-            hint.setText("Tap goods to buy, cargo to sell, a colonist on the "
-                + "docks to board. Or sail.");
+            hint.setText(describe(selectedShip) + ": tap goods to buy, cargo to sell,"
+                + " a colonist on the docks to board. Or sail.");
         } else if (info.inPort.isEmpty()) {
             hint.setText("No ships in port. Send one with Sail to Europe on the map.");
         } else {
@@ -282,6 +283,16 @@ final class EuropePanel extends LinearLayout implements GameSession.Listener {
                                p.boycott ? "boycott" : null, p.boycott);
             g.setOnClickListener(v -> tapMarket(p));
             market.addView(g);
+        }
+    }
+
+
+    /** A unit's type (and role), as the selection's name in the hint. */
+    private String describe(Unit u) {
+        synchronized (session.lock()) {
+            String own = u.getName();
+            String d = u.getDescription();
+            return (own != null && !own.isEmpty() && !d.contains(own)) ? own + ", " + d : d;
         }
     }
 
