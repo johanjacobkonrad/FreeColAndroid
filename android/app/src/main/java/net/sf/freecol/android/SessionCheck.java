@@ -109,9 +109,11 @@ public final class SessionCheck {
             System.out.println("  nation choice: " + c.label + " - " + c.kind + " | " + c.about
                 + " | " + c.units);
         }
-        opts.nationId = nations.get(1).id;
+        // Swedish (one of the two added nations), with two rivals.
+        opts.nationId = "model.nation.swedish";
+        opts.rivals = 2;
         opts.applyTo(spec);
-        s.start(spec, opts.nationId);
+        s.start(spec, opts);
         Unit ship = null, colonist = null;
         Tile shipStart = null, colonyTile = null;
         boolean landed = false, founded = false, colonyOk = false;
@@ -142,9 +144,18 @@ public final class SessionCheck {
                 }
                 if (turn == 0) {
                     String diff = s.getGame().getSpecification().getDifficultyLevel();
+                    java.util.List<String> europeans = new java.util.ArrayList<>();
+                    for (net.sf.freecol.common.model.Player p
+                             : s.getGame().getLiveEuropeanPlayerList()) {
+                        if (!p.isREF()) europeans.add(p.getNationId());
+                    }
+                    boolean nationsOk = nations.size() == 6 && europeans.size() == 3
+                        && NewGameOptions.PLAYABLE.containsAll(europeans);
+                    System.out.println("European nations in the game: " + europeans
+                        + "; choices " + nations.size() + ": " + nationsOk);
                     optionsOk = opts.nationId.equals(s.getMyPlayer().getNationId())
                         && map.getWidth() == 50 && map.getHeight() == 125
-                        && "model.difficulty.hard".equals(diff);
+                        && "model.difficulty.hard".equals(diff) && nationsOk;
                     System.out.println("Options: nation " + s.getMyPlayer().getNationId()
                         + " (wanted " + opts.nationId + "), map " + map.getWidth() + "x"
                         + map.getHeight() + ", " + diff + ": " + optionsOk);
@@ -172,6 +183,12 @@ public final class SessionCheck {
                 synchronized (s.lock()) {
                     colonyTile = colonist.getTile();
                     founded = colonyTile.getColony() != null;
+                    if (founded) {
+                        // The Swedish list now starts in New Sweden.
+                        String name = colonyTile.getColony().getName();
+                        System.out.println("  first colony: " + name);
+                        if (!"Fort Christina".equals(name)) founded = false;
+                    }
                 }
             } else if (land != null) {
                 // Next to land: put the first colonist ashore.

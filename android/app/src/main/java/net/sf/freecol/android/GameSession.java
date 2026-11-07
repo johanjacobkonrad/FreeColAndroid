@@ -510,7 +510,7 @@ public final class GameSession implements MessageHandler {
      * @param spec The {@code Specification} to play with.
      */
     public void start(Specification spec) {
-        start(spec, null);
+        start(spec, (String)null);
     }
 
     /**
@@ -520,11 +520,29 @@ public final class GameSession implements MessageHandler {
      * @param nationId The nation to play, or null for the default.
      */
     public void start(Specification spec, String nationId) {
+        NewGameOptions opts = new NewGameOptions();
+        opts.nationId = nationId;
+        start(spec, opts);
+    }
+
+    /**
+     * Start a new game with the new-game choices: the nation and how
+     * many rivals (the map choices are already in the rules).
+     *
+     * @param spec The {@code Specification} to play with.
+     * @param opts The choices.
+     */
+    public void start(Specification spec, NewGameOptions opts) {
+        final String nationId = opts.nationId;
         worker.execute(() -> {
             try {
                 status("Starting the game...");
                 server = new FreeColServer(false, true, spec,
                     InetAddress.getLoopbackAddress(), -1, "android");
+                // Who takes part, before anyone joins.
+                List<String> in = opts.applyNations(server.getGame().getNationOptions(),
+                                                    new java.util.Random());
+                logger.info("Nations in the game: " + in);
                 if (!connectAndLogin()) return;
                 String playing = Messages.message(me.getNationLabel());
                 if (nationId != null && !nationId.equals(me.getNationId())) {

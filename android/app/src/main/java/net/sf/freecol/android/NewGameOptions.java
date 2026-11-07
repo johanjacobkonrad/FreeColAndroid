@@ -68,25 +68,38 @@ public final class NewGameOptions {
         { "normal", "Normal", 25 },
         { "continents", "Continents", 35 } };
 
+    /**
+     * The European nations a player can choose or meet: the original
+     * four, and the Portuguese and Swedish (FreeCol's rules have the
+     * Danish and Russians too, but not here).
+     */
+    public static final List<String> PLAYABLE = java.util.Arrays.asList(
+        "model.nation.dutch", "model.nation.french", "model.nation.english",
+        "model.nation.spanish", "model.nation.portuguese", "model.nation.swedish");
+
+    /** Rival European nations: the fewest, the most and the usual. */
+    public static final int MIN_RIVALS = 1, MAX_RIVALS = 5, DEFAULT_RIVALS = 3;
+
     /** The nation to play, or null for whichever the game gives. */
     public String nationId = null;
+    /** How many other European nations join (picked at random). */
+    public int rivals = DEFAULT_RIVALS;
     public String difficulty = "model.difficulty.medium";
     public String mapSize = "small";
     public String land = "normal";
 
 
     /**
-     * The nations a player can choose (the rules make four of the
-     * European nations available), with their national advantage.
+     * The nations a player can choose ({@link #PLAYABLE}), with their
+     * national advantage.
      *
      * @param spec A loaded {@code Specification}.
      * @return The choices, in the rules' order.
      */
     public static List<Choice> nations(Specification spec) {
         List<Choice> result = new ArrayList<>();
-        NationOptions no = new NationOptions(spec);
         for (Nation n : spec.getEuropeanNations()) {
-            if (no.getNations().get(n) != NationState.AVAILABLE) continue;
+            if (!PLAYABLE.contains(n.getId())) continue;
             String type = Messages.getName(n.getType());
             String about = Messages.message(n.getType().getId() + ".shortDescription");
             Choice c = new Choice(n.getId(), Messages.getName(n), type + ": " + about);
@@ -105,6 +118,35 @@ public final class NewGameOptions {
             result.add(c);
         }
         return result;
+    }
+
+    /**
+     * Which European nations take part: the player's, and
+     * {@link #rivals} others picked at random from the rest of
+     * {@link #PLAYABLE}.  The rest are left out of the game.  Set on
+     * the server's game before anyone logs in.
+     *
+     * @param no The game's nation options, changed in place.
+     * @param random For picking the rivals.
+     * @return The nations in the game, the player's first.
+     */
+    public List<String> applyNations(NationOptions no, java.util.Random random) {
+        String mine = PLAYABLE.contains(nationId) ? nationId : PLAYABLE.get(0);
+        List<String> others = new ArrayList<>(PLAYABLE);
+        others.remove(mine);
+        java.util.Collections.shuffle(others, random);
+        List<String> in = new ArrayList<>();
+        in.add(mine);
+        int n = Math.max(MIN_RIVALS, Math.min(MAX_RIVALS, rivals));
+        in.addAll(others.subList(0, Math.min(n, others.size())));
+        for (java.util.Map.Entry<Nation, NationState> e
+                 : new ArrayList<>(no.getNations().entrySet())) {
+            Nation nation = e.getKey();
+            if (!nation.getType().isEuropean() || nation.getType().isREF()) continue;
+            no.setNationState(nation, in.contains(nation.getId())
+                ? NationState.AVAILABLE : NationState.NOT_AVAILABLE);
+        }
+        return in;
     }
 
     /** The difficulty levels, easiest first. */

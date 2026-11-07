@@ -49,7 +49,7 @@ import net.sf.freecol.android.map.Art;
  * a small link.
  *
  * New game covers the whole screen: the nations as cards, and a bar
- * with difficulty, map size and land (tap to choose) and Start.
+ * with difficulty, map size, land and rivals (tap to choose) and Start.
  */
 public final class MainActivity extends Activity {
 
@@ -418,7 +418,7 @@ public final class MainActivity extends Activity {
         final List<View> all = new ArrayList<>();
         for (int i = 0; i < nations.size(); i++) {
             final NewGameOptions.Choice c = nations.get(i);
-            View card = nationCard(c);
+            View card = nationCard(c, nations.size() > 4);
             card.setOnClickListener(v -> {
                     options.nationId = c.id;
                     for (View o : all) markNation(o, ((NewGameOptions.Choice)o.getTag()).id.equals(c.id));
@@ -426,7 +426,8 @@ public final class MainActivity extends Activity {
             all.add(card);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.MATCH_PARENT, 1f);
-            lp.setMargins(i == 0 ? 0 : px(5), 0, i == nations.size() - 1 ? 0 : px(5), 0);
+            int gap = (nations.size() > 4) ? px(3) : px(5);
+            lp.setMargins(i == 0 ? 0 : gap, 0, i == nations.size() - 1 ? 0 : gap, 0);
             cards.addView(card, lp);
         }
         for (View o : all) markNation(o, ((NewGameOptions.Choice)o.getTag()).id.equals(options.nationId));
@@ -455,6 +456,14 @@ public final class MainActivity extends Activity {
         for (Object[] l : NewGameOptions.LAND) land.add(new String[] { (String)l[0], (String)l[1] });
         bar.addView(picker("Land", land, () -> options.land, id -> options.land = id, null),
                     pickerParams());
+        List<String[]> rivals = new ArrayList<>();
+        for (int r = NewGameOptions.MIN_RIVALS; r <= NewGameOptions.MAX_RIVALS; r++) {
+            rivals.add(new String[] { Integer.toString(r), r + ((r == 1) ? " nation" : " nations") });
+        }
+        bar.addView(picker("Rivals", rivals, () -> Integer.toString(options.rivals),
+                           id -> options.rivals = Integer.parseInt(id),
+                           "more rivals mean longer waits each turn"),
+                    pickerParams());
         TextView start = Theme.button(this, "Start", null, Theme.Kind.GOLD, false);
         start.setTextSize(17);
         start.setOnClickListener(v -> startActivity(
@@ -462,7 +471,8 @@ public final class MainActivity extends Activity {
                 .putExtra(GameActivity.EXTRA_NATION, options.nationId)
                 .putExtra(GameActivity.EXTRA_DIFFICULTY, options.difficulty)
                 .putExtra(GameActivity.EXTRA_MAP_SIZE, options.mapSize)
-                .putExtra(GameActivity.EXTRA_LAND, options.land)));
+                .putExtra(GameActivity.EXTRA_LAND, options.land)
+                .putExtra(GameActivity.EXTRA_RIVALS, options.rivals)));
         bar.addView(start, new LinearLayout.LayoutParams(0, px(50), 1.3f));
         page.addView(bar, wide(0, px(12), 0, 0));
 
@@ -487,20 +497,28 @@ public final class MainActivity extends Activity {
         }
     }
 
-    /** A nation's card: coat of arms, name, advantage, starting units. */
-    private View nationCard(NewGameOptions.Choice c) {
+    /**
+     * A nation's card: coat of arms, name, advantage, starting units.
+     * Compact (smaller arms and type) when six share the row.
+     */
+    private View nationCard(NewGameOptions.Choice c, boolean compact) {
         LinearLayout card = column();
         card.setGravity(Gravity.CENTER_HORIZONTAL);
-        card.setPadding(px(10), px(12), px(10), px(10));
+        if (compact) {
+            card.setPadding(px(6), px(8), px(6), px(6));
+        } else {
+            card.setPadding(px(10), px(12), px(10), px(10));
+        }
         card.setTag(c);
         Bitmap flag = bitmap("image.miscicon." + c.id);
         if (flag != null) {
             ImageView iv = new ImageView(this);
             iv.setImageBitmap(flag);
             iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            card.addView(iv, new LinearLayout.LayoutParams(px(50), px(56)));
+            card.addView(iv, compact ? new LinearLayout.LayoutParams(px(40), px(45))
+                                     : new LinearLayout.LayoutParams(px(50), px(56)));
         }
-        TextView name = Theme.serif(this, c.label, 17, INK, true);
+        TextView name = Theme.serif(this, c.label, compact ? 15 : 17, INK, true);
         name.setGravity(Gravity.CENTER);
         name.setPadding(0, px(4), 0, 0);
         card.addView(name, wide(0, 0, 0, 0));
@@ -508,8 +526,8 @@ public final class MainActivity extends Activity {
         kind.setGravity(Gravity.CENTER);
         kind.setPadding(0, px(2), 0, px(4));
         card.addView(kind, wide(0, 0, 0, 0));
-        TextView about = text(c.about + (c.units.isEmpty() ? "" : "\n" + c.units), 12,
-                              Theme.DIM, false);
+        TextView about = text(c.about + (c.units.isEmpty() ? "" : "\n" + c.units),
+                              compact ? 11 : 12, Theme.DIM, false);
         about.setGravity(Gravity.CENTER);
         about.setLineSpacing(0, 1.1f);
         card.addView(about, wide(0, 0, 0, 0));

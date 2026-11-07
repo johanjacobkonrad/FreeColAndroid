@@ -224,9 +224,14 @@ at the bottom. The whole app is landscape now.
 
 **New game** opens the setup:
 
-- **Nation:** the four nations the rules make available (Dutch,
-  French, English, Spanish), each with its coat of arms and national
-  advantage (trade, cooperation, immigration, conquest).
+- **Nation:** six nations, each with its coat of arms and national
+  advantage: the original Dutch (trade), French (cooperation), English
+  (immigration) and Spanish (conquest), and from FreeCol's rules the
+  Portuguese (naval: ships go one tile further) and Swedish (building:
+  more lumber and hammers, a master carpenter and an expert
+  lumberjack). The rules' Danish and Russians are left out.
+- **Rivals:** how many of the other five join, 1 to 5 (3 by default,
+  as before), picked at random. More rivals mean longer waits.
 - **Difficulty:** Very easy to Very hard.
 - **Map size:** Small 40x100 (the old default), Medium 50x125, Large
   60x150. Bigger maps make the computer players' turns slower.

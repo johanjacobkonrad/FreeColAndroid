@@ -56,7 +56,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
     private static final int SLOTS = 3;
     /** Intent extras for a new game (see NewGameOptions). */
     static final String EXTRA_NATION = "nation", EXTRA_DIFFICULTY = "difficulty",
-        EXTRA_MAP_SIZE = "mapSize", EXTRA_LAND = "land";
+        EXTRA_MAP_SIZE = "mapSize", EXTRA_LAND = "land", EXTRA_RIVALS = "rivals";
 
     private GameSession session;
     private AndroidArt art;
@@ -274,7 +274,8 @@ public final class GameActivity extends Activity implements GameSession.Listener
                     net.sf.freecol.common.model.Specification spec
                         = Engine.loadSpecification(opts.difficulty);
                     opts.applyTo(spec);
-                    session.start(spec, opts.nationId);
+                    opts.rivals = in.getIntExtra(EXTRA_RIVALS, NewGameOptions.DEFAULT_RIVALS);
+                    session.start(spec, opts);
                 }
             } catch (Throwable t) {
                 onStatus("Could not start: " + t);
