@@ -67,6 +67,16 @@ public final class SessionCheck {
                     if (title.startsWith("Trade at")) traded = true;
                     answer.accept(pick);
                 }
+                @Override public void onChooseUnit(String title, String text,
+                        java.util.List<net.sf.freecol.common.model.UnitType> types,
+                        java.util.function.IntConsumer answer) {
+                    // The last of the three, so not just the default.
+                    int pick = types.size() - 1;
+                    System.out.println("  ? " + title + ": " + text + " " + types
+                        + " -> " + types.get(pick));
+                    fountainPicks.add(types.get(pick));
+                    answer.accept(pick);
+                }
                 @Override public boolean askRegionNames() {
                     return true;
                 }
@@ -200,6 +210,9 @@ public final class SessionCheck {
         // The menu's reports and the Colopedia.
         boolean infoOk = checkInfo(s);
 
+        // The Fountain of Youth: pick the colonists.
+        boolean fountainOk = checkFountain(s);
+
         // Regions we named have our names.
         boolean regionsOk = checkRegions(s);
 
@@ -214,12 +227,69 @@ public final class SessionCheck {
             + (traded ? " (traded)" : "")
             + "; save and load: " + reloaded + "; new-game options: " + optionsOk
             + "; reports and Colopedia: " + infoOk + "; trade route: " + routeOk
-            + "; region names: " + regionsOk);
+            + "; region names: " + regionsOk + "; Fountain of Youth: " + fountainOk);
         boolean ok = optionsOk && moved && (colonyOk || played == turns) && reloaded
             && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk
-            && infoOk && routeOk && regionsOk;
+            && infoOk && routeOk && regionsOk && fountainOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
+    }
+
+    /** Unit types picked at the Fountain of Youth. */
+    private static final java.util.List<net.sf.freecol.common.model.UnitType> fountainPicks
+        = java.util.Collections.synchronizedList(new java.util.ArrayList<>());
+
+    /**
+     * Give ourselves a Fountain of Youth of three colonists (as a
+     * rumour would, on the server) and pick them: the ones picked are
+     * on the docks in Europe.
+     *
+     * @return True if they all came.
+     */
+    private static boolean checkFountain(GameSession s) throws Exception {
+        s.sync();
+        java.lang.reflect.Field f = GameSession.class.getDeclaredField("server");
+        f.setAccessible(true);
+        net.sf.freecol.server.FreeColServer server
+            = (net.sf.freecol.server.FreeColServer)f.get(s);
+        java.util.Map<net.sf.freecol.common.model.UnitType, Integer> before
+            = new java.util.HashMap<>();
+        synchronized (s.lock()) {
+            net.sf.freecol.common.model.Europe europe = s.getMyPlayer().getEurope();
+            if (europe == null) {
+                System.out.println("Fountain of Youth: no Europe");
+                return false;
+            }
+            for (Unit u : europe.getUnitList()) before.merge(u.getType(), 1, Integer::sum);
+        }
+        net.sf.freecol.server.model.ServerPlayer sp
+            = (net.sf.freecol.server.model.ServerPlayer)server.getGame()
+                .getPlayerByNationId(s.getMyPlayer().getNationId());
+        sp.setRemainingEmigrants(3);
+        fountainPicks.clear();
+        // On the worker, as the message handler does.
+        java.lang.reflect.Field w = GameSession.class.getDeclaredField("worker");
+        w.setAccessible(true);
+        ((java.util.concurrent.ExecutorService)w.get(s))
+            .submit(() -> s.chooseFountainMigrants(3)).get();
+        java.util.Map<net.sf.freecol.common.model.UnitType, Integer> after
+            = new java.util.HashMap<>();
+        synchronized (s.lock()) {
+            for (Unit u : s.getMyPlayer().getEurope().getUnitList()) {
+                after.merge(u.getType(), 1, Integer::sum);
+            }
+        }
+        boolean ok = fountainPicks.size() == 3 && sp.getRemainingEmigrants() == 0;
+        java.util.Map<net.sf.freecol.common.model.UnitType, Integer> want
+            = new java.util.HashMap<>(before);
+        for (net.sf.freecol.common.model.UnitType t : fountainPicks) want.merge(t, 1, Integer::sum);
+        for (java.util.Map.Entry<net.sf.freecol.common.model.UnitType, Integer> e
+                 : want.entrySet()) {
+            if (after.getOrDefault(e.getKey(), 0) < e.getValue()) ok = false;
+        }
+        System.out.println("Fountain of Youth: picked " + fountainPicks + "; docks before "
+            + before + ", after " + after + ": " + ok);
+        return ok;
     }
 
     /** Names given to regions when asked. */

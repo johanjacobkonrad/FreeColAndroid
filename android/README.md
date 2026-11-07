@@ -201,7 +201,9 @@ from other European nations (accept or reject). Lost city rumours ask
 before exploring, and burial mounds ask again. Newly found rivers,
 lakes, mountain ranges and seas ask for a name, with FreeCol's
 suggestion filled in (Settings → New places → Automatic keeps the
-suggestions without asking).
+suggestions without asking). The Fountain of Youth lets you pick each
+colonist from Europe's three waiting emigrants, with their portraits
+("Choose for me" lets the game pick the rest).
 
 Without a user interface (the session check) every question takes its
 first, safest answer; the check's scripted player logs each question

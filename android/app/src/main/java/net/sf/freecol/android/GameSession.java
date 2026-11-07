@@ -181,6 +181,23 @@ public final class GameSession implements MessageHandler {
          * @param suggestion The suggested name.
          * @param answer Receives the name.
          */
+        /**
+         * Let the player pick one of some unit types (the Fountain of
+         * Youth's emigrants).  Call the answer exactly once with the
+         * index, or -1 to let the game choose.
+         *
+         * @param title A short title.
+         * @param text The question.
+         * @param types The unit types to choose from.
+         * @param answer Receives the choice.
+         */
+        default void onChooseUnit(String title, String text, List<UnitType> types,
+                                  java.util.function.IntConsumer answer) {
+            List<String> names = new ArrayList<>();
+            for (UnitType t : types) names.add(Messages.getName(t));
+            onChoose(title, text, names, answer);
+        }
+
         default void onAskName(String title, String text, String suggestion,
                                java.util.function.Consumer<String> answer) {
             answer.accept(suggestion);
@@ -3095,12 +3112,7 @@ public final class GameSession implements MessageHandler {
             sound("sound.event.fountainOfYouth");
             final int n = ((FountainOfYouthMessage)m).getMigrants();
             status("The Fountain of Youth! " + n + " colonists will join you.");
-            worker.execute(() -> {
-                // The server wants a specific dock slot for these.
-                for (int k = 0; k < n; k++) {
-                    api.emigrate(Europe.MigrationType.getDefaultSlot());
-                }
-            });
+            worker.execute(() -> chooseFountainMigrants(n));
         } else if (m instanceof LootCargoMessage) {
             LootCargoMessage lm = (LootCargoMessage)m;
             final Unit winner = lm.getWinner(game);
@@ -3464,6 +3476,57 @@ public final class GameSession implements MessageHandler {
         String k = Messages.message(r.getType().getNameKey());
         if (k == null || k.isEmpty() || k.startsWith("model.")) return "Region";
         return k.substring(0, 1).toUpperCase() + k.substring(1).toLowerCase();
+    }
+
+    /**
+     * The Fountain of Youth: the player picks each of the colonists
+     * from Europe's three waiting emigrants, as on the desktop (the
+     * server refills the pick each time).  Turning the question down
+     * lets the game pick the rest.  On the worker thread.
+     *
+     * @param n How many colonists come.
+     */
+    void chooseFountainMigrants(int n) {
+        boolean auto = false;
+        int came = 0;
+        for (int k = 0; k < n; k++) {
+            int slot = Europe.MigrationType.getDefaultSlot();
+            if (!auto) {
+                List<UnitType> types = new ArrayList<>();
+                synchronized (lock) {
+                    Europe europe = me.getEurope();
+                    if (europe == null) return;
+                    for (net.sf.freecol.common.model.AbstractUnit au
+                             : europe.getExpandedRecruitables(false)) {
+                        types.add(au.getType(game.getSpecification()));
+                    }
+                }
+                int pick = askUnit("The Fountain of Youth",
+                    "Choose colonist " + (k + 1) + " of " + n
+                    + ". They will wait on the docks in Europe.", types);
+                if (pick < 0 || pick >= types.size()) {
+                    auto = true;
+                } else {
+                    slot = Europe.MigrationType.migrantIndexToSlot(pick);
+                }
+            }
+            if (api.emigrate(slot)) came++;
+            changed();
+        }
+        status(came + " colonists from the Fountain of Youth wait on the docks in Europe.");
+    }
+
+    /** Ask the player to pick a unit type, and wait: its index, or -1. */
+    private int askUnit(String title, String text, List<UnitType> types) {
+        final java.util.concurrent.CompletableFuture<Integer> f
+            = new java.util.concurrent.CompletableFuture<>();
+        try {
+            listener.onChooseUnit(title, text, types, f::complete);
+            return f.get();
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Question failed", e);
+            return -1;
+        }
     }
 
     /**

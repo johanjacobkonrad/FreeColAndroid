@@ -33,6 +33,7 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import net.sf.freecol.android.map.Art;
 import net.sf.freecol.android.map.IsometricRenderer;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.Unit;
@@ -1162,6 +1163,76 @@ public final class GameActivity extends Activity implements GameSession.Listener
             dialog[0] = new android.app.AlertDialog.Builder(this)
                 .setTitle(title)
                 .setView(scroll)
+                .setOnCancelListener(d -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
+                .show();
+        });
+    }
+
+    @Override
+    public void onChooseUnit(String title, String text,
+                             List<net.sf.freecol.common.model.UnitType> types,
+                             java.util.function.IntConsumer answer) {
+        runOnUiThread(() -> {
+            final java.util.concurrent.atomic.AtomicBoolean done
+                = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final android.app.AlertDialog[] dialog = new android.app.AlertDialog[1];
+            final Runnable cancel = () -> {
+                if (done.compareAndSet(false, true)) answer.accept(-1);
+            };
+            openQuestions.add(cancel);
+            int pad = (int)(16 * dp);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(pad, pad / 2, pad, pad / 2);
+            TextView msg = Theme.serif(this, text, 15, Theme.PAPER_INK, false);
+            msg.setPadding(0, 0, 0, pad / 2);
+            box.addView(msg);
+            // The emigrants side by side, each a card with its portrait.
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int i = 0; i < types.size(); i++) {
+                final int which = i;
+                net.sf.freecol.common.model.UnitType ut = types.get(i);
+                LinearLayout card = new LinearLayout(this);
+                card.setOrientation(LinearLayout.VERTICAL);
+                card.setGravity(Gravity.CENTER_HORIZONTAL);
+                card.setBackground(Theme.cell(this, 0xFFF4EACF));
+                card.setPadding(pad / 2, pad / 2, pad / 2, pad / 2);
+                android.widget.ImageView iv = new android.widget.ImageView(this);
+                iv.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+                Art.Img img = art.get("image.unit." + ut.getId());
+                if (img != null) iv.setImageBitmap((android.graphics.Bitmap)img.handle);
+                card.addView(iv, new LinearLayout.LayoutParams((int)(56 * dp), (int)(72 * dp)));
+                TextView name = Theme.text(this,
+                    net.sf.freecol.common.i18n.Messages.getName(ut), 13, Theme.PAPER_INK, true);
+                name.setGravity(Gravity.CENTER);
+                name.setPadding(0, pad / 4, 0, 0);
+                card.addView(name);
+                card.setOnClickListener(v -> {
+                        if (done.compareAndSet(false, true)) {
+                            openQuestions.remove(cancel);
+                            if (dialog[0] != null) dialog[0].dismiss();
+                            answer.accept(which);
+                        }
+                    });
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+                lp.setMargins(i == 0 ? 0 : pad / 4, 0, i == types.size() - 1 ? 0 : pad / 4, 0);
+                row.addView(card, lp);
+            }
+            box.addView(row);
+            android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+            scroll.addView(box);
+            dialog[0] = new android.app.AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(scroll)
+                .setNegativeButton("Choose for me", (d, w) -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
                 .setOnCancelListener(d -> {
                         openQuestions.remove(cancel);
                         cancel.run();
