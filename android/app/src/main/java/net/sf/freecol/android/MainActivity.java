@@ -333,7 +333,7 @@ public final class MainActivity extends Activity {
         new android.app.AlertDialog.Builder(this)
             .setTitle("Test games")
             .setItems(new String[] {
-                    "Start near independence: three colonies, 70% rebels, an army, "
+                    "Start near independence: five colonies, 70% rebels, an army, "
                     + "and a small royal army to fight" },
                 (d, w) -> startTest("scenarios/independence.fsg"))
             .setNegativeButton("Cancel", null)

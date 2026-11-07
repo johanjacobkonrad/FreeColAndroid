@@ -242,9 +242,64 @@ it took.
 
 Not drawn: animated water and river mouths into the sea.
 
-Still to come: then dialogs (natives, diplomacy,
-founding fathers, trade routes) and save/load.
+## Testing
 
-Workflow: Claude writes the code on a branch and opens a PR. GitHub Actions
+Most of the app's game logic has no Android code in it, so it is
+tested on a desktop JVM. Three checks run in CI (the "Android engine
+check" workflow) on every push and pull request, and can be run
+locally from the repository root with Java 11 or later:
+
+| Check | Command | What it does |
+| --- | --- | --- |
+| Engine | `android/check-engine.sh` | Compiles the engine (`common`, `server`, AI) without the desktop client and fails on any Java API that Android lacks (AWT, Swing, ImageIO, javax.sound, ...). |
+| Game session | `android/session-check.sh` | Plays a game as the phone does, with the AI as the other nations, then the war of independence (below). |
+| FreeCol's own tests | `ant -noinput testall` | The upstream JUnit suite. |
+
+### The game session check
+
+`SessionCheck` (in the app's sources) drives `GameSession`, the same
+class the phone's screens use, through a 12-turn game: new-game
+options (nation, difficulty, map), sailing to land, founding a
+colony, the colony screen's orders (workers, crops, build queue,
+pay to finish), equipping a pioneer and ploughing, trading with a
+native village, a round trip to Europe (sell, buy, board, sail back),
+a trade route over several turns, the reports, Colopedia and
+diplomacy pages, saving and loading, and retiring to the end screen.
+The info classes (`ColonyInfo`, `EuropeInfo`, `ReportInfo`, ...) are
+what the screens show, so checking them checks the screens' content.
+Questions from the server get their first, safest answer; each is
+logged with `?`, and messages with `>`.
+
+`WarCheck` then loads the "Start near independence" test game,
+declares independence, fights the royal army until the war ends, and
+checks the end screen and that the game is on the high score list
+exactly once.
+
+Each check prints what it did and ends with `OK` or `FAILED`.
+`android/session-check.sh --preview DIR` also saves PNG pictures of the
+map as a phone would draw it.
+
+### Test games
+
+Long-press the **FreeCol** title on the start screen to open the
+hidden **Test games** list. They are saved apart from your own games.
+
+- **Start near independence:** England with five colonies, 70% rebels,
+  an army in St. John's and a small royal army, for trying the
+  declaration, the war and the end of the game without playing a
+  whole game. Made by `android/make-scenario.sh [TURNS]` (the AI
+  plays every nation for that many turns, 60 by default, then
+  `ScenarioMaker` sets up the player's colonies); rerun it when the
+  save format changes.
+
+### On a phone
+
+The UI itself (layouts, touch, sound, animations) is not compiled
+until CI builds the APK, so it is tested by playing: install the APK
+from the `android-latest` link above.
+
+## Workflow
+
+Claude writes the code on a branch and opens a PR. GitHub Actions
 builds the APK and publishes it to the `android-latest` link above. Johan
 playtests on his phone and merges.
