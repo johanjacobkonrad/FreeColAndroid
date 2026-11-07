@@ -7,6 +7,8 @@
 
     <application
         android:label="FreeCol"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/FreeCol"
         android:allowBackup="false">
         <activity

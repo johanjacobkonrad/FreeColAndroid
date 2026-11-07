@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app icon (option A, "Gold galleon"): a gold ship on dark wood. -->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_wood" />
+    <foreground android:drawable="@drawable/ic_launcher_ship" />
+    <monochrome android:drawable="@drawable/ic_launcher_ship" />
+</adaptive-icon>

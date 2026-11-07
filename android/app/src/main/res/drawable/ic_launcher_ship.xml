@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The app icon's galleon, on the 108dp adaptive-icon grid.  Scaled
+     to sit inside the 66dp safe zone, so no launcher mask cuts it.
+     Also the themed (monochrome) icon: Android tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.58"
+        android:scaleY="0.58">
+        <!-- Masts -->
+        <path
+            android:pathData="M42,30V64M56,23V64M70,32V64"
+            android:strokeColor="#E3C27A"
+            android:strokeWidth="2.4" />
+        <!-- Pennant, square sails, lateen sail, hull and stern castle -->
+        <path
+            android:fillColor="#E3C27A"
+            android:pathData="M56,23L64,25.5L56,28Z
+                M35,36Q42,34 49,36L48,45Q42,47 36,45Z
+                M34,48Q42,46 50,48L49,59Q42,61 35,59Z
+                M48,29Q56,27 64,29L63,39Q56,41 49,39Z
+                M47,42Q56,40 65,42L64,56Q56,58 48,56Z
+                M71,35L80,59L71,59Z
+                M27,64L86,64L82,71Q78,77 68,77L39,77Q31,76 27,70Z
+                M76,57L86,57L86,64L76,64Z" />
+        <!-- Bowsprit and waves -->
+        <path
+            android:pathData="M28,65L19,58M20,85Q26,81 32,85T44,85T56,85T68,85T80,85T92,85"
+            android:strokeColor="#E3C27A"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:strokeWidth="2.4" />
+    </group>
+</vector>
