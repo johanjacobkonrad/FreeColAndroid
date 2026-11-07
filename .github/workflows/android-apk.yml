@@ -26,9 +26,19 @@ jobs:
           gradle-version: '8.11.1'
 
       # The music, re-encoded smaller (87 MB of tracks down to about 20).
+      # Usually under a minute; the time limits stop a stuck package
+      # download from holding up the build (it once hung 20 minutes).
       - name: Music
+        timeout-minutes: 10
         run: |
-          command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+          if ! command -v ffmpeg; then
+            for try in 1 2 3; do
+              timeout 180 sudo apt-get update -o Acquire::Retries=3 \
+                && timeout 240 sudo apt-get install -y -o Acquire::Retries=3 ffmpeg \
+                && break
+              echo "Installing ffmpeg failed (try $try); retrying..."
+            done
+          fi
           android/encode-music.sh
 
       # The hosted Ubuntu runners come with the Android SDK installed.
