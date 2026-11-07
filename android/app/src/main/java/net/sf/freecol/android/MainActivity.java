@@ -303,7 +303,9 @@ public final class MainActivity extends Activity {
         page.addView(head);
         LinearLayout body = Settings.view(this, null, false);
         body.setPadding(0, px(16), 0, 0);
-        page.addView(body);
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(body);
+        page.addView(sv);
         setRight(page);
     }
 

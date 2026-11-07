@@ -132,15 +132,15 @@ final class Settings {
         left.addView(Theme.text(c, "Music by Alexander Zhelanov and Stian Grenborgen "
             + "(CC-BY 4.0)", 11, look.dim, false));
         View gap = new View(c);
-        left.addView(gap, new LinearLayout.LayoutParams(1, Theme.px(c, 10)));
-        left.addView(slider(c, look, "Sound effects", effects(c), v -> {
+        left.addView(gap, new LinearLayout.LayoutParams(1, Theme.px(c, 6)));
+        left.addView(slider(c, look, "Effects", effects(c), v -> {
                 prefs(c).edit().putInt(EFFECTS, v).apply();
             }));
         TextView nh = Theme.heading(c, "New places", look.heading);
-        nh.setPadding(0, Theme.px(c, 10), 0, Theme.px(c, 2));
+        nh.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 2));
         left.addView(nh);
-        TextView nw = Theme.text(c, "Name the rivers, lakes, mountains and seas you find, "
-                                 + "or keep the names they come with.", 12, look.dim, false);
+        TextView nw = Theme.text(c, "Name the rivers, lakes and mountains you find.",
+                                 12, look.dim, false);
         nw.setPadding(0, 0, 0, Theme.px(c, 6));
         left.addView(nw);
         List<String[]> naming = new ArrayList<>();
@@ -221,24 +221,24 @@ final class Settings {
         }
     }
 
+    /** A volume: its name, the slider and the value, on one line. */
     private static LinearLayout slider(Context c, Look look, String label, int value,
                                        java.util.function.IntConsumer onChange) {
         LinearLayout box = new LinearLayout(c);
-        box.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout top = new LinearLayout(c);
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.addView(Theme.heading(c, label, look.heading),
-                    new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        box.setOrientation(LinearLayout.HORIZONTAL);
+        box.setGravity(Gravity.CENTER_VERTICAL);
+        box.addView(Theme.heading(c, label, look.heading),
+                    new LinearLayout.LayoutParams(Theme.px(c, 74),
+                                                  LinearLayout.LayoutParams.WRAP_CONTENT));
         final TextView shown = Theme.text(c, describe(value), 13, look.ink, true);
-        top.addView(shown);
-        box.addView(top);
+        shown.setGravity(Gravity.END);
         SeekBar bar = new SeekBar(c);
         bar.setMax(100);
         bar.setProgress(value);
         bar.setProgressTintList(ColorStateList.valueOf(look.fill));
         bar.setThumbTintList(ColorStateList.valueOf(look.thumb));
         bar.setProgressBackgroundTintList(ColorStateList.valueOf(look.track));
-        bar.setPadding(Theme.px(c, 10), 0, Theme.px(c, 10), 0);
+        bar.setPadding(Theme.px(c, 8), 0, Theme.px(c, 8), 0);
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override public void onProgressChanged(SeekBar s, int v, boolean user) {
                     shown.setText(describe(v));
@@ -247,8 +247,9 @@ final class Settings {
                 @Override public void onStartTrackingTouch(SeekBar s) {}
                 @Override public void onStopTrackingTouch(SeekBar s) {}
             });
-        box.addView(bar, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
-                                                       Theme.px(c, 40)));
+        box.addView(bar, new LinearLayout.LayoutParams(0, Theme.px(c, 36), 1f));
+        box.addView(shown, new LinearLayout.LayoutParams(Theme.px(c, 40),
+                                                         LinearLayout.LayoutParams.WRAP_CONTENT));
         return box;
     }
 
