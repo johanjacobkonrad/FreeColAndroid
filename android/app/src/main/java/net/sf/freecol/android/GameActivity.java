@@ -111,6 +111,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         FrameLayout mapFrame = new FrameLayout(this);
         mapFrame.addView(mapView);
         news = new NewsRibbon(this);
+        news.setLines(Settings.newsLines(this));
         final FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.TOP | Gravity.START);
@@ -1234,6 +1235,7 @@ public final class GameActivity extends Activity implements GameSession.Listener
         LinearLayout box = Settings.view(this, ms -> {
                 session.setMovePause(ms);
                 mapView.setSlideMillis(Settings.slideMillis(this));
+                news.setLines(Settings.newsLines(this));
             }, true);
         box.setPadding(pad, pad / 3, pad, 0);
         // Fits a phone's height; scrolls only if a screen is shorter.

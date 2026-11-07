@@ -34,13 +34,14 @@ import java.util.List;
 /**
  * The player's settings, kept on the phone: music and sound effect
  * volume, naming new regions, how long the map shows a unit after it
- * moves, and animations.  Also the
+ * moves, animations, and how many news lines show.  Also the
  * view that changes them, used by the start screen and the game menu.
  */
 final class Settings {
 
     private static final String FILE = "settings", MUSIC = "music", EFFECTS = "effects",
-        SPEED = "speed", ANIMATE = "animate", NAME_REGIONS = "nameRegions";
+        SPEED = "speed", ANIMATE = "animate", NAME_REGIONS = "nameRegions",
+        NEWS_LINES = "newsLines";
 
     /** Move speeds: id, name, pause in milliseconds. */
     static final Object[][] SPEEDS = {
@@ -74,6 +75,12 @@ final class Settings {
     /** Ask the player to name the rivers, lakes and so on they find. */
     static boolean nameRegions(Context c) {
         return prefs(c).getBoolean(NAME_REGIONS, true);
+    }
+
+    /** How many of the latest messages the news ribbon shows: 1, 3 or 5. */
+    static int newsLines(Context c) {
+        int n = prefs(c).getInt(NEWS_LINES, 3);
+        return (n == 1 || n == 5) ? n : 3;
     }
 
     /** How long a unit takes to slide one tile (0: no animations). */
@@ -158,7 +165,7 @@ final class Settings {
         LinearLayout right = new LinearLayout(c);
         right.setOrientation(LinearLayout.VERTICAL);
         right.addView(Theme.heading(c, "Move speed", look.heading));
-        TextView why = Theme.text(c, "How long the map shows a unit after it moves.",
+        TextView why = Theme.text(c, "How long the map shows a unit that moved.",
                                   12, look.dim, false);
         why.setPadding(0, Theme.px(c, 2), 0, Theme.px(c, 6));
         right.addView(why);
@@ -171,7 +178,7 @@ final class Settings {
         TextView ah = Theme.heading(c, "Animations", look.heading);
         ah.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 2));
         right.addView(ah);
-        TextView aw = Theme.text(c, "Units slide from tile to tile, and attacks are shown.",
+        TextView aw = Theme.text(c, "Units slide between tiles; attacks are shown.",
                                  12, look.dim, false);
         aw.setPadding(0, 0, 0, Theme.px(c, 6));
         right.addView(aw);
@@ -180,6 +187,17 @@ final class Settings {
         onOff.add(new String[] { "off", "Off" });
         right.addView(choices(c, look, onOff, animate(c) ? "on" : "off", id -> {
                 prefs(c).edit().putBoolean(ANIMATE, "on".equals(id)).apply();
+                if (onSpeed != null) onSpeed.accept(movePause(c));
+            }));
+        TextView nh = Theme.heading(c, "News lines", look.heading);
+        nh.setPadding(0, Theme.px(c, 12), 0, Theme.px(c, 6));
+        right.addView(nh);
+        List<String[]> lines = new ArrayList<>();
+        lines.add(new String[] { "1", "1" });
+        lines.add(new String[] { "3", "3" });
+        lines.add(new String[] { "5", "5" });
+        right.addView(choices(c, look, lines, Integer.toString(newsLines(c)), id -> {
+                prefs(c).edit().putInt(NEWS_LINES, Integer.parseInt(id)).apply();
                 if (onSpeed != null) onSpeed.accept(movePause(c));
             }));
         cols.addView(right, new LinearLayout.LayoutParams(0,
@@ -203,7 +221,7 @@ final class Settings {
                     onPick.accept(id);
                 });
             all.add(t);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.px(c, 42), 1f);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, Theme.px(c, 38), 1f);
             lp.setMargins(i == 0 ? 0 : Theme.px(c, 3), 0, i == items.size() - 1 ? 0 : Theme.px(c, 3), 0);
             row.addView(t, lp);
             mark(c, look, t, id.equals(picked));
