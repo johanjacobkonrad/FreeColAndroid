@@ -198,8 +198,10 @@ not), the next founding father (with what each does), the King's tax
 rises (accept, or refuse and boycott) and mercenaries, native demands
 (give or refuse), naming the New World, captured cargo, and offers
 from other European nations (accept or reject). Lost city rumours ask
-before exploring, and burial mounds ask again. Region names are still
-picked automatically to spare typing.
+before exploring, and burial mounds ask again. Newly found rivers,
+lakes, mountain ranges and seas ask for a name, with FreeCol's
+suggestion filled in (Settings → New places → Automatic keeps the
+suggestions without asking).
 
 Without a user interface (the session check) every question takes its
 first, safest answer; the check's scripted player logs each question
