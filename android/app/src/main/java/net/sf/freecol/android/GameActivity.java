@@ -755,6 +755,142 @@ public final class GameActivity extends Activity implements GameSession.Listener
         });
     }
 
+    @Override
+    public void onColonyTrade(final ColonyTradeInfo.Offer offer, final String text,
+                              final java.util.function.Consumer<Boolean> answer) {
+        runOnUiThread(() -> {
+            final java.util.concurrent.atomic.AtomicBoolean done
+                = new java.util.concurrent.atomic.AtomicBoolean(false);
+            final Runnable cancel = () -> {
+                if (done.compareAndSet(false, true)) answer.accept(false);
+            };
+            openQuestions.add(cancel);
+            final int pad = (int)(16 * dp);
+            LinearLayout box = new LinearLayout(this);
+            box.setOrientation(LinearLayout.VERTICAL);
+            box.setPadding(pad, pad / 4, pad, pad / 2);
+            final TextView to = Theme.serif(this, text, 14, Theme.PAPER_INK, false);
+            box.addView(to);
+
+            // The gold, kept at about a fair price as the goods change.
+            final TextView priceText = Theme.serif(this, "", 15, Theme.PAPER_INK, true);
+            final TextView fairText = Theme.text(this, "", 12, Theme.PAPER_DIM, false);
+            final Runnable showPrice = () -> {
+                int p = offer.price;
+                priceText.setText((p > 0) ? "They pay you " + p + " gold"
+                    : (p < 0) ? "You pay them " + (-p) + " gold"
+                    : "No gold either way");
+                int fair = offer.fairPrice();
+                fairText.setText(offer.isEmpty() ? "Choose goods to sell or buy."
+                    : "A fair price is about " + Math.abs(fair) + " gold "
+                    + ((fair >= 0) ? "to you" : "to them")
+                    + "; you have " + offer.myGold + ".");
+            };
+            final Runnable toFair = () -> {
+                offer.price = Math.max(-offer.myGold, offer.fairPrice());
+                showPrice.run();
+            };
+
+            if (!offer.mine.isEmpty()) {
+                negotiateHeading(box, "Sell from your cargo");
+                List<String> names = new ArrayList<>();
+                names.add("Nothing");
+                for (net.sf.freecol.common.model.Goods g : offer.mine) {
+                    names.add(ColonyTradeInfo.amount(g.getType(), g.getAmount()));
+                }
+                box.addView(chips(names, 0, i -> {
+                        offer.sell = (i == 0) ? null : offer.mine.get(i - 1);
+                        offer.sellAmount = (i == 0) ? 0 : offer.sell.getAmount();
+                        toFair.run();
+                    }));
+            }
+            if (!offer.theirs.isEmpty()) {
+                negotiateHeading(box, "Buy from " + offer.place);
+                List<String> names = new ArrayList<>();
+                names.add("Nothing");
+                for (net.sf.freecol.common.model.GoodsType gt : offer.theirs) {
+                    names.add(net.sf.freecol.common.i18n.Messages.getName(gt));
+                }
+                offer.buyAmount = 100;
+                box.addView(chips(names, 0, i -> {
+                        offer.buy = (i == 0) ? null : offer.theirs.get(i - 1);
+                        toFair.run();
+                    }));
+                List<String> amounts = new ArrayList<>();
+                final int[] sizes = { 25, 50, 100 };
+                for (int a : sizes) amounts.add(a + "");
+                LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                alp.setMargins(0, (int)(6 * dp), 0, 0);
+                box.addView(chips(amounts, 2, i -> {
+                        offer.buyAmount = sizes[i];
+                        toFair.run();
+                    }), alp);
+            }
+
+            negotiateHeading(box, "Gold");
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            String[] labels = { "\u2212100", "\u221210", null, "+10", "+100" };
+            int[] deltas = { -100, -10, 0, 10, 100 };
+            priceText.setGravity(Gravity.CENTER);
+            priceText.setMinWidth((int)(190 * dp));
+            for (int i = 0; i < labels.length; i++) {
+                if (labels[i] == null) {
+                    row.addView(priceText);
+                    continue;
+                }
+                final int delta = deltas[i];
+                TextView b = Theme.text(this, labels[i], 13, Theme.PAPER_INK, true);
+                b.setGravity(Gravity.CENTER);
+                b.setBackground(Theme.cell(this, 0xFFF4EACF));
+                b.setMinWidth((int)(52 * dp));
+                b.setMinHeight((int)(38 * dp));
+                b.setOnClickListener(v -> {
+                        // Up: more for you; down: more for them.
+                        offer.price = Math.max(-offer.myGold, offer.price + delta);
+                        showPrice.run();
+                    });
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+                lp.setMargins(0, 0, (int)(5 * dp), 0);
+                row.addView(b, lp);
+            }
+            box.addView(row);
+            fairText.setPadding(0, (int)(4 * dp), 0, 0);
+            box.addView(fairText);
+            showPrice.run();
+
+            android.widget.ScrollView sv = new android.widget.ScrollView(this);
+            sv.addView(box);
+            final android.app.AlertDialog d = new android.app.AlertDialog.Builder(this)
+                .setTitle("Trade with " + offer.place + " (" + offer.nation + ")")
+                .setView(sv)
+                .setPositiveButton("Make offer", null)
+                .setNegativeButton("Cancel", (x, w) -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
+                .setOnCancelListener(x -> {
+                        openQuestions.remove(cancel);
+                        cancel.run();
+                    })
+                .create();
+            d.setOnShowListener(x -> d.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                        if (offer.isEmpty()) {
+                            fairText.setText("Choose goods to sell or buy first.");
+                            return;
+                        }
+                        openQuestions.remove(cancel);
+                        d.dismiss();
+                        if (done.compareAndSet(false, true)) answer.accept(true);
+                    }));
+            d.show();
+        });
+    }
+
     private void negotiateHeading(LinearLayout box, String s) {
         TextView h = Theme.heading(this, s, 0xFF7A5A2C);
         h.setPadding(0, (int)(10 * dp), 0, (int)(4 * dp));

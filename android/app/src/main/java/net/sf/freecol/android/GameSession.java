@@ -106,6 +106,7 @@ import net.sf.freecol.common.networking.StartGameMessage;
 import net.sf.freecol.common.networking.UpdateMessage;
 import net.sf.freecol.common.networking.WrapperMessage;
 import net.sf.freecol.common.model.DiplomaticTrade;
+import net.sf.freecol.common.model.DiplomaticTrade.TradeContext;
 import net.sf.freecol.common.model.DiplomaticTrade.TradeStatus;
 import net.sf.freecol.common.model.Goods;
 import net.sf.freecol.common.model.IndianSettlement;
@@ -196,6 +197,20 @@ public final class GameSession implements MessageHandler {
             List<String> names = new ArrayList<>();
             for (UnitType t : types) names.add(Messages.getName(t));
             onChoose(title, text, names, answer);
+        }
+
+        /**
+         * Let the player make a trade offer to another nation's colony
+         * (its choice fields), and send it or not.  Call the answer
+         * exactly once.  Without a user interface it is sent as it is.
+         *
+         * @param offer The offer, to change in place.
+         * @param text Where, and a word about their hidden stock.
+         * @param answer Receives true to send.
+         */
+        default void onColonyTrade(ColonyTradeInfo.Offer offer, String text,
+                                   java.util.function.Consumer<Boolean> answer) {
+            answer.accept(true);
         }
 
         default void onAskName(String title, String text, String suggestion,
@@ -2232,6 +2247,10 @@ public final class GameSession implements MessageHandler {
         case MOVE_NO_ACCESS_GOODS:
             status("Bring goods to trade.");
             return false;
+        case MOVE_NO_ACCESS_TRADE:
+            status("You need Jan de Witt in your Continental Congress to trade"
+                   + " with other nations' colonies.");
+            return false;
         case MOVE_NO_ATTACK_CIVILIAN:
             status("Only soldiers and dragoons can attack.");
             return false;
@@ -2490,7 +2509,11 @@ public final class GameSession implements MessageHandler {
             is = (to == null) ? null : to.getIndianSettlement();
         }
         if (is == null) {
-            status("Trading with other Europeans is not in the game yet.");
+            Colony colony;
+            synchronized (lock) {
+                colony = (to == null) ? null : to.getColony();
+            }
+            if (colony != null && colony.getOwner() != me) colonyTrade(unit, colony, null);
             return;
         }
         // Trade round by round, waiting here for each reply, so that
@@ -3232,14 +3255,49 @@ public final class GameSession implements MessageHandler {
             break;
         }
         case ACCEPT_TRADE:
-            status(nation + " accept.");
+            if (agreement.getContext() == TradeContext.TRADE) {
+                sound("sound.event.sellCargo");
+                status(nation + " accept: the goods and gold change hands.");
+            } else {
+                status(nation + " accept.");
+            }
             me.invalidateCanSeeTiles();
             break;
         case REJECT_TRADE:
-            status(nation + " reject the proposal.");
+            status((agreement.getContext() == TradeContext.TRADE)
+                   ? nation + " turn the offer down (or do not have the goods or gold)."
+                   : nation + " reject the proposal.");
             break;
         default:
             break;
+        }
+        synchronized (agreements) {
+            lastAgreement = agreement.getStatus();
+            agreements.notifyAll();
+        }
+    }
+
+    /** The last answer to an offer, for tests. */
+    private final Object agreements = new Object();
+    private TradeStatus lastAgreement = null;
+
+    /**
+     * Wait for an answer to an offer (tests).
+     *
+     * @param ms How long to wait.
+     * @return The answer, or null if none came.
+     */
+    TradeStatus awaitAgreement(long ms) throws InterruptedException {
+        long end = System.currentTimeMillis() + ms;
+        synchronized (agreements) {
+            while (lastAgreement == null || lastAgreement == TradeStatus.PROPOSE_TRADE) {
+                long left = end - System.currentTimeMillis();
+                if (left <= 0) break;
+                agreements.wait(left);
+            }
+            TradeStatus t = lastAgreement;
+            lastAgreement = null;
+            return t;
         }
     }
 
@@ -3467,6 +3525,54 @@ public final class GameSession implements MessageHandler {
             me.clearNationSummary(me);
             me.clearNationSummary(offer.other);
         }
+        changed();
+    }
+
+    /**
+     * Trade with another nation's colony from a carrier next to it
+     * (needs Jan de Witt): the player makes an offer of goods and
+     * gold, and the colony's owner answers (see diplomacy()).  On the
+     * worker thread.
+     *
+     * @param unit The ship or wagon train.
+     * @param colony Their colony.
+     * @param prepare For tests: fill in the offer before it is shown
+     *     (or null).
+     */
+    void colonyTrade(Unit unit, Colony colony,
+                     java.util.function.Consumer<ColonyTradeInfo.Offer> prepare) {
+        ColonyTradeInfo.Offer offer;
+        String text;
+        synchronized (lock) {
+            offer = ColonyTradeInfo.offer(unit, colony);
+            text = "Your " + Messages.getName(unit.getType()).toLowerCase(java.util.Locale.UK)
+                + " is next to " + offer.place + ". The " + offer.nation
+                + " keep their warehouse to themselves: if they do not have"
+                + " what you ask for, they will turn the offer down.";
+        }
+        if (offer.mine.isEmpty() && offer.theirs.isEmpty()) {
+            status("Nothing to trade: this " + Messages.getName(unit.getType())
+                   + " has no cargo and no room.");
+            return;
+        }
+        if (prepare != null) prepare.accept(offer);
+        final java.util.concurrent.CompletableFuture<Boolean> f
+            = new java.util.concurrent.CompletableFuture<>();
+        try {
+            listener.onColonyTrade(offer, text, f::complete);
+            if (!Boolean.TRUE.equals(f.get()) || offer.isEmpty()) return;
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Trade failed", e);
+            return;
+        }
+        DiplomaticTrade dt;
+        synchronized (lock) {
+            dt = ColonyTradeInfo.agreement(game, me, offer);
+        }
+        if (dt == null) return;
+        status("You offer " + offer.place + ": "
+               + offer.describe().replace("\n", ", ").toLowerCase(java.util.Locale.UK) + ".");
+        api.diplomacy(unit, colony, dt);
         changed();
     }
 

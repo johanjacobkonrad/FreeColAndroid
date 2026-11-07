@@ -213,6 +213,9 @@ public final class SessionCheck {
         // The Fountain of Youth: pick the colonists.
         boolean fountainOk = checkFountain(s);
 
+        // Trade with an AI nation's colony.
+        boolean colonyTradeOk = checkColonyTrade(s, ship);
+
         // Regions we named have our names.
         boolean regionsOk = checkRegions(s);
 
@@ -227,12 +230,154 @@ public final class SessionCheck {
             + (traded ? " (traded)" : "")
             + "; save and load: " + reloaded + "; new-game options: " + optionsOk
             + "; reports and Colopedia: " + infoOk + "; trade route: " + routeOk
-            + "; region names: " + regionsOk + "; Fountain of Youth: " + fountainOk);
+            + "; region names: " + regionsOk + "; Fountain of Youth: " + fountainOk
+            + "; colony trade: " + colonyTradeOk);
         boolean ok = optionsOk && moved && (colonyOk || played == turns) && reloaded
             && (europeOk || !colonyOk) && (pioneerOk || !colonyOk) && nativesOk
-            && infoOk && routeOk && regionsOk && fountainOk;
+            && infoOk && routeOk && regionsOk && fountainOk && colonyTradeOk;
         System.out.println(ok ? "OK" : "FAILED");
         System.exit(ok ? 0 : 1);
+    }
+
+    /**
+     * Trade with another nation's colony: put our ship next to one of
+     * the AI's colonies (on the server) with 100 of something, offer to
+     * sell it and buy 50 of something the colony has, at the price
+     * they think fair, and check the goods and gold changed hands.
+     *
+     * @return True if the trade went through (or no AI colony is by
+     *     the sea yet).
+     */
+    private static boolean checkColonyTrade(GameSession s, Unit ship) throws Exception {
+        if (ship == null) return false;
+        waitForTurn(s, 120_000);
+        s.sync();
+        java.lang.reflect.Field f = GameSession.class.getDeclaredField("server");
+        f.setAccessible(true);
+        net.sf.freecol.server.FreeColServer server
+            = (net.sf.freecol.server.FreeColServer)f.get(s);
+        final net.sf.freecol.common.model.Game sg = server.getGame();
+        final String myNation = s.getMyPlayer().getNationId();
+        // An AI colony with free sea next to it.
+        net.sf.freecol.common.model.Colony target = null;
+        Tile sea = null;
+        for (net.sf.freecol.common.model.Player p : sg.getLiveEuropeanPlayerList()) {
+            if (p.getNationId().equals(myNation) || p.isREF()) continue;
+            for (net.sf.freecol.common.model.Colony c : p.getColonyList()) {
+                for (Tile t : c.getTile().getSurroundingTiles(1)) {
+                    if (!t.isLand() && t.getUnitCount() == 0) {
+                        target = c;
+                        sea = t;
+                        break;
+                    }
+                }
+                if (target != null) break;
+            }
+            if (target != null) break;
+        }
+        if (target == null) {
+            System.out.println("Colony trade: no AI colony by the sea yet; skipped");
+            return true;
+        }
+        final net.sf.freecol.common.model.Specification spec = sg.getSpecification();
+        // What they have most of, to buy 50 of.
+        net.sf.freecol.common.model.GoodsType most = null;
+        for (net.sf.freecol.common.model.Goods g : target.getCompactGoodsList()) {
+            if (!g.getType().isStorable() || g.getAmount() < 50) continue;
+            if (most == null || g.getAmount() > target.getGoodsCount(most)) most = g.getType();
+        }
+        net.sf.freecol.common.model.GoodsType furs = spec.getGoodsType("model.goods.furs");
+        if (furs == most) furs = spec.getGoodsType("model.goods.sugar");
+        // Our ship, emptied and with 100 furs, next to their colony.
+        Unit ss = sg.getFreeColGameObject(ship.getId(), Unit.class);
+        for (net.sf.freecol.common.model.Goods g : new java.util.ArrayList<>(ss.getCompactGoodsList())) {
+            ss.removeGoods(g.getType());
+        }
+        ss.addGoods(furs, 100);
+        ss.setLocation(sea);
+        ss.setMovesLeft(ss.getInitialMovesLeft());
+        // Show us their colony and the ship's new place, as sailing
+        // there would.
+        net.sf.freecol.server.model.ServerPlayer sp
+            = (net.sf.freecol.server.model.ServerPlayer)ss.getOwner();
+        net.sf.freecol.common.networking.ChangeSet cs
+            = new net.sf.freecol.common.networking.ChangeSet();
+        // Jan de Witt, who allows it.
+        sp.csAddFoundingFather(spec.getFoundingFather("model.foundingFather.janDeWitt"),
+                               new java.util.Random(1), cs);
+        sp.invalidateCanSeeTiles();
+        sp.csSeeNewTiles(target.getTile().getSurroundingTiles(0, 2), cs);
+        cs.add(net.sf.freecol.common.networking.ChangeSet.See.only(sp), ss);
+        sp.send(cs);
+        s.sync();
+        Thread.sleep(500); // The update arrives on the connection's thread
+        synchronized (s.lock()) {
+            for (net.sf.freecol.common.model.Goods g
+                     : new java.util.ArrayList<>(ship.getCompactGoodsList())) {
+                ship.removeGoods(g.getType());
+            }
+            ship.addGoods(furs, 100);
+        }
+        // What they will think of it (the AI's own sums, which the
+        // player can not see): ask for their goods only if the furs
+        // pay for them, and half what is left over in gold, at most
+        // what they have.
+        net.sf.freecol.common.model.Player them = target.getOwner();
+        net.sf.freecol.common.model.Market tm = them.getMarket();
+        int value = (int)Math.round(tm.getSalePrice(furs, 100) * (1.0 - them.getTax() / 100.0));
+        if (most != null && value - tm.getBidPrice(most, 50) >= 0) {
+            value -= tm.getBidPrice(most, 50);
+        } else {
+            most = null;
+        }
+        final int pay = Math.max(0, Math.min(them.getGold(), value / 2));
+        final net.sf.freecol.common.model.GoodsType buyType = most;
+        final net.sf.freecol.common.model.Colony colony = s.getGame()
+            .getFreeColGameObject(target.getId(), net.sf.freecol.common.model.Colony.class);
+        if (colony == null) {
+            System.out.println("Colony trade: their colony never showed");
+            return false;
+        }
+        int goldBefore = s.getMyPlayer().getGold();
+        final int[] price = { 0 };
+        final String[] said = { "" };
+        java.lang.reflect.Field w = GameSession.class.getDeclaredField("worker");
+        w.setAccessible(true);
+        ((java.util.concurrent.ExecutorService)w.get(s)).submit(() -> s.colonyTrade(ship, colony, o -> {
+                o.sell = o.mine.get(0);
+                o.sellAmount = o.sell.getAmount();
+                if (buyType != null && o.theirs.contains(buyType)) {
+                    o.buy = buyType;
+                    o.buyAmount = 50;
+                }
+                System.out.println("Colony trade: our guess at a fair price " + o.fairPrice()
+                    + ", theirs " + (2 * pay));
+                o.price = pay;
+                price[0] = o.price;
+                said[0] = o.describe().replace('\n', ';');
+                System.out.println("Colony trade with " + o.place + " (" + o.nation + "): could sell "
+                    + o.mine.size() + ", ask for " + o.theirs.size() + " kinds; " + said[0]);
+            })).get();
+        net.sf.freecol.common.model.DiplomaticTrade.TradeStatus answer = s.awaitAgreement(30_000);
+        s.sync();
+        int furNow, boughtNow, goldNow;
+        synchronized (s.lock()) {
+            furNow = ship.getGoodsCount(furs);
+            boughtNow = (buyType == null) ? 0 : ship.getGoodsCount(buyType);
+            goldNow = s.getMyPlayer().getGold();
+        }
+        boolean ok = answer == net.sf.freecol.common.model.DiplomaticTrade.TradeStatus.ACCEPT_TRADE
+            && furNow == 0 && (buyType == null || boughtNow == 50)
+            && goldNow == goldBefore + price[0];
+        // A refusal is the AI's right (it runs out of patience at random),
+        // but then nothing may change hands.
+        if (answer == net.sf.freecol.common.model.DiplomaticTrade.TradeStatus.REJECT_TRADE) {
+            ok = furNow == 100 && goldNow == goldBefore;
+            System.out.println("  refused; nothing changed: " + ok);
+        }
+        System.out.println("  answer " + answer + "; furs " + furNow + ", bought " + boughtNow
+            + ", gold " + goldBefore + " -> " + goldNow + " (price " + price[0] + "): " + ok);
+        return ok && answer != null;
     }
 
     /** Unit types picked at the Fountain of Youth. */
@@ -247,6 +392,7 @@ public final class SessionCheck {
      * @return True if they all came.
      */
     private static boolean checkFountain(GameSession s) throws Exception {
+        waitForTurn(s, 120_000);
         s.sync();
         java.lang.reflect.Field f = GameSession.class.getDeclaredField("server");
         f.setAccessible(true);
